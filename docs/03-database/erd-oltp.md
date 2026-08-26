@@ -1,6 +1,7 @@
 # Thiết kế CSDL OLTP (`erp_qlkho_oltp`)
 
-DDL đầy đủ: [`backend/src/main/resources/db/migration/V1__init_schema.sql`](../../backend/src/main/resources/db/migration/V1__init_schema.sql)
+DDL chạy thật (Flyway, nguồn sự thật): `backend/src/main/resources/db/migration/V1..V5__*.sql`
+DDL gộp cả 5 file để xem toàn bộ quan hệ 1 chỗ (import vào MySQL Workbench/dbdiagram.io để vẽ ERD): [`full-schema-oltp.sql`](full-schema-oltp.sql)
 
 ## Sơ đồ quan hệ (rút gọn)
 
