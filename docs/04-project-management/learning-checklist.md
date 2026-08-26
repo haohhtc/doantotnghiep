@@ -25,7 +25,7 @@
 
 ## Cần CHUẨN BỊ / LẤY THÊM (quan trọng, dễ bị quên)
 
-- [ ] **Data mẫu lịch sử đủ lớn** — Forecasting/Anomaly Detection/BI cần vài THÁNG dữ liệu bán hàng/nhập hàng để có ý nghĩa, không thể demo với vài dòng test. Nên viết 1 script sinh data giả lập (random có xu hướng + seasonality) sớm, đừng để cuối kỳ mới lo.
+- [x] **Data mẫu lịch sử đủ lớn** — đã có `scripts/generate_sample_data.py` (6 tháng, có xu hướng + cuối tuần + 3 điểm bất thường + 5 SP tồn thấp). Chạy `python generate_sample_data.py --months 6` sau khi có bảng OLTP.
 - [ ] Quy định format báo cáo khóa luận của trường/khoa (bìa, mục lục, số chương...) — hỏi GVHD sớm để không phải sửa lại toàn bộ báo cáo cuối kỳ
 - [ ] Lịch chốt đề tài + lịch bảo vệ chính thức — cập nhật vào `docs/04-project-management/milestones.md`
 - [ ] Nếu dùng Claude/OpenAI API cho chatbot: đăng ký API key riêng (có phí nhỏ theo request) — không dùng chung tài khoản công ty

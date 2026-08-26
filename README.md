@@ -73,6 +73,13 @@ npm install
 npm run dev                   # chạy tại http://localhost:5173
 ```
 
+### 3b. Sinh dữ liệu mẫu lịch sử (khuyên chạy trước khi làm ETL/BI/AI)
+```bash
+cd scripts
+pip install -r requirements.txt
+python generate_sample_data.py --months 6   # xem scripts/README.md
+```
+
 ### 4. ETL (Python)
 ```bash
 cd etl
