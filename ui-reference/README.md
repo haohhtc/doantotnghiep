@@ -24,6 +24,12 @@ Screenshot chụp từ hệ thống DMSpro OMS thật (môi trường QC nội b
 
 Field cụ thể quan sát được từ mỗi màn hình đã đưa vào thiết kế bảng ở `../backend/src/main/resources/db/migration/V2__..V5__*.sql` (VD: Vendor có Code/Name/Foreign Name/Phone/Email/Address/Active; Warehouse có thêm Whse Type Main/Van/Damage/Consignment).
 
+## Popup "Tạo mới"
+
+Mỗi màn hình (trừ login + report tồn kho) có thêm ảnh `*-tao-moi.png` chụp popup Create — thấy rõ field/tab của form nhập liệu (VD: `san-pham-itemmasters-tao-moi.png` có 6 tab General/Inventory/Purchasing/Sales/Attribute/Image Sample). Không có dữ liệu nào được lưu khi chụp các ảnh này.
+
+Thêm 3 màn MDM: `khach-hang-customerprofile`, `don-vi-tinh-uoms`, `nhom-don-vi-tinh-uomgroups` (Customer/UOM liên quan trực tiếp field `customer`, `product.unit` trong schema).
+
 ## Ghi chú
 
 - Chưa tìm được đúng URL cho 1 số màn hình phụ (VD "current stock balance" tách riêng khỏi report) — 12 ảnh trên là những gì khớp gần nhất với scope đồ án, không nhất thiết đúng 100% tên module thật.
