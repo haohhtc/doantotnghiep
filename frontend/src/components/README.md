@@ -1,8 +1,7 @@
 # Components dùng chung
 
-Gợi ý (tham khảo look & feel hệ thống DMS — sidebar theo module, bảng dữ liệu dạng grid):
+UI library: **Ant Design** (`antd` + `@ant-design/icons`, đã thêm vào `package.json`) — chọn vì bám sát layout dạng grid + sidebar của DMS tham khảo trong `ui-reference/`.
 
-- `Layout.jsx` — khung chung: Sidebar (menu theo module) + Header (thông tin user, đăng xuất) + khu vực nội dung
-- `Sidebar.jsx` — menu điều hướng: Quản lý hệ thống / Danh mục / Nhập hàng / Bán hàng / Tồn kho
-- `DataTable.jsx` — bảng dữ liệu dùng chung (phân trang, sort, filter) cho các màn hình danh sách
-- `ConfirmDialog.jsx` — dialog xác nhận dùng chung (xóa, hủy đơn...)
+- `AppLayout.jsx` — **đã dựng** — Sider (menu theo module, Ant Design `Menu`) + Header + `<Outlet/>` cho nội dung route
+- `PlaceholderPage.jsx` — **đã dựng** — trang tạm hiển thị tiêu đề, mọi page trong `pages/` đang dùng cái này, thay bằng UI thật khi code
+- Còn cần tự làm: `DataTable.jsx` (bọc Ant Design `<Table>` với phân trang/filter dùng chung cho mọi màn hình danh sách), `ConfirmDialog.jsx` (bọc `Modal.confirm`)
