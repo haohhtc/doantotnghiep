@@ -1,0 +1,2 @@
+-- TODO: DDL cho fact_inbound, fact_sales, fact_stock_movement, fact_inventory_snapshot
+-- Thiet ke chi tiet: docs/03-database/erd-dw.md

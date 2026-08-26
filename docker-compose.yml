@@ -1,0 +1,43 @@
+services:
+  mysql-oltp:
+    image: mysql:8.0
+    container_name: erp-mysql-oltp
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${OLTP_DB_NAME:-erp_qlkho_oltp}
+      MYSQL_USER: ${OLTP_DB_USER:-erp_user}
+      MYSQL_PASSWORD: ${OLTP_DB_PASSWORD:-erp_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - erp_oltp_data:/var/lib/mysql
+
+  mysql-dw:
+    image: mysql:8.0
+    container_name: erp-mysql-dw
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${DW_DB_NAME:-erp_qlkho_dw}
+      MYSQL_USER: ${DW_DB_USER:-erp_user}
+      MYSQL_PASSWORD: ${DW_DB_PASSWORD:-erp_password}
+    ports:
+      - "3307:3306"
+    volumes:
+      - erp_dw_data:/var/lib/mysql
+      - ./data-warehouse/schema:/docker-entrypoint-initdb.d
+
+  adminer:
+    image: adminer:latest
+    container_name: erp-adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    depends_on:
+      - mysql-oltp
+      - mysql-dw
+
+volumes:
+  erp_oltp_data:
+  erp_dw_data:

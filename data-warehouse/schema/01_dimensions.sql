@@ -1,0 +1,2 @@
+-- TODO: DDL cho dim_product, dim_supplier, dim_warehouse, dim_customer, dim_time
+-- Thiet ke chi tiet: docs/03-database/erd-dw.md
