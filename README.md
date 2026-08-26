@@ -37,6 +37,7 @@ ERPQLKHO/
 ├── data-warehouse/          ← SQL schema Fact/Dimension cho Data Warehouse (Thành viên 2)
 ├── ai-services/             ← Python (FastAPI) — Forecasting, Stock Risk, Anomaly Detection, Chatbot (Thành viên 2)
 ├── bi/                      ← Power BI dashboard (.pbix) + tài liệu kết nối nguồn dữ liệu (Thành viên 2)
+├── ui-reference/            ← Screenshot UI thật (DMS OMS) tham khảo khi code Frontend — xem README bên trong (có ảnh chứa data thật, đọc lưu ý bảo mật)
 ├── docker-compose.yml       ← MySQL (OLTP + DW) + Adminer cho local dev
 └── .env.example
 ```
