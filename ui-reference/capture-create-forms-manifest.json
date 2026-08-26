@@ -1,0 +1,86 @@
+[
+  {
+    "screen": "san-pham-itemmasters",
+    "url": "https://portal-oms.qc.dmspro.vn/MdmSAP/ItemMasters",
+    "createFormFile": "01-danh-muc/san-pham-itemmasters-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "danh-muc-san-pham-itemgroup",
+    "url": "https://portal-oms.qc.dmspro.vn/MdmSAP/ItemGroup",
+    "createFormFile": "01-danh-muc/danh-muc-san-pham-itemgroup-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "nha-cung-cap-vendors",
+    "url": "https://portal-oms.qc.dmspro.vn/MdmSAP/Vendors",
+    "createFormFile": "01-danh-muc/nha-cung-cap-vendors-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "kho-warehouse",
+    "url": "https://portal-oms.qc.dmspro.vn/MdmSAP/Warehouse",
+    "createFormFile": "01-danh-muc/kho-warehouse-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "khach-hang-customerprofile",
+    "url": "https://portal-oms.qc.dmspro.vn/MdmSAP/CustomerProfile",
+    "createFormFile": "01-danh-muc/khach-hang-customerprofile-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "don-vi-tinh-uoms",
+    "url": "https://portal-oms.qc.dmspro.vn/MdmSAP/UOMs",
+    "createFormFile": "01-danh-muc/don-vi-tinh-uoms-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "nhom-don-vi-tinh-uomgroups",
+    "url": "https://portal-oms.qc.dmspro.vn/MdmSAP/UOMGroups",
+    "createFormFile": "01-danh-muc/nhom-don-vi-tinh-uomgroups-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "phieu-nhap-goodsreceipt",
+    "url": "https://portal-oms.qc.dmspro.vn/Inventories/GoodsReceipt",
+    "createFormFile": "02-nhap-hang/phieu-nhap-goodsreceipt-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "don-hang-salesorder",
+    "url": "https://portal-oms.qc.dmspro.vn/SOSAP/SO",
+    "createFormFile": "03-ban-hang/don-hang-salesorder-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "phieu-xuat-goodsissue",
+    "url": "https://portal-oms.qc.dmspro.vn/Inventories/GoodsIssue",
+    "createFormFile": "04-ton-kho/phieu-xuat-goodsissue-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "dieu-chuyen-kho-inventorytransfer",
+    "url": "https://portal-oms.qc.dmspro.vn/Inventories/InventoryTransferForBranch",
+    "createFormFile": "04-ton-kho/dieu-chuyen-kho-inventorytransfer-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "kiem-ke-stockcounting",
+    "url": "https://portal-oms.qc.dmspro.vn/Tmk/StockCountings/StockCounting",
+    "createFormFile": "04-ton-kho/kiem-ke-stockcounting-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "phan-quyen-roles",
+    "url": "https://portal-oms.qc.dmspro.vn/Identity/Roles",
+    "createFormFile": "05-he-thong/phan-quyen-roles-tao-moi.png",
+    "ok": true
+  },
+  {
+    "screen": "quan-ly-nguoi-dung-users",
+    "url": "https://portal-oms.qc.dmspro.vn/Identity/Users",
+    "createFormFile": "05-he-thong/quan-ly-nguoi-dung-users-tao-moi.png",
+    "ok": true
+  }
+]
