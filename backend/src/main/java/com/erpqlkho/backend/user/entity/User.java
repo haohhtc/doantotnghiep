@@ -30,7 +30,9 @@ public class User extends BaseEntity {
     @Column(length = 150)
     private String email;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    // EAGER: Role duoc doc trong CustomUserDetailsService/JwtAuthFilter (khong co @Transactional),
+    // LAZY se nem LazyInitializationException vi session da dong (chan MOI request co xac thuc).
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 

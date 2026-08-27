@@ -12,6 +12,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -21,6 +22,9 @@ public class AuthService {
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
 
+    // @Transactional: giu Hibernate session mo trong luc method chay, vi user.getRole()
+    // la LAZY va se nem LazyInitializationException neu goi sau khi session da dong.
+    @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request) {
         try {
             authenticationManager.authenticate(
