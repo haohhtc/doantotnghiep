@@ -1,0 +1,44 @@
+# --- Java / Maven ---
+backend/target/
+backend/.mvn/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# --- Node / React ---
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+
+# --- Python ---
+etl/__pycache__/
+etl/**/__pycache__/
+etl/venv/
+etl/.venv/
+ai-services/**/__pycache__/
+ai-services/**/venv/
+ai-services/**/.venv/
+*.pyc
+
+# --- Env / secrets ---
+.env
+*.env.local
+backend/src/main/resources/application-local.yml
+
+# --- IDE ---
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# --- Logs ---
+*.log
+logs/
+
+# --- BI ---
+bi/**/*.pbix.bak
+
+# --- Data (không commit dữ liệu thật/nhạy cảm) ---
+data-warehouse/**/*.sql.data
+etl/data/*.csv
