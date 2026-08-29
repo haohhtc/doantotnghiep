@@ -9,7 +9,7 @@ services:
       MYSQL_USER: ${OLTP_DB_USER:-erp_user}
       MYSQL_PASSWORD: ${OLTP_DB_PASSWORD:-erp_password}
     ports:
-      - "3306:3306"
+      - "${OLTP_DB_PORT:-3306}:3306"
     volumes:
       - erp_oltp_data:/var/lib/mysql
 

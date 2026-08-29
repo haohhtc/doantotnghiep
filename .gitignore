@@ -1,9 +1,9 @@
 # --- Java / Maven ---
 backend/target/
-backend/.mvn/
 *.class
 *.jar
-!.mvn/wrapper/maven-wrapper.jar
+# backend/mvnw, backend/mvnw.cmd va backend/.mvn/wrapper/ duoc commit de may khac
+# chay duoc './mvnw' ma khong can cai Maven rieng.
 
 # --- Node / React ---
 frontend/node_modules/
