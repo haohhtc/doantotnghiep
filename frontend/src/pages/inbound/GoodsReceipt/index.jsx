@@ -1,88 +1,23 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
+import axiosClient from '../../../api/axiosClient';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
-// Khop voi du lieu mock o pages/vendors, pages/warehouses, pages/category/Product de dong bo giua cac module.
-const SUPPLIER_OPTIONS = [
-  { value: 'NCC001', label: 'NCC001 - Công ty TNHH Thực Phẩm A' },
-  { value: 'NCC002', label: 'NCC002 - Công ty CP Đồ Uống B' },
-  { value: 'NCC003', label: 'NCC003 - Nhà cung cấp C' },
-];
-
-const WAREHOUSE_OPTIONS = [
-  { value: 'Q1MWH01', label: 'Q1MWH01 - Kho chính Quận 1' },
-  { value: 'Q1VWH01', label: 'Q1VWH01 - Kho xe tải Quận 1' },
-  { value: 'TBDWH01', label: 'TBDWH01 - Kho hàng lỗi Tân Bình' },
-  { value: 'TBCWH01', label: 'TBCWH01 - Kho ký gửi Tân Bình' },
-];
-
-const PRODUCT_OPTIONS = [
-  { value: 'SP001', label: 'SP001 - Nước ngọt Cola lon 330ml', price: 180000 },
-  { value: 'SP002', label: 'SP002 - Nước suối 500ml', price: 90000 },
-  { value: 'SP003', label: 'SP003 - Cá hộp sốt cà', price: 25000 },
-  { value: 'SP004', label: 'SP004 - Bánh quy bơ', price: 15000 },
-  { value: 'SP005', label: 'SP005 - Kẹo dẻo trái cây', price: 32000 },
-];
-
-function optionLabel(options, code) {
-  return options.find((o) => o.value === code)?.label || code;
-}
-
-function productPrice(code) {
-  return PRODUCT_OPTIONS.find((o) => o.value === code)?.price || 0;
-}
-
-// Du lieu mau (100% mock, khong goi API that) - field khop dung schema that trong
-// backend/.../db/migration/V3__inbound.sql (doc_number, doc_date, posting_date,
-// supplier_id, warehouse_id, status DRAFT/CLOSED, remarks). Backend chua co
-// GoodsReceiptController/Service (chi co bang trong SQL), se noi API sau.
-const INITIAL_RECEIPTS = [
-  {
-    id: 1,
-    docNumber: 'PN0001',
-    docDate: '2026-08-20',
-    postingDate: '2026-08-20',
-    supplierCode: 'NCC001',
-    warehouseCode: 'Q1MWH01',
-    status: 'CLOSED',
-    remarks: '',
-    details: [
-      { id: 1, productCode: 'SP001', quantity: 100, unitPrice: 180000, amount: 18000000 },
-      { id: 2, productCode: 'SP002', quantity: 50, unitPrice: 90000, amount: 4500000 },
-    ],
-  },
-  {
-    id: 2,
-    docNumber: 'PN0002',
-    docDate: '2026-08-25',
-    postingDate: '',
-    supplierCode: 'NCC002',
-    warehouseCode: 'TBDWH01',
-    status: 'DRAFT',
-    remarks: 'Chờ kiểm tra chất lượng trước khi đóng phiếu',
-    details: [{ id: 1, productCode: 'SP003', quantity: 200, unitPrice: 25000, amount: 5000000 }],
-  },
-  {
-    id: 3,
-    docNumber: 'PN0003',
-    docDate: '2026-08-27',
-    postingDate: '2026-08-27',
-    supplierCode: 'NCC001',
-    warehouseCode: 'Q1MWH01',
-    status: 'CLOSED',
-    remarks: '',
-    details: [],
-  },
-];
-
+// Trang nay da noi API that (khong con mock) - xem backend/.../inbound/controller/GoodsReceiptController.java.
+// Luu y: unit_price/amount van nhap tay o dong chi tiet (khong tu dong lay gia san pham) vi
+// backend khong tra gia mac dinh cho GoodsReceiptDto.
 export default function GoodsReceiptPage() {
-  const [receipts, setReceipts] = useState(INITIAL_RECEIPTS);
+  const [receipts, setReceipts] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingReceipt, setEditingReceipt] = useState(null);
@@ -91,13 +26,40 @@ export default function GoodsReceiptPage() {
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
+  const supplierOptions = suppliers.map((s) => ({ value: s.id, label: `${s.code} - ${s.name}` }));
+  const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
+  const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}`, price: p.price }));
+
+  function optionLabel(options, id) {
+    return options.find((o) => o.value === id)?.label || '';
+  }
+
+  function loadData() {
+    setLoading(true);
+    Promise.all([
+      axiosClient.get('/goods-receipts'),
+      axiosClient.get('/suppliers'),
+      axiosClient.get('/warehouses'),
+      axiosClient.get('/products'),
+    ])
+      .then(([receiptsRes, suppliersRes, warehousesRes, productsRes]) => {
+        setReceipts(receiptsRes.data.data);
+        setSuppliers(suppliersRes.data.data);
+        setWarehouses(warehousesRes.data.data);
+        setProducts(productsRes.data.data);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu phiếu nhập'))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
   const filteredReceipts = receipts.filter((r) => {
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
-    return (
-      r.docNumber.toLowerCase().includes(keyword) ||
-      optionLabel(SUPPLIER_OPTIONS, r.supplierCode).toLowerCase().includes(keyword)
-    );
+    return r.docNumber.toLowerCase().includes(keyword) || (r.supplier?.name || '').toLowerCase().includes(keyword);
   });
 
   function openCreateModal() {
@@ -110,19 +72,36 @@ export default function GoodsReceiptPage() {
 
   function openEditModal(record) {
     setEditingReceipt(record);
-    form.setFieldsValue(record);
-    setDetailRows(record.details || []);
+    form.setFieldsValue({
+      docNumber: record.docNumber,
+      docDate: record.docDate,
+      postingDate: record.postingDate,
+      supplierId: record.supplier?.id,
+      warehouseId: record.warehouse?.id,
+      remarks: record.remarks,
+    });
+    setDetailRows(record.details.map((d) => ({ id: d.id, productId: d.product.id, quantity: d.quantity, unitPrice: d.unitPrice })));
     setModalOpen(true);
   }
 
   function handleDelete(record) {
-    setReceipts((prev) => prev.filter((r) => r.id !== record.id));
-    message.success('Đã xóa phiếu nhập');
+    axiosClient
+      .delete(`/goods-receipts/${record.id}`)
+      .then(() => {
+        message.success('Đã xóa phiếu nhập');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
 
   function handleConfirmReceipt(record) {
-    setReceipts((prev) => prev.map((r) => (r.id === record.id ? { ...r, status: 'CLOSED' } : r)));
-    message.success('Đã xác nhận phiếu nhập - cộng vào tồn kho');
+    axiosClient
+      .post(`/goods-receipts/${record.id}/confirm`)
+      .then(() => {
+        message.success('Đã xác nhận phiếu nhập - cộng vào tồn kho');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xác nhận thất bại'));
   }
 
   function handleAddDetailRow() {
@@ -132,8 +111,7 @@ export default function GoodsReceiptPage() {
 
   function handleSubmitDetailRow() {
     detailForm.validateFields().then((values) => {
-      const amount = (values.quantity || 0) * (values.unitPrice || 0);
-      setDetailRows((prev) => [...prev, { id: Date.now(), ...values, amount }]);
+      setDetailRows((prev) => [...prev, { id: Date.now(), ...values }]);
       setDetailModalOpen(false);
     });
   }
@@ -144,35 +122,36 @@ export default function GoodsReceiptPage() {
 
   function handleSubmit() {
     form.validateFields().then((values) => {
-      if (editingReceipt) {
-        setReceipts((prev) =>
-          prev.map((r) => (r.id === editingReceipt.id ? { ...r, ...values, details: detailRows } : r))
-        );
-        message.success('Cập nhật thành công');
-      } else {
-        const newReceipt = {
-          id: Date.now(),
-          docNumber: values.docNumber || `PN${String(receipts.length + 1).padStart(4, '0')}`,
-          status: 'DRAFT',
-          ...values,
-          details: detailRows,
-        };
-        setReceipts((prev) => [newReceipt, ...prev]);
-        message.success('Tạo phiếu nhập thành công');
+      if (detailRows.length === 0) {
+        message.error('Phiếu nhập phải có ít nhất 1 dòng sản phẩm');
+        return;
       }
-      setModalOpen(false);
+      const payload = {
+        ...values,
+        details: detailRows.map((d) => ({ productId: d.productId, quantity: d.quantity, unitPrice: d.unitPrice })),
+      };
+      const request = editingReceipt
+        ? axiosClient.put(`/goods-receipts/${editingReceipt.id}`, payload)
+        : axiosClient.post('/goods-receipts', payload);
+      request
+        .then(() => {
+          message.success(editingReceipt ? 'Cập nhật thành công' : 'Tạo phiếu nhập thành công');
+          setModalOpen(false);
+          loadData();
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
   }
 
   const totalQty = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0), 0);
-  const totalAmount = detailRows.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+  const totalAmount = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0) * Number(d.unitPrice || 0), 0);
 
   const columns = [
     { title: 'Số phiếu', dataIndex: 'docNumber', key: 'docNumber' },
     { title: 'Ngày chứng từ', dataIndex: 'docDate', key: 'docDate' },
     { title: 'Ngày ghi sổ', dataIndex: 'postingDate', key: 'postingDate' },
-    { title: 'Nhà cung cấp', key: 'supplier', render: (_, r) => optionLabel(SUPPLIER_OPTIONS, r.supplierCode) },
-    { title: 'Kho', key: 'warehouse', render: (_, r) => optionLabel(WAREHOUSE_OPTIONS, r.warehouseCode) },
+    { title: 'Nhà cung cấp', key: 'supplier', render: (_, r) => r.supplier?.name },
+    { title: 'Kho', key: 'warehouse', render: (_, r) => r.warehouse?.name },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
@@ -212,10 +191,14 @@ export default function GoodsReceiptPage() {
   ];
 
   const detailColumns = [
-    { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(PRODUCT_OPTIONS, d.productCode) },
+    { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
     { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity' },
     { title: 'Đơn giá', dataIndex: 'unitPrice', key: 'unitPrice', render: (v) => v?.toLocaleString('vi-VN') + ' đ' },
-    { title: 'Thành tiền', dataIndex: 'amount', key: 'amount', render: (v) => v?.toLocaleString('vi-VN') + ' đ' },
+    {
+      title: 'Thành tiền',
+      key: 'amount',
+      render: (_, d) => (d.quantity * d.unitPrice).toLocaleString('vi-VN') + ' đ',
+    },
     {
       title: '',
       key: 'actions',
@@ -236,12 +219,12 @@ export default function GoodsReceiptPage() {
         onAdd={openCreateModal}
         addTooltip="Thêm phiếu nhập"
         onReload={() => {
-          setReceipts(INITIAL_RECEIPTS);
+          loadData();
           setSearchText('');
         }}
       />
 
-      <Table rowKey="id" columns={columns} dataSource={filteredReceipts} />
+      <Table rowKey="id" columns={columns} dataSource={filteredReceipts} loading={loading} />
 
       <Modal
         title={editingReceipt ? `Sửa phiếu nhập ${editingReceipt.docNumber}` : 'Thêm phiếu nhập'}
@@ -271,13 +254,13 @@ export default function GoodsReceiptPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Nhà cung cấp" name="supplierCode" rules={[{ required: true, message: 'Nhà cung cấp không được để trống' }]}>
-                <Select options={SUPPLIER_OPTIONS} placeholder="Chọn nhà cung cấp" />
+              <Form.Item label="Nhà cung cấp" name="supplierId" rules={[{ required: true, message: 'Nhà cung cấp không được để trống' }]}>
+                <Select options={supplierOptions} placeholder="Chọn nhà cung cấp" />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Kho" name="warehouseCode" rules={[{ required: true, message: 'Kho không được để trống' }]}>
-                <Select options={WAREHOUSE_OPTIONS} placeholder="Chọn kho" />
+              <Form.Item label="Kho" name="warehouseId" rules={[{ required: true, message: 'Kho không được để trống' }]}>
+                <Select options={warehouseOptions} placeholder="Chọn kho" />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -324,13 +307,13 @@ export default function GoodsReceiptPage() {
         <Form form={detailForm} layout="vertical">
           <Form.Item
             label="Sản phẩm"
-            name="productCode"
+            name="productId"
             rules={[{ required: true, message: 'Sản phẩm không được để trống' }]}
           >
             <Select
-              options={PRODUCT_OPTIONS}
+              options={productOptions}
               placeholder="Chọn sản phẩm"
-              onChange={(value) => detailForm.setFieldsValue({ unitPrice: productPrice(value) })}
+              onChange={(value) => detailForm.setFieldsValue({ unitPrice: productOptions.find((p) => p.value === value)?.price })}
             />
           </Form.Item>
           <Row gutter={16}>

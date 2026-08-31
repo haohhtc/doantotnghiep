@@ -1,78 +1,116 @@
-import { useState } from 'react';
-import { Typography, Input, Button, Table, Tag, Space, Modal, Form, Select, Popconfirm, message } from 'antd';
-import { PlusOutlined, EditOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import { Typography, Button, Table, Tag, Space, Modal, Form, Select, Input, Popconfirm, message } from 'antd';
+import { EditOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import TableToolbar from '../../../components/TableToolbar';
+import ActiveStatus from '../../../components/ActiveStatus';
+import axiosClient from '../../../api/axiosClient';
 
 const { Title } = Typography;
 
-// Khop voi Role.code: ADMIN, WAREHOUSE_MANAGER, SALES_STAFF (xem backend/.../user/entity/Role.java)
+// Khop voi Role.code that trong DB (xem V1__init_schema.sql + V7__seed_roles_and_test_users.sql).
 const ROLE_OPTIONS = [
   { value: 'ADMIN', label: 'Quản trị viên' },
   { value: 'WAREHOUSE_MANAGER', label: 'Quản lý kho' },
   { value: 'SALES_STAFF', label: 'Nhân viên bán hàng' },
 ];
 
+const STATUS_FILTER_OPTIONS = [
+  { value: 'ACTIVE', label: 'Đang hoạt động' },
+  { value: 'LOCKED', label: 'Đã khóa' },
+];
+
 function roleLabel(roleCode) {
   return ROLE_OPTIONS.find((r) => r.value === roleCode)?.label || roleCode;
 }
 
-// Du lieu mau (khong lay tu du lieu that trong ui-reference/) - se thay bang goi API /api/users that sau.
-const INITIAL_USERS = [
-  { id: 1, username: 'admin', fullName: 'Nguyen Van A', email: 'nguyenvana@example.com', roleCode: 'ADMIN', status: 'ACTIVE' },
-  { id: 2, username: 'kho01', fullName: 'Tran Thi B', email: 'tranthib@example.com', roleCode: 'WAREHOUSE_MANAGER', status: 'ACTIVE' },
-  { id: 3, username: 'kho02', fullName: 'Le Van C', email: 'levanc@example.com', roleCode: 'WAREHOUSE_MANAGER', status: 'LOCKED' },
-  { id: 4, username: 'sale01', fullName: 'Pham Thi D', email: 'phamthid@example.com', roleCode: 'SALES_STAFF', status: 'ACTIVE' },
-  { id: 5, username: 'sale02', fullName: 'Hoang Van E', email: 'hoangvane@example.com', roleCode: 'SALES_STAFF', status: 'ACTIVE' },
-  { id: 6, username: 'sale03', fullName: 'Do Thi F', email: 'dothif@example.com', roleCode: 'SALES_STAFF', status: 'LOCKED' },
-];
-
-// TODO: thay INITIAL_USERS + cac ham xu ly bang goi API that qua axiosClient (GET/POST/PUT/DELETE /api/users).
+// Trang nay da noi API that (khong con mock) - xem backend/.../user/controller/UserController.java.
+// Luu y: DELETE /api/users/{id} = khoa tai khoan (khong xoa han); khong co API rieng cho
+// "mo khoa" - phai goi PUT voi status=ACTIVE.
 export default function UsersPage() {
-  const [users, setUsers] = useState(INITIAL_USERS);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [filterValues, setFilterValues] = useState({});
   const [form] = Form.useForm();
+
+  function loadData() {
+    setLoading(true);
+    axiosClient
+      .get('/users')
+      .then(({ data }) => setUsers(data.data))
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách người dùng'))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filteredUsers = users.filter((u) => {
     const keyword = searchText.trim().toLowerCase();
-    if (!keyword) return true;
-    return (
-      u.username.toLowerCase().includes(keyword) ||
-      u.fullName.toLowerCase().includes(keyword) ||
-      u.email.toLowerCase().includes(keyword)
-    );
+    if (
+      keyword &&
+      !u.username.toLowerCase().includes(keyword) &&
+      !(u.fullName || '').toLowerCase().includes(keyword) &&
+      !(u.email || '').toLowerCase().includes(keyword)
+    ) {
+      return false;
+    }
+    if (filterValues.roleCode && u.role?.code !== filterValues.roleCode) return false;
+    if (filterValues.status && u.status !== filterValues.status) return false;
+    return true;
   });
 
   function openCreateModal() {
     setEditingUser(null);
     form.resetFields();
-    form.setFieldsValue({ status: 'ACTIVE' });
     setModalOpen(true);
   }
 
   function openEditModal(record) {
     setEditingUser(record);
-    form.setFieldsValue(record);
+    form.setFieldsValue({
+      username: record.username,
+      fullName: record.fullName,
+      email: record.email,
+      roleCode: record.role?.code,
+    });
     setModalOpen(true);
   }
 
   function handleToggleLock(record) {
-    const nextStatus = record.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE';
-    setUsers((prev) => prev.map((u) => (u.id === record.id ? { ...u, status: nextStatus } : u)));
-    message.success(nextStatus === 'LOCKED' ? 'Đã khóa tài khoản' : 'Đã mở khóa tài khoản');
+    const request =
+      record.status === 'ACTIVE'
+        ? axiosClient.delete(`/users/${record.id}`)
+        : axiosClient.put(`/users/${record.id}`, {
+            username: record.username,
+            fullName: record.fullName,
+            email: record.email,
+            roleCode: record.role?.code,
+            status: 'ACTIVE',
+          });
+    request
+      .then(() => {
+        message.success(record.status === 'ACTIVE' ? 'Đã khóa tài khoản' : 'Đã mở khóa tài khoản');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
   }
 
   function handleSubmit() {
     form.validateFields().then((values) => {
-      if (editingUser) {
-        setUsers((prev) => prev.map((u) => (u.id === editingUser.id ? { ...u, ...values } : u)));
-        message.success('Cập nhật thành công');
-      } else {
-        const newUser = { id: Date.now(), status: 'ACTIVE', ...values };
-        setUsers((prev) => [newUser, ...prev]);
-        message.success('Tạo người dùng thành công');
-      }
-      setModalOpen(false);
+      const request = editingUser
+        ? axiosClient.put(`/users/${editingUser.id}`, values)
+        : axiosClient.post('/users', values);
+      request
+        .then(() => {
+          message.success(editingUser ? 'Cập nhật thành công' : 'Tạo người dùng thành công');
+          setModalOpen(false);
+          loadData();
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
   }
 
@@ -82,19 +120,14 @@ export default function UsersPage() {
     { title: 'Email', dataIndex: 'email', key: 'email' },
     {
       title: 'Vai trò',
-      dataIndex: 'roleCode',
       key: 'roleCode',
-      render: (roleCode) => <Tag>{roleLabel(roleCode)}</Tag>,
+      render: (_, u) => <Tag>{roleLabel(u.role?.code)}</Tag>,
     },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => (
-        <Tag color={status === 'ACTIVE' ? 'green' : 'red'}>
-          {status === 'ACTIVE' ? 'Đang hoạt động' : 'Đã khóa'}
-        </Tag>
-      ),
+      render: (status) => <ActiveStatus active={status === 'ACTIVE'} />,
     },
     {
       title: 'Thao tác',
@@ -120,20 +153,26 @@ export default function UsersPage() {
   return (
     <div>
       <Title level={3}>Quản lý người dùng</Title>
-      <Space style={{ marginBottom: 16, justifyContent: 'space-between', width: '100%' }}>
-        <Input.Search
-          placeholder="Tìm theo tên đăng nhập, họ tên hoặc email"
-          allowClear
-          style={{ width: 320 }}
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-        />
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-          Thêm người dùng
-        </Button>
-      </Space>
+      <TableToolbar
+        searchValue={searchText}
+        onSearchChange={setSearchText}
+        searchPlaceholder="Tìm theo tên đăng nhập, họ tên hoặc email..."
+        onAdd={openCreateModal}
+        addTooltip="Thêm người dùng"
+        onReload={() => {
+          loadData();
+          setSearchText('');
+          setFilterValues({});
+        }}
+        filters={[
+          { name: 'roleCode', label: 'Vai trò', options: ROLE_OPTIONS },
+          { name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS },
+        ]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
+      />
 
-      <Table rowKey="id" columns={columns} dataSource={filteredUsers} />
+      <Table rowKey="id" columns={columns} dataSource={filteredUsers} loading={loading} />
 
       <Modal
         title={editingUser ? 'Sửa người dùng' : 'Thêm người dùng'}

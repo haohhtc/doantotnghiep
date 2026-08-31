@@ -1,22 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Space, Modal, Form, Select, Checkbox, Popconfirm, message,
 } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import ActiveStatus from '../../../components/ActiveStatus';
+import axiosClient from '../../../api/axiosClient';
+import { hasAnyRole } from '../../../utils/auth';
 
 const { Title } = Typography;
 const { TextArea } = Input;
 
-// Khop voi danh muc mock trong pages/category/ProductCategory va don vi tinh mock trong pages/uoms.
-const CATEGORY_OPTIONS = [
-  { value: 'NUOCNGOT', label: 'Nước ngọt' },
-  { value: 'NUOCSUOI', label: 'Nước suối' },
-  { value: 'DOHOP', label: 'Đồ hộp' },
-  { value: 'BANHKEO', label: 'Bánh kẹo' },
-];
-
+// Don vi tinh van la danh sach tinh (mock) vi schema khong co bang UOM rieng -
+// Product.unit chi la 1 field string tu do (xem V2__master_data.sql).
 const UNIT_OPTIONS = [
   { value: 'GOI', label: 'GÓI' },
   { value: 'HOP', label: 'HỘP' },
@@ -29,36 +25,55 @@ const ACTIVE_FILTER_OPTIONS = [
   { value: 'false', label: 'Ngừng hoạt động' },
 ];
 
-// Du lieu mau (100% mock, khong goi API that) - theo dung cau truc bang Items trong ui-reference/01-danh-muc.
-// Backend da co san ProductController/Service that (category/product/), co the noi API sau.
-const INITIAL_PRODUCTS = [
-  { id: 1, code: 'SP001', name: 'Nước ngọt Cola lon 330ml', foreignName: 'Cola Soft Drink 330ml', category: 'NUOCNGOT', unit: 'THUNG', price: 180000, description: '1 thùng 24 lon', active: true },
-  { id: 2, code: 'SP002', name: 'Nước suối 500ml', foreignName: 'Mineral Water 500ml', category: 'NUOCSUOI', unit: 'THUNG', price: 90000, description: '1 thùng 24 chai', active: true },
-  { id: 3, code: 'SP003', name: 'Cá hộp sốt cà', foreignName: 'Canned Fish in Tomato Sauce', category: 'DOHOP', unit: 'HOP', price: 25000, description: '', active: true },
-  { id: 4, code: 'SP004', name: 'Bánh quy bơ', foreignName: 'Butter Cookies', category: 'BANHKEO', unit: 'GOI', price: 15000, description: '', active: true },
-  { id: 5, code: 'SP005', name: 'Kẹo dẻo trái cây', foreignName: 'Fruit Jelly Candy', category: 'BANHKEO', unit: 'TUI', price: 32000, description: '', active: false },
-];
+// Trang nay da noi API that (khong con mock) - xem backend/.../category/product/
+// ProductController (GET/POST/PUT /api/products, DELETE = ngung kinh doanh chu khong xoa han)
+// va ProductCategoryController (GET /api/product-categories, chi doc de lam danh sach chon).
+// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa san pham,
+// SALES_STAFF chi duoc xem (GET).
+const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
-// TODO: day la trang UI mau (mock 100%). Backend co san ProductController/Service that
-// (xem backend/.../category/product/) - noi qua axiosClient khi can du lieu that.
 export default function ProductPage() {
-  const [products, setProducts] = useState(INITIAL_PRODUCTS);
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [filterValues, setFilterValues] = useState({});
   const [form] = Form.useForm();
 
-  function categoryLabel(code) {
-    return CATEGORY_OPTIONS.find((c) => c.value === code)?.label || code;
+  const categoryOptions = categories.map((c) => ({
+    value: c.id,
+    label: c.parent ? `${c.parent.name} > ${c.name}` : c.name,
+  }));
+
+  function categoryLabel(categoryId) {
+    return categoryOptions.find((c) => c.value === categoryId)?.label || '';
   }
+
+  function loadData() {
+    setLoading(true);
+    Promise.all([axiosClient.get('/products'), axiosClient.get('/product-categories')])
+      .then(([productsRes, categoriesRes]) => {
+        setProducts(productsRes.data.data);
+        setCategories(categoriesRes.data.data);
+      })
+      .catch((err) => {
+        message.error(err.response?.data?.message || 'Không tải được dữ liệu sản phẩm');
+      })
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filteredProducts = products.filter((p) => {
     const keyword = searchText.trim().toLowerCase();
     if (keyword && !p.code.toLowerCase().includes(keyword) && !p.name.toLowerCase().includes(keyword)) {
       return false;
     }
-    if (filterValues.category && p.category !== filterValues.category) return false;
+    if (filterValues.category && p.category?.id !== filterValues.category) return false;
     if (filterValues.active && String(p.active) !== filterValues.active) return false;
     return true;
   });
@@ -72,26 +87,32 @@ export default function ProductPage() {
 
   function openEditModal(record) {
     setEditingProduct(record);
-    form.setFieldsValue(record);
+    form.setFieldsValue({ ...record, categoryId: record.category?.id });
     setModalOpen(true);
   }
 
   function handleDelete(record) {
-    setProducts((prev) => prev.filter((p) => p.id !== record.id));
-    message.success('Đã xóa sản phẩm');
+    axiosClient
+      .delete(`/products/${record.id}`)
+      .then(() => {
+        message.success('Đã ngừng kinh doanh sản phẩm');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
 
   function handleSubmit() {
     form.validateFields().then((values) => {
-      if (editingProduct) {
-        setProducts((prev) => prev.map((p) => (p.id === editingProduct.id ? { ...p, ...values } : p)));
-        message.success('Cập nhật thành công');
-      } else {
-        const newProduct = { id: Date.now(), ...values };
-        setProducts((prev) => [newProduct, ...prev]);
-        message.success('Tạo sản phẩm thành công');
-      }
-      setModalOpen(false);
+      const request = editingProduct
+        ? axiosClient.put(`/products/${editingProduct.id}`, values)
+        : axiosClient.post('/products', values);
+      request
+        .then(() => {
+          message.success(editingProduct ? 'Cập nhật thành công' : 'Tạo sản phẩm thành công');
+          setModalOpen(false);
+          loadData();
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
   }
 
@@ -99,13 +120,13 @@ export default function ProductPage() {
     { title: 'Mã sản phẩm', dataIndex: 'code', key: 'code' },
     { title: 'Tên sản phẩm', dataIndex: 'name', key: 'name' },
     { title: 'Tên nước ngoài', dataIndex: 'foreignName', key: 'foreignName' },
-    { title: 'Danh mục', dataIndex: 'category', key: 'category', render: (v) => categoryLabel(v) },
+    { title: 'Danh mục', key: 'category', render: (_, r) => r.category?.name },
     { title: 'Đơn vị tính', dataIndex: 'unit', key: 'unit' },
     {
       title: 'Giá',
       dataIndex: 'price',
       key: 'price',
-      render: (v) => v?.toLocaleString('vi-VN') + ' đ',
+      render: (v) => Number(v)?.toLocaleString('vi-VN') + ' đ',
     },
     {
       title: 'Trạng thái',
@@ -113,18 +134,22 @@ export default function ProductPage() {
       key: 'active',
       render: (active) => <ActiveStatus active={active} />,
     },
-    {
-      title: 'Thao tác',
-      key: 'actions',
-      render: (_, record) => (
-        <Space>
-          <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-          <Popconfirm title="Xóa sản phẩm này?" onConfirm={() => handleDelete(record)}>
-            <Button icon={<DeleteOutlined />} danger />
-          </Popconfirm>
-        </Space>
-      ),
-    },
+    ...(canWrite
+      ? [
+          {
+            title: 'Thao tác',
+            key: 'actions',
+            render: (_, record) => (
+              <Space>
+                <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
+                <Popconfirm title="Ngừng kinh doanh sản phẩm này?" onConfirm={() => handleDelete(record)}>
+                  <Button icon={<DeleteOutlined />} danger />
+                </Popconfirm>
+              </Space>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -134,22 +159,22 @@ export default function ProductPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={openCreateModal}
+        onAdd={canWrite ? openCreateModal : undefined}
         addTooltip="Thêm sản phẩm"
         onReload={() => {
-          setProducts(INITIAL_PRODUCTS);
+          loadData();
           setSearchText('');
           setFilterValues({});
         }}
         filters={[
-          { name: 'category', label: 'Danh mục', options: CATEGORY_OPTIONS },
+          { name: 'category', label: 'Danh mục', options: categoryOptions },
           { name: 'active', label: 'Trạng thái', options: ACTIVE_FILTER_OPTIONS },
         ]}
         filterValues={filterValues}
         onFilterChange={setFilterValues}
       />
 
-      <Table rowKey="id" columns={columns} dataSource={filteredProducts} />
+      <Table rowKey="id" columns={columns} dataSource={filteredProducts} loading={loading} />
 
       <Modal
         title={editingProduct ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}
@@ -170,8 +195,8 @@ export default function ProductPage() {
           <Form.Item label="Tên nước ngoài" name="foreignName">
             <Input />
           </Form.Item>
-          <Form.Item label="Danh mục" name="category" rules={[{ required: true, message: 'Danh mục không được để trống' }]}>
-            <Select options={CATEGORY_OPTIONS} placeholder="Chọn danh mục" />
+          <Form.Item label="Danh mục" name="categoryId" rules={[{ required: true, message: 'Danh mục không được để trống' }]}>
+            <Select options={categoryOptions} placeholder="Chọn danh mục" />
           </Form.Item>
           <Form.Item label="Đơn vị tính" name="unit" rules={[{ required: true, message: 'Đơn vị tính không được để trống' }]}>
             <Select options={UNIT_OPTIONS} placeholder="Chọn đơn vị tính" />

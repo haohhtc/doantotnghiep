@@ -2,27 +2,31 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, Switch, Typography, message } from 'antd';
 import { LoginOutlined } from '@ant-design/icons';
+import axiosClient from '../../api/axiosClient';
 
 const { Title, Text, Link } = Typography;
 
-// Mock login: chua goi POST /api/auth/login that (dung khi backend/api san sang).
-// Chi luu token gia vao localStorage de mo khoa route va hien thi luong dieu huong.
+// Goi that POST /api/auth/login (backend/.../auth/controller/AuthController.java).
+// Luu JWT that vao localStorage - axiosClient tu gan vao header cho moi request sau do.
 export default function LoginPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
   function handleFinish(values) {
     setLoading(true);
-    setTimeout(() => {
-      localStorage.setItem('token', 'mock-token-' + Date.now());
-      localStorage.setItem(
-        'user',
-        JSON.stringify({ username: values.username, fullName: values.username, role: 'ADMIN' })
-      );
-      message.success('Đăng nhập thành công');
-      setLoading(false);
-      navigate('/');
-    }, 400);
+    axiosClient
+      .post('/auth/login', { username: values.username, password: values.password })
+      .then(({ data }) => {
+        const { token, username, fullName, role } = data.data;
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify({ username, fullName, role }));
+        message.success('Đăng nhập thành công');
+        navigate('/');
+      })
+      .catch((err) => {
+        message.error(err.response?.data?.message || 'Đăng nhập thất bại - kiểm tra lại tài khoản/mật khẩu');
+      })
+      .finally(() => setLoading(false));
   }
 
   return (

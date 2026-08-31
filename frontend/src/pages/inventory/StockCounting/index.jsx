@@ -4,65 +4,19 @@ import {
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
+import axiosClient from '../../../api/axiosClient';
 
 const { Title, Text } = Typography;
 
-// Khop voi du lieu mock o pages/warehouses, pages/category/Product de dong bo giua cac module.
-const WAREHOUSE_OPTIONS = [
-  { value: 'Q1MWH01', label: 'Q1MWH01 - Kho chính Quận 1' },
-  { value: 'Q1VWH01', label: 'Q1VWH01 - Kho xe tải Quận 1' },
-  { value: 'TBDWH01', label: 'TBDWH01 - Kho hàng lỗi Tân Bình' },
-  { value: 'TBCWH01', label: 'TBCWH01 - Kho ký gửi Tân Bình' },
-];
-
-// systemQty mo phong tồn hệ thống hiện co (khop tinh than voi pages/inventory/Inventories).
-const PRODUCT_OPTIONS = [
-  { value: 'SP001', label: 'SP001 - Nước ngọt Cola lon 330ml', systemQty: 500 },
-  { value: 'SP002', label: 'SP002 - Nước suối 500ml', systemQty: 300 },
-  { value: 'SP003', label: 'SP003 - Cá hộp sốt cà', systemQty: 150 },
-  { value: 'SP004', label: 'SP004 - Bánh quy bơ', systemQty: 20 },
-  { value: 'SP005', label: 'SP005 - Kẹo dẻo trái cây', systemQty: 60 },
-];
-
-function optionLabel(options, code) {
-  return options.find((o) => o.value === code)?.label || code;
-}
-
-function productSystemQty(code) {
-  return PRODUCT_OPTIONS.find((o) => o.value === code)?.systemQty ?? 0;
-}
-
-// Du lieu mau (100% mock) - field khop dung schema that trong
-// backend/.../db/migration/V5__inventory.sql: stock_take (code, warehouse_id,
-// status DRAFT/APPROVED) + stock_take_detail (system_quantity, actual_quantity, difference).
-// Anh "Stock Counting Definition" trong ui-reference/04-ton-kho khong dung duoc lam mau vi
-// bi loi luc chup (ABP remote HTTP request error) va thuc ra thuoc module Trade Marketing
-// cua he thong goc, khong phai Inventory - nen trang nay bam theo dung schema that thay vi
-// theo anh do.
-const INITIAL_COUNTS = [
-  {
-    id: 1,
-    code: 'KK0001',
-    warehouseCode: 'Q1MWH01',
-    status: 'APPROVED',
-    details: [
-      { id: 1, productCode: 'SP001', systemQuantity: 500, actualQuantity: 498 },
-      { id: 2, productCode: 'SP004', systemQuantity: 20, actualQuantity: 20 },
-    ],
-  },
-  {
-    id: 2,
-    code: 'KK0002',
-    warehouseCode: 'TBDWH01',
-    status: 'DRAFT',
-    details: [{ id: 1, productCode: 'SP003', systemQuantity: 150, actualQuantity: 145 }],
-  },
-];
-
+// Trang nay da noi API that (khong con mock) - xem backend/.../inventory/controller/StockTakeController.java.
+// Luu y: khong con can nhap tay "Ton he thong" - backend tu tinh tu bang stock hien tai
+// ngay luc tao dong chi tiet (xem StockTakeService.applyDto).
 export default function StockCountingPage() {
-  const [counts, setCounts] = useState(INITIAL_COUNTS);
-  const [searchText, setSearchText] = useState('');
+  const [counts, setCounts] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCount, setEditingCount] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -70,17 +24,28 @@ export default function StockCountingPage() {
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+  const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
+  const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
 
-  function reload() {
-    setLoading(true);
-    setCounts(INITIAL_COUNTS);
-    setSearchText('');
-    setTimeout(() => setLoading(false), 400);
+  function optionLabel(options, id) {
+    return options.find((o) => o.value === id)?.label || '';
   }
+
+  function loadData() {
+    setLoading(true);
+    Promise.all([axiosClient.get('/stock-takes'), axiosClient.get('/warehouses'), axiosClient.get('/products')])
+      .then(([countsRes, warehousesRes, productsRes]) => {
+        setCounts(countsRes.data.data);
+        setWarehouses(warehousesRes.data.data);
+        setProducts(productsRes.data.data);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu kiểm kê'))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filteredCounts = counts.filter((c) => {
     const keyword = searchText.trim().toLowerCase();
@@ -97,30 +62,50 @@ export default function StockCountingPage() {
 
   function openEditModal(record) {
     setEditingCount(record);
-    form.setFieldsValue(record);
-    setDetailRows(record.details || []);
+    form.setFieldsValue({ code: record.code, warehouseId: record.warehouse?.id });
+    setDetailRows(
+      record.details.map((d) => ({
+        id: d.id,
+        productId: d.product.id,
+        systemQuantity: d.systemQuantity,
+        actualQuantity: d.actualQuantity,
+      }))
+    );
     setModalOpen(true);
   }
 
   function handleDelete(record) {
-    setCounts((prev) => prev.filter((c) => c.id !== record.id));
-    message.success('Đã xóa đợt kiểm kê');
+    axiosClient
+      .delete(`/stock-takes/${record.id}`)
+      .then(() => {
+        message.success('Đã xóa đợt kiểm kê');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
 
   function handleApprove(record) {
-    setCounts((prev) => prev.map((c) => (c.id === record.id ? { ...c, status: 'APPROVED' } : c)));
-    message.success('Đã duyệt đợt kiểm kê - ghi nhận chênh lệch vào tồn kho');
+    axiosClient
+      .post(`/stock-takes/${record.id}/approve`)
+      .then(() => {
+        message.success('Đã duyệt đợt kiểm kê - ghi nhận chênh lệch vào tồn kho');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Duyệt thất bại'));
   }
 
   function handleAddDetailRow() {
+    if (!form.getFieldValue('warehouseId')) {
+      message.warning('Chọn kho kiểm kê trước khi thêm sản phẩm');
+      return;
+    }
     detailForm.resetFields();
     setDetailModalOpen(true);
   }
 
   function handleSubmitDetailRow() {
     detailForm.validateFields().then((values) => {
-      const systemQuantity = productSystemQty(values.productCode);
-      setDetailRows((prev) => [...prev, { id: Date.now(), ...values, systemQuantity }]);
+      setDetailRows((prev) => [...prev, { id: Date.now(), ...values }]);
       setDetailModalOpen(false);
     });
   }
@@ -131,27 +116,30 @@ export default function StockCountingPage() {
 
   function handleSubmit() {
     form.validateFields().then((values) => {
-      if (editingCount) {
-        setCounts((prev) => prev.map((c) => (c.id === editingCount.id ? { ...c, ...values, details: detailRows } : c)));
-        message.success('Cập nhật thành công');
-      } else {
-        const newCount = {
-          id: Date.now(),
-          code: values.code || `KK${String(counts.length + 1).padStart(4, '0')}`,
-          status: 'DRAFT',
-          ...values,
-          details: detailRows,
-        };
-        setCounts((prev) => [newCount, ...prev]);
-        message.success('Tạo đợt kiểm kê thành công');
+      if (detailRows.length === 0) {
+        message.error('Đợt kiểm kê phải có ít nhất 1 dòng sản phẩm');
+        return;
       }
-      setModalOpen(false);
+      const payload = {
+        ...values,
+        details: detailRows.map((d) => ({ productId: d.productId, actualQuantity: d.actualQuantity })),
+      };
+      const request = editingCount
+        ? axiosClient.put(`/stock-takes/${editingCount.id}`, payload)
+        : axiosClient.post('/stock-takes', payload);
+      request
+        .then(() => {
+          message.success(editingCount ? 'Cập nhật thành công' : 'Tạo đợt kiểm kê thành công');
+          setModalOpen(false);
+          loadData();
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
   }
 
   const columns = [
     { title: 'Mã đợt kiểm kê', dataIndex: 'code', key: 'code' },
-    { title: 'Kho', key: 'warehouse', render: (_, r) => optionLabel(WAREHOUSE_OPTIONS, r.warehouseCode) },
+    { title: 'Kho', key: 'warehouse', render: (_, r) => r.warehouse?.name },
     { title: 'Số dòng sản phẩm', key: 'lineCount', render: (_, r) => (r.details || []).length },
     {
       title: 'Trạng thái',
@@ -186,7 +174,7 @@ export default function StockCountingPage() {
   ];
 
   const detailColumns = [
-    { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(PRODUCT_OPTIONS, d.productCode) },
+    { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
     { title: 'Tồn hệ thống', dataIndex: 'systemQuantity', key: 'systemQuantity', align: 'right' },
     { title: 'Tồn thực tế', dataIndex: 'actualQuantity', key: 'actualQuantity', align: 'right' },
     {
@@ -217,7 +205,10 @@ export default function StockCountingPage() {
         searchPlaceholder="Tìm theo mã đợt kiểm kê..."
         onAdd={openCreateModal}
         addTooltip="Thêm đợt kiểm kê"
-        onReload={reload}
+        onReload={() => {
+          loadData();
+          setSearchText('');
+        }}
       />
 
       <Table rowKey="id" columns={columns} dataSource={filteredCounts} loading={loading} />
@@ -236,8 +227,8 @@ export default function StockCountingPage() {
           <Form.Item label="Mã đợt kiểm kê" name="code" extra={editingCount ? undefined : 'Để trống để tự sinh mã'}>
             <Input disabled={!!editingCount} placeholder="Tự sinh nếu để trống" />
           </Form.Item>
-          <Form.Item label="Kho kiểm kê" name="warehouseCode" rules={[{ required: true, message: 'Kho kiểm kê không được để trống' }]}>
-            <Select options={WAREHOUSE_OPTIONS} placeholder="Chọn kho" />
+          <Form.Item label="Kho kiểm kê" name="warehouseId" rules={[{ required: true, message: 'Kho kiểm kê không được để trống' }]}>
+            <Select options={warehouseOptions} placeholder="Chọn kho" disabled={!!editingCount} />
           </Form.Item>
         </Form>
 
@@ -247,6 +238,9 @@ export default function StockCountingPage() {
             Thêm sản phẩm
           </Button>
         </div>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          Tồn hệ thống sẽ tự động lấy theo tồn kho hiện tại lúc lưu, không cần nhập tay.
+        </Text>
         <Table
           rowKey="id"
           size="small"
@@ -254,6 +248,7 @@ export default function StockCountingPage() {
           dataSource={detailRows}
           pagination={false}
           locale={{ emptyText: 'Không có dữ liệu' }}
+          style={{ marginTop: 8 }}
         />
       </Modal>
 
@@ -267,8 +262,8 @@ export default function StockCountingPage() {
         destroyOnHidden
       >
         <Form form={detailForm} layout="vertical">
-          <Form.Item label="Sản phẩm" name="productCode" rules={[{ required: true, message: 'Sản phẩm không được để trống' }]}>
-            <Select options={PRODUCT_OPTIONS} placeholder="Chọn sản phẩm" />
+          <Form.Item label="Sản phẩm" name="productId" rules={[{ required: true, message: 'Sản phẩm không được để trống' }]}>
+            <Select options={productOptions} placeholder="Chọn sản phẩm" />
           </Form.Item>
           <Form.Item
             label="Tồn thực tế đếm được"

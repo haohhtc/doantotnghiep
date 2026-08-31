@@ -1,6 +1,7 @@
 package com.erpqlkho.backend.user.entity;
 
 import com.erpqlkho.backend.common.base.BaseEntity;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -21,6 +22,9 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 
+    // @JsonIgnore: khong bao gio tra hash mat khau ve client, du la User dung truc tiep
+    // (GET /api/users) hay long ben trong entity khac (Warehouse.manager...).
+    @JsonIgnore
     @Column(nullable = false)
     private String password; // BCrypt hash
 

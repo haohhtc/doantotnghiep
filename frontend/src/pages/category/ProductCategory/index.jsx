@@ -1,38 +1,43 @@
-import { useState } from 'react';
-import { Typography, Input, Button, Table, Space, Modal, Form, Select, Popconfirm, message } from 'antd';
+import { useEffect, useState } from 'react';
+import { Typography, Button, Table, Space, Modal, Form, Select, Input, Popconfirm, message } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
+import axiosClient from '../../../api/axiosClient';
+import { hasAnyRole } from '../../../utils/auth';
 
 const { Title } = Typography;
 
-// Du lieu mau (100% mock, khong goi API that) - theo dung cau truc bang Item Groups trong ui-reference/01-danh-muc.
-// Backend da co san ProductCategoryController/Service that (category/productcategory/), co the noi API sau.
-const INITIAL_CATEGORIES = [
-  { id: 1, code: 'DOUONG', name: 'Đồ uống', parentId: null },
-  { id: 2, code: 'THUCPHAM', name: 'Thực phẩm', parentId: null },
-  { id: 3, code: 'NUOCNGOT', name: 'Nước ngọt', parentId: 1 },
-  { id: 4, code: 'NUOCSUOI', name: 'Nước suối', parentId: 1 },
-  { id: 5, code: 'DOHOP', name: 'Đồ hộp', parentId: 2 },
-  { id: 6, code: 'BANHKEO', name: 'Bánh kẹo', parentId: 2 },
-];
+// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa danh muc,
+// SALES_STAFF chi duoc xem (GET).
+const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
-// TODO: day la trang UI mau (mock 100%). Backend co san ProductCategoryController/Service that
-// (xem backend/.../category/productcategory/) - noi qua axiosClient khi can du lieu that.
+// Trang nay da noi API that (khong con mock) - xem backend/.../category/productcategory/
+// ProductCategoryController (GET/POST/PUT/DELETE /api/product-categories).
 export default function ProductCategoryPage() {
-  const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [filterValues, setFilterValues] = useState({});
   const [form] = Form.useForm();
 
-  function parentName(parentId) {
-    return categories.find((c) => c.id === parentId)?.name || '';
+  function loadData() {
+    setLoading(true);
+    axiosClient
+      .get('/product-categories')
+      .then(({ data }) => setCategories(data.data))
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh mục'))
+      .finally(() => setLoading(false));
   }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const parentFilterOptions = [
     { value: 'root', label: '(Chỉ danh mục gốc)' },
-    ...categories.filter((c) => !c.parentId).map((c) => ({ value: String(c.id), label: c.name })),
+    ...categories.filter((c) => !c.parent).map((c) => ({ value: String(c.id), label: c.name })),
   ];
 
   const filteredCategories = categories.filter((c) => {
@@ -40,8 +45,8 @@ export default function ProductCategoryPage() {
     if (keyword && !c.code.toLowerCase().includes(keyword) && !c.name.toLowerCase().includes(keyword)) {
       return false;
     }
-    if (filterValues.parentId === 'root' && c.parentId) return false;
-    if (filterValues.parentId && filterValues.parentId !== 'root' && String(c.parentId) !== filterValues.parentId) {
+    if (filterValues.parentId === 'root' && c.parent) return false;
+    if (filterValues.parentId && filterValues.parentId !== 'root' && String(c.parent?.id) !== filterValues.parentId) {
       return false;
     }
     return true;
@@ -55,45 +60,55 @@ export default function ProductCategoryPage() {
 
   function openEditModal(record) {
     setEditingCategory(record);
-    form.setFieldsValue(record);
+    form.setFieldsValue({ code: record.code, name: record.name, parentId: record.parent?.id });
     setModalOpen(true);
   }
 
   function handleDelete(record) {
-    setCategories((prev) => prev.filter((c) => c.id !== record.id));
-    message.success('Đã xóa danh mục');
+    axiosClient
+      .delete(`/product-categories/${record.id}`)
+      .then(() => {
+        message.success('Đã xóa danh mục');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
 
   function handleSubmit() {
     form.validateFields().then((values) => {
-      if (editingCategory) {
-        setCategories((prev) => prev.map((c) => (c.id === editingCategory.id ? { ...c, ...values } : c)));
-        message.success('Cập nhật thành công');
-      } else {
-        const newCategory = { id: Date.now(), ...values };
-        setCategories((prev) => [newCategory, ...prev]);
-        message.success('Tạo danh mục thành công');
-      }
-      setModalOpen(false);
+      const request = editingCategory
+        ? axiosClient.put(`/product-categories/${editingCategory.id}`, values)
+        : axiosClient.post('/product-categories', values);
+      request
+        .then(() => {
+          message.success(editingCategory ? 'Cập nhật thành công' : 'Tạo danh mục thành công');
+          setModalOpen(false);
+          loadData();
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
   }
 
   const columns = [
     { title: 'Mã danh mục', dataIndex: 'code', key: 'code' },
     { title: 'Tên danh mục', dataIndex: 'name', key: 'name' },
-    { title: 'Danh mục cha', key: 'parent', render: (_, record) => parentName(record.parentId) || '-' },
-    {
-      title: 'Thao tác',
-      key: 'actions',
-      render: (_, record) => (
-        <Space>
-          <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-          <Popconfirm title="Xóa danh mục này?" onConfirm={() => handleDelete(record)}>
-            <Button icon={<DeleteOutlined />} danger />
-          </Popconfirm>
-        </Space>
-      ),
-    },
+    { title: 'Danh mục cha', key: 'parent', render: (_, record) => record.parent?.name || '-' },
+    ...(canWrite
+      ? [
+          {
+            title: 'Thao tác',
+            key: 'actions',
+            render: (_, record) => (
+              <Space>
+                <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
+                <Popconfirm title="Xóa danh mục này?" onConfirm={() => handleDelete(record)}>
+                  <Button icon={<DeleteOutlined />} danger />
+                </Popconfirm>
+              </Space>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -103,10 +118,10 @@ export default function ProductCategoryPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={openCreateModal}
+        onAdd={canWrite ? openCreateModal : undefined}
         addTooltip="Thêm danh mục"
         onReload={() => {
-          setCategories(INITIAL_CATEGORIES);
+          loadData();
           setSearchText('');
           setFilterValues({});
         }}
@@ -115,7 +130,7 @@ export default function ProductCategoryPage() {
         onFilterChange={setFilterValues}
       />
 
-      <Table rowKey="id" columns={columns} dataSource={filteredCategories} />
+      <Table rowKey="id" columns={columns} dataSource={filteredCategories} loading={loading} />
 
       <Modal
         title={editingCategory ? 'Sửa danh mục' : 'Thêm danh mục'}

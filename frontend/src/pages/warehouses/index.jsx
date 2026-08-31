@@ -1,53 +1,74 @@
-import { useState } from 'react';
-import {
-  Typography, Input, Button, Table, Space, Modal, Form, Select, Checkbox, Row, Col, Popconfirm, message,
-} from 'antd';
+import { useEffect, useState } from 'react';
+import { Typography, Input, Button, Table, Space, Modal, Form, Select, Checkbox, Row, Col, Popconfirm, message } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import ActiveStatus from '../../components/ActiveStatus';
+import axiosClient from '../../api/axiosClient';
+import { hasAnyRole } from '../../utils/auth';
 
 const { Title } = Typography;
 
-// Khop voi Whse Type quan sat trong ui-reference/01-danh-muc/kho-warehouse.png (Main/Van/Damage/Consignment).
-const WHSE_TYPE_OPTIONS = [
-  { value: 'Main', label: 'Kho chính' },
-  { value: 'Van', label: 'Kho xe tải' },
-  { value: 'Damage', label: 'Kho hàng lỗi' },
-  { value: 'Consignment', label: 'Kho ký gửi' },
-];
+// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa kho.
+const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
-function whseTypeLabel(value) {
-  return WHSE_TYPE_OPTIONS.find((o) => o.value === value)?.label || value;
-}
+// Khop voi warehouse_type that trong DB (xem V2__master_data.sql).
+const WHSE_TYPE_OPTIONS = [
+  { value: 'MAIN', label: 'Kho chính' },
+  { value: 'VAN', label: 'Kho xe tải' },
+  { value: 'DAMAGE', label: 'Kho hàng lỗi' },
+  { value: 'CONSIGNMENT', label: 'Kho ký gửi' },
+];
 
 const ACTIVE_FILTER_OPTIONS = [
   { value: 'true', label: 'Đang hoạt động' },
   { value: 'false', label: 'Ngừng hoạt động' },
 ];
 
-// Du lieu mau (100% mock, khong goi API that) - theo dung cau truc bang Warehouse trong ui-reference/01-danh-muc.
-const INITIAL_WAREHOUSES = [
-  { id: 1, code: 'Q1MWH01', name: 'Kho chính Quận 1', branchName: 'Chi nhánh Quận 1', region: 'Miền Nam', province: 'TP.HCM', district: 'Quận 1', ward: 'Phường Bến Nghé', whseType: 'Main', active: true },
-  { id: 2, code: 'Q1VWH01', name: 'Kho xe tải Quận 1', branchName: 'Chi nhánh Quận 1', region: 'Miền Nam', province: 'TP.HCM', district: 'Quận 1', ward: 'Phường Bến Nghé', whseType: 'Van', active: true },
-  { id: 3, code: 'TBDWH01', name: 'Kho hàng lỗi Tân Bình', branchName: 'Chi nhánh Tân Bình', region: 'Miền Nam', province: 'TP.HCM', district: 'Tân Bình', ward: 'Phường 4', whseType: 'Damage', active: true },
-  { id: 4, code: 'TBCWH01', name: 'Kho ký gửi Tân Bình', branchName: 'Chi nhánh Tân Bình', region: 'Miền Nam', province: 'TP.HCM', district: 'Tân Bình', ward: 'Phường 4', whseType: 'Consignment', active: false },
-];
+function whseTypeLabel(value) {
+  return WHSE_TYPE_OPTIONS.find((o) => o.value === value)?.label || value;
+}
 
-// TODO: day la trang UI mau (mock 100%), backend hien tai chua co WarehouseController de noi API that.
+// Trang nay da noi API that (khong con mock) - xem backend/.../category/warehouse/
+// WarehouseController (GET/POST/PUT/DELETE /api/warehouses) + GET /api/users (danh sach
+// chon nguoi quan ly kho, chi doc).
 export default function WarehousesPage() {
-  const [warehouses, setWarehouses] = useState(INITIAL_WAREHOUSES);
+  const [warehouses, setWarehouses] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingWarehouse, setEditingWarehouse] = useState(null);
   const [filterValues, setFilterValues] = useState({});
   const [form] = Form.useForm();
 
+  const managerOptions = users.map((u) => ({ value: u.id, label: u.fullName || u.username }));
+
+  function loadData() {
+    setLoading(true);
+    // GET /api/users chi ADMIN + WAREHOUSE_MANAGER duoc doc (xem SecurityConfig) - dung y het voi
+    // canWrite nen chi goi khi can, tranh 403 lam fail ca Promise.all doi voi SALES_STAFF (chi xem).
+    const requests = [axiosClient.get('/warehouses')];
+    if (canWrite) requests.push(axiosClient.get('/users'));
+
+    Promise.all(requests)
+      .then(([warehousesRes, usersRes]) => {
+        setWarehouses(warehousesRes.data.data);
+        if (usersRes) setUsers(usersRes.data.data);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách kho'))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
   const filteredWarehouses = warehouses.filter((w) => {
     const keyword = searchText.trim().toLowerCase();
     if (keyword && !w.code.toLowerCase().includes(keyword) && !w.name.toLowerCase().includes(keyword)) {
       return false;
     }
-    if (filterValues.whseType && w.whseType !== filterValues.whseType) return false;
+    if (filterValues.warehouseType && w.warehouseType !== filterValues.warehouseType) return false;
     if (filterValues.active && String(w.active) !== filterValues.active) return false;
     return true;
   });
@@ -55,32 +76,38 @@ export default function WarehousesPage() {
   function openCreateModal() {
     setEditingWarehouse(null);
     form.resetFields();
-    form.setFieldsValue({ active: true, whseType: 'Main' });
+    form.setFieldsValue({ active: true, warehouseType: 'MAIN' });
     setModalOpen(true);
   }
 
   function openEditModal(record) {
     setEditingWarehouse(record);
-    form.setFieldsValue(record);
+    form.setFieldsValue({ ...record, managerId: record.manager?.id });
     setModalOpen(true);
   }
 
   function handleDelete(record) {
-    setWarehouses((prev) => prev.filter((w) => w.id !== record.id));
-    message.success('Đã xóa kho');
+    axiosClient
+      .delete(`/warehouses/${record.id}`)
+      .then(() => {
+        message.success('Đã ngừng sử dụng kho');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
 
   function handleSubmit() {
     form.validateFields().then((values) => {
-      if (editingWarehouse) {
-        setWarehouses((prev) => prev.map((w) => (w.id === editingWarehouse.id ? { ...w, ...values } : w)));
-        message.success('Cập nhật thành công');
-      } else {
-        const newWarehouse = { id: Date.now(), ...values };
-        setWarehouses((prev) => [newWarehouse, ...prev]);
-        message.success('Tạo kho thành công');
-      }
-      setModalOpen(false);
+      const request = editingWarehouse
+        ? axiosClient.put(`/warehouses/${editingWarehouse.id}`, values)
+        : axiosClient.post('/warehouses', values);
+      request
+        .then(() => {
+          message.success(editingWarehouse ? 'Cập nhật thành công' : 'Tạo kho thành công');
+          setModalOpen(false);
+          loadData();
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
   }
 
@@ -88,26 +115,31 @@ export default function WarehousesPage() {
     { title: '#', key: 'index', width: 50, render: (_, __, index) => index + 1 },
     { title: 'Mã kho', dataIndex: 'code', key: 'code' },
     { title: 'Tên kho', dataIndex: 'name', key: 'name' },
-    { title: 'Tên chi nhánh', dataIndex: 'branchName', key: 'branchName' },
-    { title: 'Loại kho', dataIndex: 'whseType', key: 'whseType', render: (v) => whseTypeLabel(v) },
+    { title: 'Địa chỉ', dataIndex: 'address', key: 'address' },
+    { title: 'Loại kho', dataIndex: 'warehouseType', key: 'warehouseType', render: (v) => whseTypeLabel(v) },
+    { title: 'Người quản lý', key: 'manager', render: (_, r) => r.manager?.fullName || '-' },
     {
       title: 'Trạng thái',
       dataIndex: 'active',
       key: 'active',
       render: (active) => <ActiveStatus active={active} />,
     },
-    {
-      title: 'Thao tác',
-      key: 'actions',
-      render: (_, record) => (
-        <Space>
-          <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-          <Popconfirm title="Xóa kho này?" onConfirm={() => handleDelete(record)}>
-            <Button icon={<DeleteOutlined />} danger />
-          </Popconfirm>
-        </Space>
-      ),
-    },
+    ...(canWrite
+      ? [
+          {
+            title: 'Thao tác',
+            key: 'actions',
+            render: (_, record) => (
+              <Space>
+                <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
+                <Popconfirm title="Ngừng sử dụng kho này?" onConfirm={() => handleDelete(record)}>
+                  <Button icon={<DeleteOutlined />} danger />
+                </Popconfirm>
+              </Space>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -117,22 +149,22 @@ export default function WarehousesPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={openCreateModal}
+        onAdd={canWrite ? openCreateModal : undefined}
         addTooltip="Thêm kho"
         onReload={() => {
-          setWarehouses(INITIAL_WAREHOUSES);
+          loadData();
           setSearchText('');
           setFilterValues({});
         }}
         filters={[
-          { name: 'whseType', label: 'Loại kho', options: WHSE_TYPE_OPTIONS },
+          { name: 'warehouseType', label: 'Loại kho', options: WHSE_TYPE_OPTIONS },
           { name: 'active', label: 'Trạng thái', options: ACTIVE_FILTER_OPTIONS },
         ]}
         filterValues={filterValues}
         onFilterChange={setFilterValues}
       />
 
-      <Table rowKey="id" columns={columns} dataSource={filteredWarehouses} />
+      <Table rowKey="id" columns={columns} dataSource={filteredWarehouses} loading={loading} />
 
       <Modal
         title={editingWarehouse ? 'Sửa kho' : 'Thêm kho'}
@@ -153,28 +185,19 @@ export default function WarehousesPage() {
               <Form.Item label="Tên kho" name="name" rules={[{ required: true, message: 'Tên kho không được để trống' }]}>
                 <Input />
               </Form.Item>
-              <Form.Item label="Chi nhánh" name="branchName" rules={[{ required: true, message: 'Chi nhánh không được để trống' }]}>
+              <Form.Item label="Địa chỉ" name="address">
                 <Input />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Vùng" name="region">
-                <Input />
-              </Form.Item>
-              <Form.Item label="Tỉnh/Thành phố" name="province">
-                <Input />
-              </Form.Item>
-              <Form.Item label="Quận/Huyện" name="district">
-                <Input />
-              </Form.Item>
-              <Form.Item label="Phường/Xã" name="ward">
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="Loại kho" name="whseType" rules={[{ required: true, message: 'Loại kho không được để trống' }]}>
+              <Form.Item label="Loại kho" name="warehouseType" rules={[{ required: true, message: 'Loại kho không được để trống' }]}>
                 <Select options={WHSE_TYPE_OPTIONS} />
               </Form.Item>
+              <Form.Item label="Người quản lý" name="managerId">
+                <Select options={managerOptions} placeholder="Chọn người quản lý" allowClear />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
               <Form.Item name="active" valuePropName="checked">
                 <Checkbox>Kích hoạt</Checkbox>
               </Form.Item>

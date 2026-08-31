@@ -1,25 +1,33 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Typography, Input, Button, Table, Space, Modal, Form, Popconfirm, message } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import TableToolbar from '../../../components/TableToolbar';
+import axiosClient from '../../../api/axiosClient';
 
 const { Title } = Typography;
 const { TextArea } = Input;
 
-// Du lieu mau (khong lay tu du lieu that trong ui-reference/) - se thay bang goi API that
-// khi backend co RoleController/RoleService (hien chi co Role entity + RoleRepository).
-const INITIAL_ROLES = [
-  { id: 1, code: 'ADMIN', name: 'Quản trị viên', description: 'Toàn quyền quản trị hệ thống' },
-  { id: 2, code: 'WAREHOUSE_MANAGER', name: 'Quản lý kho', description: 'Quản lý nhập/xuất/tồn kho' },
-  { id: 3, code: 'SALES_STAFF', name: 'Nhân viên bán hàng', description: 'Tạo và xử lý đơn hàng bán' },
-];
-
-// TODO: thay INITIAL_ROLES + cac ham xu ly bang goi API that qua axiosClient khi co RoleController.
+// Trang nay da noi API that (khong con mock) - xem backend/.../user/controller/RoleController.java.
 export default function RolesPage() {
-  const [roles, setRoles] = useState(INITIAL_ROLES);
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState(null);
   const [form] = Form.useForm();
+
+  function loadData() {
+    setLoading(true);
+    axiosClient
+      .get('/roles')
+      .then(({ data }) => setRoles(data.data))
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách vai trò'))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filteredRoles = roles.filter((r) => {
     const keyword = searchText.trim().toLowerCase();
@@ -40,21 +48,27 @@ export default function RolesPage() {
   }
 
   function handleDelete(record) {
-    setRoles((prev) => prev.filter((r) => r.id !== record.id));
-    message.success('Đã xóa vai trò');
+    axiosClient
+      .delete(`/roles/${record.id}`)
+      .then(() => {
+        message.success('Đã xóa vai trò');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
 
   function handleSubmit() {
     form.validateFields().then((values) => {
-      if (editingRole) {
-        setRoles((prev) => prev.map((r) => (r.id === editingRole.id ? { ...r, ...values } : r)));
-        message.success('Cập nhật thành công');
-      } else {
-        const newRole = { id: Date.now(), ...values };
-        setRoles((prev) => [newRole, ...prev]);
-        message.success('Tạo vai trò thành công');
-      }
-      setModalOpen(false);
+      const request = editingRole
+        ? axiosClient.put(`/roles/${editingRole.id}`, values)
+        : axiosClient.post('/roles', values);
+      request
+        .then(() => {
+          message.success(editingRole ? 'Cập nhật thành công' : 'Tạo vai trò thành công');
+          setModalOpen(false);
+          loadData();
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
   }
 
@@ -83,20 +97,19 @@ export default function RolesPage() {
   return (
     <div>
       <Title level={3}>Phân quyền người dùng</Title>
-      <Space style={{ marginBottom: 16, justifyContent: 'space-between', width: '100%' }}>
-        <Input.Search
-          placeholder="Tìm theo mã hoặc tên vai trò"
-          allowClear
-          style={{ width: 320 }}
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-        />
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-          Vai trò mới
-        </Button>
-      </Space>
+      <TableToolbar
+        searchValue={searchText}
+        onSearchChange={setSearchText}
+        searchPlaceholder="Tìm theo mã hoặc tên vai trò..."
+        onAdd={openCreateModal}
+        addTooltip="Vai trò mới"
+        onReload={() => {
+          loadData();
+          setSearchText('');
+        }}
+      />
 
-      <Table rowKey="id" columns={columns} dataSource={filteredRoles} />
+      <Table rowKey="id" columns={columns} dataSource={filteredRoles} loading={loading} />
 
       <Modal
         title={editingRole ? 'Sửa vai trò' : 'Vai trò mới'}

@@ -14,6 +14,7 @@ import InventoriesPage from '../pages/inventory/Inventories';
 import GoodsIssuePage from '../pages/inventory/GoodsIssue';
 import TransferPage from '../pages/inventory/Transfer';
 import StockCountingPage from '../pages/inventory/StockCounting';
+import StockAlertsPage from '../pages/inventory/StockAlerts';
 import UsersPage from '../pages/system/Users';
 import RolesPage from '../pages/system/Roles';
 import PlaceholderPage from '../components/PlaceholderPage';
@@ -40,8 +41,13 @@ export default function AppRoutes() {
             <Route path="/inventory/goods-issue" element={<GoodsIssuePage />} />
             <Route path="/inventory/transfer" element={<TransferPage />} />
             <Route path="/inventory/stock-counting" element={<StockCountingPage />} />
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/roles" element={<RolesPage />} />
+            <Route path="/inventory/stock-alerts" element={<StockAlertsPage />} />
+
+            {/* Nguoi dung & Phan quyen: chi ADMIN duoc truy cap - go thang URL se bi chan hien 403 */}
+            <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/roles" element={<RolesPage />} />
+            </Route>
           </Route>
         </Route>
       </Routes>

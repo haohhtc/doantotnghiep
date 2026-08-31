@@ -2,80 +2,60 @@ import { useEffect, useState } from 'react';
 import { Typography, Table, Space, Button, Modal, InputNumber, message } from 'antd';
 import { ShoppingCartOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
+import axiosClient from '../../../api/axiosClient';
 
 const { Title, Text } = Typography;
 
-// Khop voi du lieu mock o pages/category/Product va pages/warehouses de dong bo giua cac module.
-const PRODUCT_OPTIONS = [
-  { value: 'SP001', label: 'Nước ngọt Cola lon 330ml' },
-  { value: 'SP002', label: 'Nước suối 500ml' },
-  { value: 'SP003', label: 'Cá hộp sốt cà' },
-  { value: 'SP004', label: 'Bánh quy bơ' },
-  { value: 'SP005', label: 'Kẹo dẻo trái cây' },
-];
-
-const WAREHOUSE_OPTIONS = [
-  { value: 'Q1MWH01', label: 'Kho chính Quận 1' },
-  { value: 'Q1VWH01', label: 'Kho xe tải Quận 1' },
-  { value: 'TBDWH01', label: 'Kho hàng lỗi Tân Bình' },
-  { value: 'TBCWH01', label: 'Kho ký gửi Tân Bình' },
-];
-
-function optionLabel(options, code) {
-  return options.find((o) => o.value === code)?.label || code;
-}
-
-// Du lieu mau (100% mock). Cot "Committed" khong co field rieng trong bang `stock` that
-// (chi co `quantity`) - gia lap de dung cong thuc Available = In Stock - Committed nhu
-// yeu cau; ngoai doi se tinh tu tong SL cac don ban dang "Cho xac nhan" cung product+warehouse.
-const INITIAL_STOCK = [
-  { id: 1, productCode: 'SP001', warehouseCode: 'Q1MWH01', inStock: 500, committed: 120 },
-  { id: 2, productCode: 'SP001', warehouseCode: 'Q1VWH01', inStock: 80, committed: 0 },
-  { id: 3, productCode: 'SP002', warehouseCode: 'Q1MWH01', inStock: 300, committed: 340 },
-  { id: 4, productCode: 'SP003', warehouseCode: 'Q1MWH01', inStock: 150, committed: 50 },
-  { id: 5, productCode: 'SP004', warehouseCode: 'TBDWH01', inStock: 20, committed: 0 },
-  { id: 6, productCode: 'SP005', warehouseCode: 'Q1MWH01', inStock: 60, committed: 10 },
-  { id: 7, productCode: 'SP002', warehouseCode: 'TBCWH01', inStock: 0, committed: 0 },
-];
-
-// TODO: day la trang UI mau (mock 100%). Backend co bang `stock` that (xem V5__inventory.sql)
-// nhung chua co StockController de noi API that, va chua co cot "committed".
+// Trang nay da noi API that (khong con mock) - xem backend/.../inventory/controller/StockController.java.
+// Cot "Committed" khong co trong bang stock that - tinh song song bang tong SL cac dong
+// sales_order dang PENDING cung product+warehouse (goi them GET /api/sales-orders).
 export default function InventoriesPage() {
-  const [stockRows, setStockRows] = useState(INITIAL_STOCK);
+  const [stockRows, setStockRows] = useState([]);
+  const [pendingOrders, setPendingOrders] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [prModalOpen, setPrModalOpen] = useState(false);
   const [prQuantities, setPrQuantities] = useState({});
 
-  // Mo phong trang thai loading khi vao trang / lam moi, cho dung UX goi API that.
+  function loadData() {
+    setLoading(true);
+    Promise.all([axiosClient.get('/stock'), axiosClient.get('/sales-orders')])
+      .then(([stockRes, ordersRes]) => {
+        setStockRows(stockRes.data.data);
+        setPendingOrders(ordersRes.data.data.filter((o) => o.status === 'PENDING'));
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu tồn kho'))
+      .finally(() => setLoading(false));
+  }
+
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
+    loadData();
   }, []);
 
-  function reload() {
-    setLoading(true);
-    setStockRows(INITIAL_STOCK);
-    setSearchText('');
-    setSelectedRowKeys([]);
-    setTimeout(() => setLoading(false), 400);
+  function committedOf(productId, warehouseId) {
+    let total = 0;
+    pendingOrders.forEach((o) => {
+      if (o.warehouse?.id !== warehouseId) return;
+      o.details.forEach((d) => {
+        if (d.product?.id === productId) total += Number(d.quantity);
+      });
+    });
+    return total;
   }
 
   const filteredStock = stockRows.filter((s) => {
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
-    return (
-      s.productCode.toLowerCase().includes(keyword) ||
-      optionLabel(PRODUCT_OPTIONS, s.productCode).toLowerCase().includes(keyword)
-    );
+    return s.product.code.toLowerCase().includes(keyword) || s.product.name.toLowerCase().includes(keyword);
   });
 
   function openPrModal() {
     const initialQty = {};
     selectedRowKeys.forEach((id) => {
       const row = stockRows.find((s) => s.id === id);
-      const shortage = row.committed - row.inStock;
+      const committed = committedOf(row.product.id, row.warehouse.id);
+      const shortage = committed - row.quantity;
       initialQty[id] = shortage > 0 ? shortage : 0;
     });
     setPrQuantities(initialQty);
@@ -89,17 +69,22 @@ export default function InventoriesPage() {
   }
 
   const columns = [
-    { title: 'Mã SP', dataIndex: 'productCode', key: 'productCode' },
-    { title: 'Tên SP', key: 'productName', render: (_, r) => optionLabel(PRODUCT_OPTIONS, r.productCode) },
-    { title: 'Kho', key: 'warehouse', render: (_, r) => optionLabel(WAREHOUSE_OPTIONS, r.warehouseCode) },
-    { title: 'Tồn thực tế', dataIndex: 'inStock', key: 'inStock', align: 'right', render: (v) => v.toLocaleString('vi-VN') },
-    { title: 'Đã đặt hàng', dataIndex: 'committed', key: 'committed', align: 'right', render: (v) => v.toLocaleString('vi-VN') },
+    { title: 'Mã SP', dataIndex: ['product', 'code'], key: 'productCode' },
+    { title: 'Tên SP', dataIndex: ['product', 'name'], key: 'productName' },
+    { title: 'Kho', dataIndex: ['warehouse', 'name'], key: 'warehouse' },
+    { title: 'Tồn thực tế', dataIndex: 'quantity', key: 'quantity', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') },
+    {
+      title: 'Đã đặt hàng',
+      key: 'committed',
+      align: 'right',
+      render: (_, r) => committedOf(r.product.id, r.warehouse.id).toLocaleString('vi-VN'),
+    },
     {
       title: 'Sẵn sàng bán',
       key: 'available',
       align: 'right',
       render: (_, r) => {
-        const available = r.inStock - r.committed;
+        const available = Number(r.quantity) - committedOf(r.product.id, r.warehouse.id);
         return <Text type={available < 0 ? 'danger' : undefined}>{available.toLocaleString('vi-VN')}</Text>;
       },
     },
@@ -114,7 +99,7 @@ export default function InventoriesPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên sản phẩm..."
-        onReload={reload}
+        onReload={loadData}
         extra={
           <Button
             icon={<ShoppingCartOutlined />}
@@ -149,7 +134,7 @@ export default function InventoriesPage() {
         <Space direction="vertical" style={{ width: '100%', marginTop: 12 }}>
           {selectedRows.map((r) => (
             <Space key={r.id} style={{ width: '100%', justifyContent: 'space-between' }}>
-              <Text>{optionLabel(PRODUCT_OPTIONS, r.productCode)}</Text>
+              <Text>{r.product.name}</Text>
               <InputNumber
                 min={0}
                 value={prQuantities[r.id]}
