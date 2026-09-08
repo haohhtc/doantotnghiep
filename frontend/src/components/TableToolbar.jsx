@@ -17,6 +17,7 @@ export default function TableToolbar({
   filterValues,
   onFilterChange,
   extra,
+  beforeFilter,
 }) {
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
@@ -73,6 +74,7 @@ export default function TableToolbar({
         <Tooltip title="Xuất file">
           <Button icon={<ExportOutlined />} onClick={() => message.info('Chưa hỗ trợ xuất file - đây là dữ liệu mẫu')} />
         </Tooltip>
+        {beforeFilter}
         {hasFilters ? (
           <Popover
             open={open}

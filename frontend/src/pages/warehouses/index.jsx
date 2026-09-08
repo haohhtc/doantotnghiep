@@ -34,6 +34,7 @@ function whseTypeLabel(value) {
 export default function WarehousesPage() {
   const [warehouses, setWarehouses] = useState([]);
   const [users, setUsers] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -42,17 +43,19 @@ export default function WarehousesPage() {
   const [form] = Form.useForm();
 
   const managerOptions = users.map((u) => ({ value: u.id, label: u.fullName || u.username }));
+  const branchOptions = branches.map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` }));
 
   function loadData() {
     setLoading(true);
     // GET /api/users chi ADMIN + WAREHOUSE_MANAGER duoc doc (xem SecurityConfig) - dung y het voi
     // canWrite nen chi goi khi can, tranh 403 lam fail ca Promise.all doi voi SALES_STAFF (chi xem).
-    const requests = [axiosClient.get('/warehouses')];
+    const requests = [axiosClient.get('/warehouses'), axiosClient.get('/branches')];
     if (canWrite) requests.push(axiosClient.get('/users'));
 
     Promise.all(requests)
-      .then(([warehousesRes, usersRes]) => {
+      .then(([warehousesRes, branchesRes, usersRes]) => {
         setWarehouses(warehousesRes.data.data);
+        setBranches(branchesRes.data.data);
         if (usersRes) setUsers(usersRes.data.data);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách kho'))
@@ -70,6 +73,7 @@ export default function WarehousesPage() {
     }
     if (filterValues.warehouseType && w.warehouseType !== filterValues.warehouseType) return false;
     if (filterValues.active && String(w.active) !== filterValues.active) return false;
+    if (filterValues.branchId && w.branch?.id !== filterValues.branchId) return false;
     return true;
   });
 
@@ -82,7 +86,7 @@ export default function WarehousesPage() {
 
   function openEditModal(record) {
     setEditingWarehouse(record);
-    form.setFieldsValue({ ...record, managerId: record.manager?.id });
+    form.setFieldsValue({ ...record, managerId: record.manager?.id, branchId: record.branch?.id });
     setModalOpen(true);
   }
 
@@ -117,6 +121,7 @@ export default function WarehousesPage() {
     { title: 'Tên kho', dataIndex: 'name', key: 'name' },
     { title: 'Địa chỉ', dataIndex: 'address', key: 'address' },
     { title: 'Loại kho', dataIndex: 'warehouseType', key: 'warehouseType', render: (v) => whseTypeLabel(v) },
+    { title: 'Chi nhánh', key: 'branch', render: (_, r) => r.branch?.name || '-' },
     { title: 'Người quản lý', key: 'manager', render: (_, r) => r.manager?.fullName || '-' },
     {
       title: 'Trạng thái',
@@ -158,6 +163,7 @@ export default function WarehousesPage() {
         }}
         filters={[
           { name: 'warehouseType', label: 'Loại kho', options: WHSE_TYPE_OPTIONS },
+          { name: 'branchId', label: 'Chi nhánh', options: branchOptions },
           { name: 'active', label: 'Trạng thái', options: ACTIVE_FILTER_OPTIONS },
         ]}
         filterValues={filterValues}
@@ -195,6 +201,9 @@ export default function WarehousesPage() {
               </Form.Item>
               <Form.Item label="Người quản lý" name="managerId">
                 <Select options={managerOptions} placeholder="Chọn người quản lý" allowClear />
+              </Form.Item>
+              <Form.Item label="Chi nhánh quản lý" name="branchId">
+                <Select options={branchOptions} placeholder="Chọn chi nhánh" allowClear />
               </Form.Item>
             </Col>
             <Col span={8}>

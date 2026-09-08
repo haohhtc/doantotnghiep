@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Typography, Input, Button, Table, Space, Modal, Form, Checkbox, Popconfirm, message } from 'antd';
+import { Typography, Input, Button, Table, Space, Modal, Form, Select, Checkbox, Popconfirm, message } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import ActiveStatus from '../../components/ActiveStatus';
@@ -20,6 +20,7 @@ const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 // Module "Tuyen ban hang" (theo yeu cau TV2) - xem backend/.../category/branch/controller/BranchController.java.
 export default function BranchesPage() {
   const [branches, setBranches] = useState([]);
+  const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -27,11 +28,16 @@ export default function BranchesPage() {
   const [filterValues, setFilterValues] = useState({});
   const [form] = Form.useForm();
 
+  // Chi co dung 1 Cong ty (singleton) - van dung Select de dong nhat UI voi cac form khac.
+  const companyOptions = company ? [{ value: company.id, label: company.name }] : [];
+
   function loadData() {
     setLoading(true);
-    axiosClient
-      .get('/branches')
-      .then(({ data }) => setBranches(data.data))
+    Promise.all([axiosClient.get('/branches'), axiosClient.get('/company')])
+      .then(([branchesRes, companyRes]) => {
+        setBranches(branchesRes.data.data);
+        setCompany(companyRes.data.data);
+      })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách chi nhánh'))
       .finally(() => setLoading(false));
   }
@@ -52,7 +58,7 @@ export default function BranchesPage() {
   function openCreateModal() {
     setEditingBranch(null);
     form.resetFields();
-    form.setFieldsValue({ active: true });
+    form.setFieldsValue({ active: true, companyId: company?.id });
     setModalOpen(true);
   }
 
@@ -60,6 +66,7 @@ export default function BranchesPage() {
     setEditingBranch(record);
     form.setFieldsValue({
       ...record,
+      companyId: record.company?.id,
       regionId: record.region?.id,
       provinceId: record.province?.id,
       districtId: record.district?.id,
@@ -96,6 +103,7 @@ export default function BranchesPage() {
   const columns = [
     { title: 'Mã chi nhánh', dataIndex: 'code', key: 'code' },
     { title: 'Tên chi nhánh', dataIndex: 'name', key: 'name' },
+    { title: 'Công ty', key: 'company', render: (_, r) => r.company?.name || '-' },
     { title: 'Địa chỉ', dataIndex: 'address', key: 'address' },
     {
       title: 'Vùng địa lý',
@@ -163,6 +171,9 @@ export default function BranchesPage() {
           </Form.Item>
           <Form.Item label="Tên chi nhánh" name="name" rules={[{ required: true, message: 'Tên chi nhánh không được để trống' }]}>
             <Input />
+          </Form.Item>
+          <Form.Item label="Công ty" name="companyId" rules={[{ required: true, message: 'Công ty không được để trống' }]}>
+            <Select options={companyOptions} placeholder="Chọn công ty" />
           </Form.Item>
           <Form.Item label="Địa chỉ" name="address">
             <Input />

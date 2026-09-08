@@ -1,5 +1,7 @@
 package com.erpqlkho.backend.category.warehouse.service;
 
+import com.erpqlkho.backend.category.branch.entity.Branch;
+import com.erpqlkho.backend.category.branch.repository.BranchRepository;
 import com.erpqlkho.backend.category.warehouse.dto.WarehouseDto;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.category.warehouse.repository.WarehouseRepository;
@@ -18,9 +20,11 @@ public class WarehouseService {
 
     private final WarehouseRepository warehouseRepository;
     private final UserRepository userRepository;
+    private final BranchRepository branchRepository;
 
-    public List<Warehouse> findAll() {
-        return warehouseRepository.findAll();
+    // ?branchId= de loc theo Chi nhanh - bo trong thi tra toan bo.
+    public List<Warehouse> findAll(Long branchId) {
+        return branchId != null ? warehouseRepository.findByBranchId(branchId) : warehouseRepository.findAll();
     }
 
     public Warehouse findById(Long id) {
@@ -41,6 +45,7 @@ public class WarehouseService {
         warehouse.setWarehouseType(dto.getWarehouseType() != null ? dto.getWarehouseType() : "MAIN");
         warehouse.setManager(findManager(dto.getManagerId()));
         warehouse.setActive(dto.getActive() == null || dto.getActive());
+        warehouse.setBranch(findBranch(dto.getBranchId()));
 
         return warehouseRepository.save(warehouse);
     }
@@ -63,6 +68,7 @@ public class WarehouseService {
         if (dto.getActive() != null) {
             warehouse.setActive(dto.getActive());
         }
+        warehouse.setBranch(findBranch(dto.getBranchId()));
 
         return warehouseRepository.save(warehouse);
     }
@@ -88,5 +94,13 @@ public class WarehouseService {
         }
         return userRepository.findById(managerId)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay nguoi quan ly id=" + managerId));
+    }
+
+    private Branch findBranch(Long branchId) {
+        if (branchId == null) {
+            return null;
+        }
+        return branchRepository.findById(branchId)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay chi nhanh id=" + branchId));
     }
 }

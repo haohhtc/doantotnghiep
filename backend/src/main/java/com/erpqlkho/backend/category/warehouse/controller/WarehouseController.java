@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -24,9 +25,10 @@ public class WarehouseController {
 
     private final WarehouseService warehouseService;
 
+    // ?branchId= de loc theo Chi nhanh - bo trong thi tra toan bo.
     @GetMapping
-    public ApiResponse<List<Warehouse>> findAll() {
-        return ApiResponse.ok(warehouseService.findAll());
+    public ApiResponse<List<Warehouse>> findAll(@RequestParam(required = false) Long branchId) {
+        return ApiResponse.ok(warehouseService.findAll(branchId));
     }
 
     @GetMapping("/{id}")

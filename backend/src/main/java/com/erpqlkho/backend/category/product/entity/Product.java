@@ -1,6 +1,9 @@
 package com.erpqlkho.backend.category.product.entity;
 
 import com.erpqlkho.backend.category.productcategory.entity.ProductCategory;
+import com.erpqlkho.backend.category.taxgroup.entity.TaxGroup;
+import com.erpqlkho.backend.category.uom.entity.Uom;
+import com.erpqlkho.backend.category.uomgroup.entity.UomGroup;
 import com.erpqlkho.backend.common.base.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -45,4 +48,18 @@ public class Product extends BaseEntity {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    // MDM Product day du (nullable) - "unit" text o tren van giu lam legacy, cot moi day du
+    // hon: chon Don vi tinh that + Nhom quy doi + Nhom thue - xem V13__product_mdm.sql.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "uom_id")
+    private Uom uom;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "uom_group_id")
+    private UomGroup uomGroup;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "tax_group_id")
+    private TaxGroup taxGroup;
 }

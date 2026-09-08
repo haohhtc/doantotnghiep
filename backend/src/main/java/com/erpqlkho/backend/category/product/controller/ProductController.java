@@ -1,6 +1,8 @@
 package com.erpqlkho.backend.category.product.controller;
 
+import com.erpqlkho.backend.category.product.dto.ItemBranchDto;
 import com.erpqlkho.backend.category.product.dto.ProductDto;
+import com.erpqlkho.backend.category.product.entity.ItemBranch;
 import com.erpqlkho.backend.category.product.entity.Product;
 import com.erpqlkho.backend.category.product.service.ProductService;
 import com.erpqlkho.backend.common.response.ApiResponse;
@@ -48,5 +50,22 @@ public class ProductController {
     public ApiResponse<Void> deactivate(@PathVariable Long id) {
         productService.deactivate(id);
         return ApiResponse.ok("Da xoa san pham", null);
+    }
+
+    // Item-Branch Assignment: phan bo san pham nay cho cac chi nhanh nao duoc ban.
+    @GetMapping("/{id}/branches")
+    public ApiResponse<List<ItemBranch>> findBranches(@PathVariable Long id) {
+        return ApiResponse.ok(productService.findBranches(id));
+    }
+
+    @PostMapping("/{id}/branches")
+    public ApiResponse<ItemBranch> assignBranch(@PathVariable Long id, @Valid @RequestBody ItemBranchDto dto) {
+        return ApiResponse.ok("Da phan bo san pham cho chi nhanh", productService.assignBranch(id, dto));
+    }
+
+    @DeleteMapping("/{id}/branches/{itemBranchId}")
+    public ApiResponse<Void> unassignBranch(@PathVariable Long id, @PathVariable Long itemBranchId) {
+        productService.unassignBranch(id, itemBranchId);
+        return ApiResponse.ok("Da go phan bo chi nhanh", null);
     }
 }

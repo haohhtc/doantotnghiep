@@ -79,6 +79,20 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/products/**", "/api/product-categories/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
 
+                        // Don vi tinh (Uom/UomGroup+quy doi) & Nhom thue: ai dang nhap cung xem duoc,
+                        // chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa - khop dung pattern chung.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/uoms/**", "/api/uom-groups/**", "/api/tax-groups/**").authenticated()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/uoms/**", "/api/uom-groups/**", "/api/tax-groups/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/uoms/**", "/api/uom-groups/**", "/api/tax-groups/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/uoms/**", "/api/uom-groups/**", "/api/tax-groups/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+
                         // Khach hang: ca 3 role deu duoc toan quyen CRUD.
                         .requestMatchers("/api/customers/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER", "SALES_STAFF")
 
@@ -118,6 +132,11 @@ public class SecurityConfig {
                                 "/api/branches/**", "/api/selling-zones/**",
                                 "/api/route-masters/**", "/api/route-settings/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+
+                        // Cong ty (singleton, chi GET/PUT): ai dang nhap cung xem duoc, chi ADMIN +
+                        // WAREHOUSE_MANAGER duoc sua.
+                        .requestMatchers(HttpMethod.GET, "/api/company").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/company").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
 
                         // Vung dia ly (Region/Province/District/Ward): ai dang nhap cung xem duoc,
                         // chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa - khop dung pattern chung.

@@ -25,4 +25,7 @@ public class WarehouseDto {
 
     // null khi tao moi = mac dinh active=true (xu ly trong service)
     private Boolean active;
+
+    // Chi nhanh quan ly kho nay (nullable - khong bat buoc)
+    private Long branchId;
 }

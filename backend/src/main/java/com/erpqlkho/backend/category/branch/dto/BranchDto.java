@@ -1,6 +1,7 @@
 package com.erpqlkho.backend.category.branch.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -21,6 +22,9 @@ public class BranchDto {
 
     // null khi tao moi = mac dinh active=true (xu ly trong service)
     private Boolean active;
+
+    @NotNull(message = "Cong ty khong duoc de trong")
+    private Long companyId;
 
     // Vung dia ly that (nullable) - chon theo tang Region -> Province -> District -> Ward.
     private Long regionId;

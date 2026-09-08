@@ -1,5 +1,6 @@
 package com.erpqlkho.backend.category.branch.entity;
 
+import com.erpqlkho.backend.category.company.entity.Company;
 import com.erpqlkho.backend.category.district.entity.District;
 import com.erpqlkho.backend.category.province.entity.Province;
 import com.erpqlkho.backend.category.region.entity.Region;
@@ -34,6 +35,12 @@ public class Branch extends BaseEntity {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    // Cap to chuc cha (nullable o DB de an toan migrate, nhung luon duoc backfill/bat buoc chon
+    // khi tao moi - xem BranchDto/BranchService) - xem V12__company_setup.sql.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "company_id")
+    private Company company;
 
     // Vung dia ly that (nullable) - chon theo tang Region -> Province -> District -> Ward tu
     // V11__geography.sql.

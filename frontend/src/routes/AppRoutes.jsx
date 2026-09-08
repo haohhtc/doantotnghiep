@@ -4,10 +4,12 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import Login from '../pages/Login';
 import ProductPage from '../pages/category/Product';
 import ProductCategoryPage from '../pages/category/ProductCategory';
+import CompanyPage from '../pages/company';
 import VendorsPage from '../pages/vendors';
 import WarehousesPage from '../pages/warehouses';
 import CustomersPage from '../pages/customers';
-import UomsPage from '../pages/uoms';
+import UnitsPage from '../pages/units';
+import TaxGroupsPage from '../pages/taxGroups';
 import BranchesPage from '../pages/branches';
 import SellingZonesPage from '../pages/sellingZones';
 import RouteMastersPage from '../pages/routeMasters';
@@ -37,10 +39,12 @@ export default function AppRoutes() {
             <Route path="/" element={<PlaceholderPage title="Trang chủ" />} />
             <Route path="/products" element={<ProductPage />} />
             <Route path="/product-categories" element={<ProductCategoryPage />} />
+            <Route path="/company" element={<CompanyPage />} />
             <Route path="/vendors" element={<VendorsPage />} />
             <Route path="/warehouses" element={<WarehousesPage />} />
             <Route path="/customers" element={<CustomersPage />} />
-            <Route path="/uoms" element={<UomsPage />} />
+            <Route path="/units" element={<UnitsPage />} />
+            <Route path="/tax-groups" element={<TaxGroupsPage />} />
             <Route path="/branches" element={<BranchesPage />} />
             <Route path="/selling-zones" element={<SellingZonesPage />} />
             <Route path="/route-masters" element={<RouteMastersPage />} />

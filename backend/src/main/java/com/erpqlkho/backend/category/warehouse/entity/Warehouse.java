@@ -1,5 +1,6 @@
 package com.erpqlkho.backend.category.warehouse.entity;
 
+import com.erpqlkho.backend.category.branch.entity.Branch;
 import com.erpqlkho.backend.common.base.BaseEntity;
 import com.erpqlkho.backend.user.entity.User;
 import jakarta.persistence.Column;
@@ -38,4 +39,10 @@ public class Warehouse extends BaseEntity {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    // Chi nhanh quan ly kho nay (nullable - kho co the chua gan chi nhanh) - xem
+    // V12__company_setup.sql.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "branch_id")
+    private Branch branch;
 }

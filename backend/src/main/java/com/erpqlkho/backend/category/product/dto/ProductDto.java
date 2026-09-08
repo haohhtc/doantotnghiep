@@ -34,4 +34,9 @@ public class ProductDto {
 
     // null khi tao moi = mac dinh active=true (xu ly trong service)
     private Boolean active;
+
+    // MDM Product day du (nullable) - xem V13__product_mdm.sql.
+    private Long uomId;
+    private Long uomGroupId;
+    private Long taxGroupId;
 }
