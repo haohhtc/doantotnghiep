@@ -3,8 +3,13 @@ import { Typography, Table, Space, Button, Modal, InputNumber, message } from 'a
 import { ShoppingCartOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { hasAnyRole } from '../../../utils/auth';
 
 const { Title, Text } = Typography;
+
+// Khop rule chung: SALES_STAFF chi duoc xem bao cao ton kho, khong tao yeu cau mua hang
+// (nut nay von la UI mau/mock, khong co API that, nhung van an theo dung yeu cau phan quyen).
+const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../inventory/controller/StockController.java.
 // Cot "Committed" khong co trong bang stock that - tinh song song bang tong SL cac dong
@@ -101,13 +106,15 @@ export default function InventoriesPage() {
         searchPlaceholder="Tìm theo mã hoặc tên sản phẩm..."
         onReload={loadData}
         extra={
-          <Button
-            icon={<ShoppingCartOutlined />}
-            disabled={selectedRowKeys.length === 0}
-            onClick={openPrModal}
-          >
-            Tạo yêu cầu mua hàng
-          </Button>
+          canWrite && (
+            <Button
+              icon={<ShoppingCartOutlined />}
+              disabled={selectedRowKeys.length === 0}
+              onClick={openPrModal}
+            >
+              Tạo yêu cầu mua hàng
+            </Button>
+          )
         }
       />
 
@@ -116,7 +123,7 @@ export default function InventoriesPage() {
         columns={columns}
         dataSource={filteredStock}
         loading={loading}
-        rowSelection={{ selectedRowKeys, onChange: setSelectedRowKeys }}
+        rowSelection={canWrite ? { selectedRowKeys, onChange: setSelectedRowKeys } : undefined}
       />
 
       <Modal

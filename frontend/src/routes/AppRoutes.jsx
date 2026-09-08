@@ -8,6 +8,14 @@ import VendorsPage from '../pages/vendors';
 import WarehousesPage from '../pages/warehouses';
 import CustomersPage from '../pages/customers';
 import UomsPage from '../pages/uoms';
+import BranchesPage from '../pages/branches';
+import SellingZonesPage from '../pages/sellingZones';
+import RouteMastersPage from '../pages/routeMasters';
+import RouteSettingsPage from '../pages/routeSettings';
+import RegionsPage from '../pages/regions';
+import ProvincesPage from '../pages/provinces';
+import DistrictsPage from '../pages/districts';
+import WardsPage from '../pages/wards';
 import GoodsReceiptPage from '../pages/inbound/GoodsReceipt';
 import SalesOrderPage from '../pages/sales/SalesOrder';
 import InventoriesPage from '../pages/inventory/Inventories';
@@ -19,8 +27,6 @@ import UsersPage from '../pages/system/Users';
 import RolesPage from '../pages/system/Roles';
 import PlaceholderPage from '../components/PlaceholderPage';
 
-// TODO: ProtectedRoute hien chi kiem tra co token trong localStorage hay khong (mock login),
-// can nang cap kiem tra JWT con han khi noi API /api/auth/login that.
 export default function AppRoutes() {
   return (
     <BrowserRouter>
@@ -35,6 +41,17 @@ export default function AppRoutes() {
             <Route path="/warehouses" element={<WarehousesPage />} />
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/uoms" element={<UomsPage />} />
+            <Route path="/branches" element={<BranchesPage />} />
+            <Route path="/selling-zones" element={<SellingZonesPage />} />
+            <Route path="/route-masters" element={<RouteMastersPage />} />
+            <Route path="/route-settings" element={<RouteSettingsPage />} />
+
+            {/* Vung dia ly (Region/Province/District/Ward) - API that, xem V11__geography.sql */}
+            <Route path="/regions" element={<RegionsPage />} />
+            <Route path="/provinces" element={<ProvincesPage />} />
+            <Route path="/districts" element={<DistrictsPage />} />
+            <Route path="/wards" element={<WardsPage />} />
+
             <Route path="/goods-receipts" element={<GoodsReceiptPage />} />
             <Route path="/sales-orders" element={<SalesOrderPage />} />
             <Route path="/inventory/inventories" element={<InventoriesPage />} />

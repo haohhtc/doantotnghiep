@@ -90,7 +90,7 @@ export default function WarehousesPage() {
     axiosClient
       .delete(`/warehouses/${record.id}`)
       .then(() => {
-        message.success('Đã ngừng sử dụng kho');
+        message.success('Đã xóa kho');
         loadData();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
@@ -132,7 +132,7 @@ export default function WarehousesPage() {
             render: (_, record) => (
               <Space>
                 <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-                <Popconfirm title="Ngừng sử dụng kho này?" onConfirm={() => handleDelete(record)}>
+                <Popconfirm title="Xóa vĩnh viễn kho này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
                   <Button icon={<DeleteOutlined />} danger />
                 </Popconfirm>
               </Space>

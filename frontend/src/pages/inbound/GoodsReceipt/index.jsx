@@ -5,9 +5,14 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { hasAnyRole } from '../../../utils/auth';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
+
+// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/xac nhan
+// phieu nhap, SALES_STAFF chi duoc xem (GET).
+const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../inbound/controller/GoodsReceiptController.java.
 // Luu y: unit_price/amount van nhap tay o dong chi tiet (khong tu dong lay gia san pham) vi
@@ -159,35 +164,39 @@ export default function GoodsReceiptPage() {
       render: (status) => (status === 'CLOSED' ? <Tag color="green">Đã đóng</Tag> : <Tag color="gold">Nháp</Tag>),
     },
     { title: 'Ghi chú', dataIndex: 'remarks', key: 'remarks' },
-    {
-      title: 'Thao tác',
-      key: 'actions',
-      render: (_, record) => (
-        <Space>
-          <Button
-            icon={<EditOutlined />}
-            disabled={record.status === 'CLOSED'}
-            onClick={() => openEditModal(record)}
-          />
-          {record.status === 'DRAFT' && (
-            <Popconfirm
-              title="Xác nhận phiếu nhập này?"
-              description="Sau khi xác nhận sẽ cộng vào tồn kho và không thể sửa/xoá."
-              onConfirm={() => handleConfirmReceipt(record)}
-            >
-              <Button icon={<CheckOutlined />} type="primary" ghost />
-            </Popconfirm>
-          )}
-          <Popconfirm
-            title="Xóa phiếu nhập này?"
-            disabled={record.status === 'CLOSED'}
-            onConfirm={() => handleDelete(record)}
-          >
-            <Button icon={<DeleteOutlined />} danger disabled={record.status === 'CLOSED'} />
-          </Popconfirm>
-        </Space>
-      ),
-    },
+    ...(canWrite
+      ? [
+          {
+            title: 'Thao tác',
+            key: 'actions',
+            render: (_, record) => (
+              <Space>
+                <Button
+                  icon={<EditOutlined />}
+                  disabled={record.status === 'CLOSED'}
+                  onClick={() => openEditModal(record)}
+                />
+                {record.status === 'DRAFT' && (
+                  <Popconfirm
+                    title="Xác nhận phiếu nhập này?"
+                    description="Sau khi xác nhận sẽ cộng vào tồn kho và không thể sửa/xoá."
+                    onConfirm={() => handleConfirmReceipt(record)}
+                  >
+                    <Button icon={<CheckOutlined />} type="primary" ghost />
+                  </Popconfirm>
+                )}
+                <Popconfirm
+                  title="Xóa phiếu nhập này?"
+                  disabled={record.status === 'CLOSED'}
+                  onConfirm={() => handleDelete(record)}
+                >
+                  <Button icon={<DeleteOutlined />} danger disabled={record.status === 'CLOSED'} />
+                </Popconfirm>
+              </Space>
+            ),
+          },
+        ]
+      : []),
   ];
 
   const detailColumns = [
@@ -216,7 +225,7 @@ export default function GoodsReceiptPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số phiếu hoặc nhà cung cấp..."
-        onAdd={openCreateModal}
+        onAdd={canWrite ? openCreateModal : undefined}
         addTooltip="Thêm phiếu nhập"
         onReload={() => {
           loadData();

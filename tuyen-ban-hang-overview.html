@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tuyến Bán Hàng ERPQLKHO</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F0F2EF; --surface:#FFFFFF; --surface-2:#E6EAE6;
+    --ink:#142420; --ink-muted:#55655D; --ink-faint:#7C8A83;
+    --accent:#0E6E63; --accent-soft:#E1F1EC; --accent-soft-line:#BFDED4;
+    --cut:#A8650A; --cut-soft:#F7ECDA;
+    --line:#D8DED8; --line-strong:#C3CBC2;
+    --shadow:0 1px 2px rgba(20,36,32,.05), 0 8px 24px -12px rgba(20,36,32,.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#101512; --surface:#171F1B; --surface-2:#1E2622;
+      --ink:#E7EDE8; --ink-muted:#9AABA2; --ink-faint:#748177;
+      --accent:#52D6C2; --accent-soft:rgba(82,214,194,.12); --accent-soft-line:rgba(82,214,194,.3);
+      --cut:#E0A458; --cut-soft:rgba(224,164,88,.12);
+      --line:#29332D; --line-strong:#374238;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#101512; --surface:#171F1B; --surface-2:#1E2622;
+    --ink:#E7EDE8; --ink-muted:#9AABA2; --ink-faint:#748177;
+    --accent:#52D6C2; --accent-soft:rgba(82,214,194,.12); --accent-soft-line:rgba(82,214,194,.3);
+    --cut:#E0A458; --cut-soft:rgba(224,164,88,.12);
+    --line:#29332D; --line-strong:#374238;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans',system-ui,sans-serif; font-size:15px; line-height:1.6; }
+  h1,h2,h3{ font-family:'Bitter',Georgia,serif; text-wrap:balance; margin:0; color:var(--ink); }
+  code,.mono,.field{ font-family:'IBM Plex Mono',monospace; }
+  .wrap{ max-width:960px; margin:0 auto; padding:52px 28px 90px; }
+
+  .eyebrow{ display:inline-flex; align-items:center; gap:7px; font-size:11.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--accent); background:var(--accent-soft); border:1px solid var(--accent-soft-line); padding:5px 11px; border-radius:100px; margin-bottom:16px; }
+  h1{ font-size:34px; font-weight:600; margin-bottom:12px; }
+  .lede{ font-size:16px; color:var(--ink-muted); max-width:680px; margin-bottom:36px; }
+
+  nav.pills{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:48px; }
+  nav.pills a{ font-size:12.5px; font-weight:600; color:var(--ink-muted); background:var(--surface); border:1px solid var(--line); padding:6px 13px; border-radius:100px; text-decoration:none; }
+  nav.pills a:hover{ border-color:var(--accent-soft-line); color:var(--accent); }
+
+  section{ margin-bottom:56px; scroll-margin-top:20px; }
+  .sec-head{ margin-bottom:22px; }
+  .sec-head .num{ font-family:'IBM Plex Mono',monospace; color:var(--accent); font-size:12.5px; font-weight:600; display:block; margin-bottom:6px; }
+  .sec-head h2{ font-size:23px; font-weight:600; }
+  .sec-head p{ color:var(--ink-muted); max-width:660px; margin-top:8px; font-size:14.5px; }
+
+  .diagram-card{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:26px 20px; box-shadow:var(--shadow); overflow-x:auto; }
+  .diagram-card svg{ display:block; min-width:920px; width:100%; height:auto; }
+
+  details.ref{ background:var(--surface); border:1px solid var(--line); border-radius:12px; margin-bottom:12px; box-shadow:var(--shadow); overflow:hidden; }
+  details.ref summary{ cursor:pointer; padding:15px 18px; list-style:none; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  details.ref summary::-webkit-details-marker{ display:none; }
+  details.ref summary .s-left{ display:flex; align-items:baseline; gap:11px; flex-wrap:wrap; }
+  details.ref summary h3{ font-size:15px; font-weight:600; }
+  details.ref summary .tag{ font-size:11px; font-family:'IBM Plex Mono',monospace; color:var(--ink-faint); background:var(--surface-2); border:1px solid var(--line); padding:2px 8px; border-radius:5px; }
+  details.ref summary .chev{ color:var(--ink-faint); transition:transform .15s; flex-shrink:0; }
+  details.ref[open] summary .chev{ transform:rotate(90deg); }
+  details.ref .ref-body{ padding:0 18px 18px; border-top:1px solid var(--line); }
+  .ref-body table{ width:100%; border-collapse:collapse; margin-top:12px; font-size:13px; }
+  .ref-body th{ text-align:left; color:var(--ink-faint); font-weight:600; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; padding:7px 9px; border-bottom:1px solid var(--line-strong); }
+  .ref-body td{ padding:7px 9px; border-bottom:1px solid var(--line); }
+  .ref-body tr:last-child td{ border-bottom:none; }
+  .col-code{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-muted); white-space:nowrap; }
+  .req{ color:var(--accent); font-weight:600; }
+  .cut-field{ color:var(--cut); text-decoration:line-through; }
+
+  .cut-list{ background:var(--cut-soft); border:1px solid color-mix(in srgb, var(--cut) 35%, transparent); border-radius:12px; padding:20px 22px; }
+  .cut-list h4{ font-family:'Bitter',serif; font-size:15px; font-weight:600; color:var(--cut); margin-bottom:10px; }
+  .cut-list ul{ margin:0; padding-left:18px; color:var(--ink); font-size:13.5px; line-height:1.9; }
+  .cut-list li b{ color:var(--ink); }
+  .keep-note{ font-size:13px; color:var(--ink-muted); margin-top:14px; padding-top:14px; border-top:1px dashed color-mix(in srgb, var(--cut) 30%, transparent); }
+  .keep-note b{ color:var(--accent); }
+
+  .checklist{ display:flex; flex-direction:column; gap:10px; }
+  .check-item{ display:flex; gap:12px; align-items:flex-start; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:13px 16px; box-shadow:var(--shadow); }
+  .check-item .box{ width:18px; height:18px; border:2px solid var(--line-strong); border-radius:5px; flex-shrink:0; margin-top:2px; }
+  .check-item .txt b{ font-size:13.5px; }
+  .check-item .txt span{ display:block; font-size:12.5px; color:var(--ink-muted); margin-top:2px; }
+
+  .endpoint-table{ width:100%; border-collapse:collapse; font-size:13px; background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; box-shadow:var(--shadow); }
+  .endpoint-table th{ text-align:left; background:var(--surface-2); font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint); padding:9px 12px; }
+  .endpoint-table td{ padding:9px 12px; border-top:1px solid var(--line); }
+  .m{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; font-weight:600; padding:2px 7px; border-radius:5px; }
+  .m.get{ background:var(--accent-soft); color:var(--accent); }
+  .m.post{ background:var(--cut-soft); color:var(--cut); }
+
+  footer{ padding-top:24px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-faint); line-height:1.8; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <span class="eyebrow">Đồ án ERP Quản Lý Kho Thông Minh · ERPQLKHO</span>
+  <h1>Tuyến bán hàng &amp; Chi nhánh</h1>
+  <p class="lede">Giữ <b style="color:var(--ink)">đúng 4 màn hình tách biệt</b> như hệ thống DMS thật (Branch, Selling Zone, Route Master, Route Setting) — chỉ cắt các field/tính năng cụ thể không cần đi sâu, không gộp màn hình lại với nhau. Riêng <b>MCP Adjustment</b> là màn hình duy nhất bỏ hẳn.</p>
+
+  <nav class="pills">
+    <a href="#so-do">Sơ đồ 5 bảng</a>
+    <a href="#chi-tiet">Chi tiết field</a>
+    <a href="#luoc-bo">Đã lược bỏ &amp; vì sao</a>
+    <a href="#viec-can-code">Việc cần code</a>
+  </nav>
+
+  <section id="so-do">
+    <div class="sec-head">
+      <span class="num">01</span>
+      <h2>Sơ đồ 5 bảng</h2>
+      <p>Migration đã có sẵn: <code>backend/.../db/migration/V6__branch_selling_zone_route.sql</code>.</p>
+    </div>
+    <div class="diagram-card">
+      <svg viewBox="0 0 940 320" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Sans, sans-serif">
+        <line x1="20" y1="55" x2="900" y2="55" stroke="var(--line-strong)" stroke-width="2"/>
+
+        <rect x="20" y="25" width="140" height="60" rx="10" fill="var(--accent-soft)" stroke="var(--accent-soft-line)" stroke-width="1.5"/>
+        <text x="90" y="52" text-anchor="middle" fill="var(--ink)" font-size="13.5" font-weight="600">Branch</text>
+        <text x="90" y="68" text-anchor="middle" fill="var(--ink-muted)" font-size="9.5">Chi nhánh</text>
+
+        <rect x="195" y="25" width="150" height="60" rx="10" fill="var(--surface)" stroke="var(--line-strong)" stroke-width="1.5"/>
+        <text x="270" y="52" text-anchor="middle" fill="var(--ink)" font-size="13.5" font-weight="600">SellingZone</text>
+        <text x="270" y="68" text-anchor="middle" fill="var(--ink-muted)" font-size="9.5">region/province/ward</text>
+
+        <rect x="380" y="25" width="150" height="60" rx="10" fill="var(--surface)" stroke="var(--line-strong)" stroke-width="1.5"/>
+        <text x="455" y="52" text-anchor="middle" fill="var(--ink)" font-size="13.5" font-weight="600">RouteMaster</text>
+        <text x="455" y="68" text-anchor="middle" fill="var(--ink-muted)" font-size="9.5">Khung tuyến</text>
+
+        <rect x="565" y="25" width="150" height="60" rx="10" fill="var(--surface)" stroke="var(--line-strong)" stroke-width="1.5"/>
+        <text x="640" y="52" text-anchor="middle" fill="var(--ink)" font-size="13.5" font-weight="600">RouteSetting</text>
+        <text x="640" y="68" text-anchor="middle" fill="var(--ink-muted)" font-size="9.5">Giao vận hành</text>
+
+        <line x1="455" y1="85" x2="455" y2="140" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <rect x="380" y="145" width="150" height="58" rx="10" fill="var(--surface-2)" stroke="var(--line)" stroke-width="1.5"/>
+        <text x="455" y="170" text-anchor="middle" fill="var(--ink)" font-size="12" font-weight="600">RouteMasterOutlet</text>
+        <text x="455" y="186" text-anchor="middle" fill="var(--ink-muted)" font-size="9.5">join với customer</text>
+
+        <line x1="640" y1="85" x2="640" y2="140" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <rect x="565" y="145" width="150" height="58" rx="10" fill="var(--surface-2)" stroke="var(--line)" stroke-width="1.5"/>
+        <text x="640" y="170" text-anchor="middle" fill="var(--ink)" font-size="12" font-weight="600">user</text>
+        <text x="640" y="186" text-anchor="middle" fill="var(--ink-muted)" font-size="9.5">sales_person_id (đã có)</text>
+
+        <rect x="20" y="230" width="880" height="70" rx="10" fill="none" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 5"/>
+        <text x="36" y="253" fill="var(--ink-muted)" font-size="11.5" font-weight="600">Ghi chú:</text>
+        <text x="36" y="271" fill="var(--ink-muted)" font-size="11.5">RouteMaster và RouteSetting là 2 BẢNG RIÊNG như hệ thống thật — 1 RouteMaster có thể được nhiều RouteSetting</text>
+        <text x="36" y="287" fill="var(--ink-muted)" font-size="11.5">tham chiếu tới (đổi Sales Person theo từng giai đoạn mà không cần tạo lại khung tuyến).</text>
+      </svg>
+    </div>
+  </section>
+
+  <section id="chi-tiet">
+    <div class="sec-head">
+      <span class="num">02</span>
+      <h2>Chi tiết field từng bảng</h2>
+      <p>Chữ <span class="cut-field">gạch ngang</span> = field có ở hệ thống thật nhưng đã cắt trong bản này.</p>
+    </div>
+
+    <details class="ref" open>
+      <summary><div class="s-left"><h3>branch</h3><span class="tag">Chi nhánh</span></div><span class="chev">▶</span></summary>
+      <div class="ref-body">
+        <table>
+          <tr><th>Cột</th><th>Kiểu</th><th>Ghi chú</th></tr>
+          <tr><td class="col-code">code</td><td class="col-code">VARCHAR(50) UNIQUE</td><td class="req">bắt buộc</td></tr>
+          <tr><td class="col-code">name</td><td class="col-code">VARCHAR(150)</td><td class="req">bắt buộc</td></tr>
+          <tr><td class="col-code">address</td><td class="col-code">VARCHAR(500)</td><td>—</td></tr>
+          <tr><td class="col-code">phone</td><td class="col-code">VARCHAR(30)</td><td>—</td></tr>
+          <tr><td class="col-code">active</td><td class="col-code">BOOLEAN</td><td>mặc định TRUE</td></tr>
+          <tr><td class="col-code cut-field">tax_id, price_list, representative, latitude/longitude</td><td>—</td><td class="cut-field">đã cắt</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details class="ref" open>
+      <summary><div class="s-left"><h3>selling_zone</h3><span class="tag">Vùng bán hàng</span></div><span class="chev">▶</span></summary>
+      <div class="ref-body">
+        <table>
+          <tr><th>Cột</th><th>Kiểu</th><th>Ghi chú</th></tr>
+          <tr><td class="col-code">code / name</td><td class="col-code">VARCHAR</td><td class="req">bắt buộc</td></tr>
+          <tr><td class="col-code">region / province / ward</td><td class="col-code">VARCHAR(100)</td><td>địa giới hành chính</td></tr>
+          <tr><td class="col-code">branch_id</td><td class="col-code">FK → branch</td><td class="req">bắt buộc</td></tr>
+          <tr><td class="col-code cut-field">company, sales_organization_structure</td><td>—</td><td class="cut-field">đã cắt</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details class="ref" open>
+      <summary><div class="s-left"><h3>route_master</h3><span class="tag">Khung tuyến</span></div><span class="chev">▶</span></summary>
+      <div class="ref-body">
+        <table>
+          <tr><th>Cột</th><th>Kiểu</th><th>Ghi chú</th></tr>
+          <tr><td class="col-code">code / name</td><td class="col-code">VARCHAR</td><td class="req">bắt buộc</td></tr>
+          <tr><td class="col-code">type, channel, selling_category</td><td class="col-code">VARCHAR</td><td>giữ như hệ thống thật (free-text, không tách bảng riêng)</td></tr>
+          <tr><td class="col-code">selling_zone_id</td><td class="col-code">FK → selling_zone</td><td class="req">bắt buộc</td></tr>
+          <tr><td class="col-code">branch_id</td><td class="col-code">FK → branch</td><td class="req">bắt buộc</td></tr>
+          <tr><td class="col-code">manage_by_id / salesman_id</td><td class="col-code">FK → user</td><td>nullable, giá trị mặc định của tuyến</td></tr>
+          <tr><td class="col-code">effective_date / end_date</td><td class="col-code">DATE</td><td>effective_date bắt buộc</td></tr>
+          <tr><td class="col-code cut-field">gps_lock, distance, gps_out_route_lock, minimum_visit_time</td><td>—</td><td class="cut-field">đã cắt (check-in GPS)</td></tr>
+          <tr><td class="col-code cut-field">tab Check-in Schedule, tab List Of Company</td><td>—</td><td class="cut-field">đã cắt</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details class="ref">
+      <summary><div class="s-left"><h3>route_master_outlet</h3><span class="tag">Tab "List Of Outlet"</span></div><span class="chev">▶</span></summary>
+      <div class="ref-body">
+        <table>
+          <tr><th>Cột</th><th>Kiểu</th><th>Ghi chú</th></tr>
+          <tr><td class="col-code">route_master_id</td><td class="col-code">FK → route_master</td><td>PK kép</td></tr>
+          <tr><td class="col-code">customer_id</td><td class="col-code">FK → customer</td><td>PK kép — tái dùng bảng đã có</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details class="ref" open>
+      <summary><div class="s-left"><h3>route_setting</h3><span class="tag">Giao vận hành</span></div><span class="chev">▶</span></summary>
+      <div class="ref-body">
+        <table>
+          <tr><th>Cột</th><th>Kiểu</th><th>Ghi chú</th></tr>
+          <tr><td class="col-code">code / name</td><td class="col-code">VARCHAR</td><td class="req">bắt buộc</td></tr>
+          <tr><td class="col-code">route_master_id</td><td class="col-code">FK → route_master</td><td class="req">bắt buộc — chọn khung tuyến làm nền</td></tr>
+          <tr><td class="col-code">sales_person_id</td><td class="col-code">FK → user</td><td class="req">bắt buộc — người phụ trách thật</td></tr>
+          <tr><td class="col-code">manage_by_id</td><td class="col-code">FK → user</td><td>nullable</td></tr>
+          <tr><td class="col-code">effective_date / end_date</td><td class="col-code">DATE</td><td>effective_date bắt buộc</td></tr>
+          <tr><td class="col-code cut-field">coverage_outlet_quantity, potential_outlet_quantity</td><td>—</td><td class="cut-field">đã cắt (cần logic tính KPI riêng)</td></tr>
+        </table>
+      </div>
+    </details>
+  </section>
+
+  <section id="luoc-bo">
+    <div class="sec-head">
+      <span class="num">03</span>
+      <h2>Đã lược bỏ &amp; vì sao</h2>
+      <p>Chỉ cắt <b>field/tính năng cụ thể</b> — 4 màn hình vẫn tách biệt như hệ thống thật.</p>
+    </div>
+    <div class="cut-list">
+      <h4>Field/tính năng không code</h4>
+      <ul>
+        <li><b>Selling Zone:</b> Company, Sales Organization Structure — chỉ giữ region/province/ward trực tiếp.</li>
+        <li><b>Route Master:</b> GPS Lock/Distance/GPS Out Route Lock/Minimum Visit Time, tab Check-in Schedule, tab List Of Company.</li>
+        <li><b>Route Setting:</b> Coverage Outlet Quantity / Potential Outlet Quantity (cần logic tính KPI riêng).</li>
+        <li><b>Cả hệ thống:</b> Branch User Assignment (đồ án dùng chung 1 cấp Role, không phân quyền theo chi nhánh).</li>
+      </ul>
+      <div class="keep-note"><b>Duy nhất 1 màn hình bỏ hẳn:</b> MCP Adjustment — đổi salesman/thời gian thì sửa trực tiếp trên <code>route_setting</code>, không tạo bản ghi điều chỉnh + workflow duyệt riêng.</div>
+    </div>
+  </section>
+
+  <section id="viec-can-code">
+    <div class="sec-head">
+      <span class="num">04</span>
+      <h2>Việc cần code</h2>
+      <p>Theo đúng pattern đã làm mẫu ở <code>backend/.../auth/</code> + <code>backend/.../user/</code> — entity/repository/service/controller/dto.</p>
+    </div>
+
+    <div class="checklist">
+      <div class="check-item"><div class="box"></div><div class="txt"><b>Entity Java</b><span>Branch (<code>backend/.../branch/</code>), SellingZone/RouteMaster/RouteSetting (<code>backend/.../route/{sellingzone,routemaster,routesetting}/</code>) — khung folder rỗng đã có sẵn</span></div></div>
+      <div class="check-item"><div class="box"></div><div class="txt"><b>Repository + Service + Controller</b><span>CRUD cho cả 4; thêm 1 endpoint riêng gán/gỡ khách hàng khỏi Route Master</span></div></div>
+      <div class="check-item"><div class="box"></div><div class="txt"><b>Frontend UI</b><span>4 trang <code>/branches</code>, <code>/selling-zones</code>, <code>/route-masters</code>, <code>/route-settings</code> đã có placeholder + menu Ant Design "Tuyến bán hàng" — chỉ cần thay UI thật vào</span></div></div>
+      <div class="check-item"><div class="box"></div><div class="txt"><b>Cập nhật API contract</b><span>Thêm endpoint mới vào <code>docs/05-api-contract/api-endpoints.md</code> khi code xong</span></div></div>
+    </div>
+
+    <table class="endpoint-table" style="margin-top:18px">
+      <tr><th>Method</th><th>Endpoint</th><th>Mô tả</th></tr>
+      <tr><td><span class="m get">GET</span></td><td class="col-code">/api/branches</td><td>Danh sách chi nhánh</td></tr>
+      <tr><td><span class="m post">POST</span></td><td class="col-code">/api/branches</td><td>Tạo chi nhánh</td></tr>
+      <tr><td><span class="m get">GET</span></td><td class="col-code">/api/selling-zones</td><td>Danh sách vùng bán hàng</td></tr>
+      <tr><td><span class="m get">GET</span></td><td class="col-code">/api/route-masters</td><td>Danh sách khung tuyến (kèm selling zone, branch)</td></tr>
+      <tr><td><span class="m post">POST</span></td><td class="col-code">/api/route-masters</td><td>Tạo khung tuyến</td></tr>
+      <tr><td><span class="m post">POST</span></td><td class="col-code">/api/route-masters/{id}/outlets</td><td>Thêm khách hàng vào khung tuyến</td></tr>
+      <tr><td><span class="m get">GET</span></td><td class="col-code">/api/route-settings</td><td>Danh sách giao tuyến vận hành</td></tr>
+      <tr><td><span class="m post">POST</span></td><td class="col-code">/api/route-settings</td><td>Giao 1 route master cho 1 sales person</td></tr>
+    </table>
+  </section>
+
+  <footer>
+    Bản rút gọn dựa trên khảo sát nghiệp vụ Route/MDM thật của hệ thống DMS (Branch, Selling Zone, Route Master, Route Setting, MCP Adjustment) — giữ nguyên cấu trúc màn hình, chỉ cắt field không cần đi sâu. Dùng nội bộ cho đồ án ERPQLKHO, không phải tài liệu chính thức của nhà cung cấp phần mềm.
+  </footer>
+</div>
+
+</body>
+</html>

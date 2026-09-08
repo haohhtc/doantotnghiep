@@ -5,8 +5,13 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { hasAnyRole } from '../../../utils/auth';
 
 const { Title, Text } = Typography;
+
+// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/duyet
+// dot kiem ke, SALES_STAFF chi duoc xem (GET).
+const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../inventory/controller/StockTakeController.java.
 // Luu y: khong con can nhap tay "Ton he thong" - backend tu tinh tu bang stock hien tai
@@ -147,30 +152,34 @@ export default function StockCountingPage() {
       key: 'status',
       render: (status) => (status === 'APPROVED' ? <Tag color="green">Đã duyệt</Tag> : <Tag color="gold">Nháp</Tag>),
     },
-    {
-      title: 'Thao tác',
-      key: 'actions',
-      render: (_, record) => {
-        const isDraft = record.status === 'DRAFT';
-        return (
-          <Space>
-            <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
-            {isDraft && (
-              <Popconfirm
-                title="Duyệt đợt kiểm kê này?"
-                description="Sau khi duyệt sẽ ghi nhận chênh lệch vào tồn kho và không thể sửa/xoá."
-                onConfirm={() => handleApprove(record)}
-              >
-                <Button icon={<CheckOutlined />} type="primary" ghost />
-              </Popconfirm>
-            )}
-            <Popconfirm title="Xóa đợt kiểm kê này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
-              <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
-            </Popconfirm>
-          </Space>
-        );
-      },
-    },
+    ...(canWrite
+      ? [
+          {
+            title: 'Thao tác',
+            key: 'actions',
+            render: (_, record) => {
+              const isDraft = record.status === 'DRAFT';
+              return (
+                <Space>
+                  <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
+                  {isDraft && (
+                    <Popconfirm
+                      title="Duyệt đợt kiểm kê này?"
+                      description="Sau khi duyệt sẽ ghi nhận chênh lệch vào tồn kho và không thể sửa/xoá."
+                      onConfirm={() => handleApprove(record)}
+                    >
+                      <Button icon={<CheckOutlined />} type="primary" ghost />
+                    </Popconfirm>
+                  )}
+                  <Popconfirm title="Xóa đợt kiểm kê này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
+                    <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
+                  </Popconfirm>
+                </Space>
+              );
+            },
+          },
+        ]
+      : []),
   ];
 
   const detailColumns = [
@@ -203,7 +212,7 @@ export default function StockCountingPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã đợt kiểm kê..."
-        onAdd={openCreateModal}
+        onAdd={canWrite ? openCreateModal : undefined}
         addTooltip="Thêm đợt kiểm kê"
         onReload={() => {
           loadData();

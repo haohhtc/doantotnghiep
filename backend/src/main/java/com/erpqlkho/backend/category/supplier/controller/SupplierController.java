@@ -47,6 +47,6 @@ public class SupplierController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deactivate(@PathVariable Long id) {
         supplierService.deactivate(id);
-        return ApiResponse.ok("Da ngung hop tac nha cung cap", null);
+        return ApiResponse.ok("Da xoa nha cung cap", null);
     }
 }

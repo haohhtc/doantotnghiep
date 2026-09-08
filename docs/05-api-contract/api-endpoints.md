@@ -45,6 +45,21 @@
 | PUT | `/api/stock-takes/{id}/approve` | Duyệt kiểm kê → ghi nhận chênh lệch |
 | GET | `/api/stock/alerts` | Danh sách cảnh báo sắp hết hàng |
 
+## Backend — Tuyến bán hàng & Chi nhánh `[BE1]`
+
+Module theo yêu cầu TV2 (xem `tuyen-ban-hang-overview.html`) — migration `V10__branch_selling_zone_route.sql`.
+Phân quyền: GET mở cho mọi role đã đăng nhập; POST/PUT/DELETE chỉ `ADMIN` + `WAREHOUSE_MANAGER`.
+
+| Method | Endpoint | Mô tả |
+|---|---|---|
+| GET/POST/PUT/DELETE | `/api/branches` `/{id}` | CRUD chi nhánh (DELETE = ngừng hoạt động, không xóa hẳn) |
+| GET/POST/PUT/DELETE | `/api/selling-zones` `/{id}` | CRUD vùng bán hàng (FK `branch_id`) |
+| GET/POST/PUT/DELETE | `/api/route-masters` `/{id}` | CRUD khung tuyến (FK `selling_zone_id`, `branch_id`) |
+| GET | `/api/route-masters/{id}/outlets` | Danh sách khách hàng trong khung tuyến |
+| POST | `/api/route-masters/{id}/outlets` | Gán khách hàng vào khung tuyến — body `{ "customerId": 1 }` |
+| DELETE | `/api/route-masters/{id}/outlets/{outletId}` | Gỡ khách hàng khỏi khung tuyến |
+| GET/POST/PUT/DELETE | `/api/route-settings` `/{id}` | CRUD giao tuyến vận hành (FK `route_master_id`, `sales_person_id` → user) |
+
 ## AI Services `[BE2]` — được Backend hoặc Frontend gọi trực tiếp
 
 | Service | Method | Endpoint | Input | Output |

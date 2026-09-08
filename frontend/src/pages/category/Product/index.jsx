@@ -95,7 +95,7 @@ export default function ProductPage() {
     axiosClient
       .delete(`/products/${record.id}`)
       .then(() => {
-        message.success('Đã ngừng kinh doanh sản phẩm');
+        message.success('Đã xóa sản phẩm');
         loadData();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
@@ -142,7 +142,7 @@ export default function ProductPage() {
             render: (_, record) => (
               <Space>
                 <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-                <Popconfirm title="Ngừng kinh doanh sản phẩm này?" onConfirm={() => handleDelete(record)}>
+                <Popconfirm title="Xóa vĩnh viễn sản phẩm này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
                   <Button icon={<DeleteOutlined />} danger />
                 </Popconfirm>
               </Space>

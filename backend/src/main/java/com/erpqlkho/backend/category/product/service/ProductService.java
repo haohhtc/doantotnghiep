@@ -72,13 +72,19 @@ public class ProductService {
         return productRepository.save(product);
     }
 
-    // Soft-delete (giong pattern "lock" o UserService): giu lai lich su vi product
-    // co the da duoc tham chieu boi goods_receipt_detail / sales_order_detail.
+    // TAM THOI doi tu soft-delete sang xoa that (hard delete) theo yeu cau - de admin don duoc
+    // du lieu test/rac khoi DB. Van chan neu dang bi tham chieu boi goods_receipt_detail /
+    // sales_order_detail de khong pha rang buoc khoa ngoai. Muon quay lai soft-delete: doi than
+    // ham nay ve "product.setActive(false); productRepository.save(product);".
     @Transactional
     public void deactivate(Long id) {
         Product product = findById(id);
-        product.setActive(false);
-        productRepository.save(product);
+        try {
+            productRepository.delete(product);
+            productRepository.flush();
+        } catch (Exception e) {
+            throw ApiException.conflict("Khong the xoa: san pham dang duoc su dung o phieu nhap/don ban hang khac");
+        }
     }
 
     private ProductCategory findCategory(Long categoryId) {

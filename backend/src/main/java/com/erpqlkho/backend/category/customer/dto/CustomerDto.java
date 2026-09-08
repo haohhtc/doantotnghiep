@@ -22,4 +22,10 @@ public class CustomerDto {
 
     // null khi tao moi = mac dinh active=true (xu ly trong service)
     private Boolean active;
+
+    // Vung dia ly that (nullable) - chon theo tang Region -> Province -> District -> Ward.
+    private Long regionId;
+    private Long provinceId;
+    private Long districtId;
+    private Long wardId;
 }

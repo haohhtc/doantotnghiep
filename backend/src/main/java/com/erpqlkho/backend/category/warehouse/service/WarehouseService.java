@@ -67,13 +67,19 @@ public class WarehouseService {
         return warehouseRepository.save(warehouse);
     }
 
-    // Soft-delete (giong pattern ProductService): giu lai lich su vi warehouse co the
-    // da duoc tham chieu boi goods_receipt / sales_order / stock.
+    // TAM THOI doi tu soft-delete sang xoa that (hard delete) theo yeu cau - de admin don duoc
+    // du lieu test/rac khoi DB. Van chan neu dang bi tham chieu boi goods_receipt / sales_order /
+    // stock / selling_zone... de khong pha rang buoc khoa ngoai. Muon quay lai soft-delete: doi
+    // than ham nay ve "warehouse.setActive(false); warehouseRepository.save(warehouse);".
     @Transactional
     public void deactivate(Long id) {
         Warehouse warehouse = findById(id);
-        warehouse.setActive(false);
-        warehouseRepository.save(warehouse);
+        try {
+            warehouseRepository.delete(warehouse);
+            warehouseRepository.flush();
+        } catch (Exception e) {
+            throw ApiException.conflict("Khong the xoa: kho dang duoc su dung o phieu nhap/don ban/ton kho khac");
+        }
     }
 
     private User findManager(Long managerId) {

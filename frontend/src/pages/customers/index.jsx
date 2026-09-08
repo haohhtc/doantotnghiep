@@ -3,6 +3,7 @@ import { Typography, Input, Button, Table, Space, Modal, Form, Checkbox, Row, Co
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import ActiveStatus from '../../components/ActiveStatus';
+import AddressCascadeFields from '../../components/AddressCascadeFields';
 import axiosClient from '../../api/axiosClient';
 
 const { Title } = Typography;
@@ -56,7 +57,13 @@ export default function CustomersPage() {
 
   function openEditModal(record) {
     setEditingCustomer(record);
-    form.setFieldsValue(record);
+    form.setFieldsValue({
+      ...record,
+      regionId: record.region?.id,
+      provinceId: record.province?.id,
+      districtId: record.district?.id,
+      wardId: record.ward?.id,
+    });
     setModalOpen(true);
   }
 
@@ -64,7 +71,7 @@ export default function CustomersPage() {
     axiosClient
       .delete(`/customers/${record.id}`)
       .then(() => {
-        message.success('Đã ngừng hợp tác khách hàng');
+        message.success('Đã xóa khách hàng');
         loadData();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
@@ -92,6 +99,11 @@ export default function CustomersPage() {
     { title: 'Email', dataIndex: 'email', key: 'email' },
     { title: 'Địa chỉ', dataIndex: 'address', key: 'address' },
     {
+      title: 'Vùng địa lý',
+      key: 'geography',
+      render: (_, r) => (r.ward ? `${r.ward.name}, ${r.district?.name}, ${r.province?.name}` : '-'),
+    },
+    {
       title: 'Trạng thái',
       dataIndex: 'active',
       key: 'active',
@@ -103,7 +115,7 @@ export default function CustomersPage() {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-          <Popconfirm title="Ngừng hợp tác khách hàng này?" onConfirm={() => handleDelete(record)}>
+          <Popconfirm title="Xóa vĩnh viễn khách hàng này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
             <Button icon={<DeleteOutlined />} danger />
           </Popconfirm>
         </Space>
@@ -167,6 +179,7 @@ export default function CustomersPage() {
           <Form.Item label="Địa chỉ" name="address">
             <Input />
           </Form.Item>
+          <AddressCascadeFields form={form} />
           <Form.Item name="active" valuePropName="checked">
             <Checkbox>Kích hoạt</Checkbox>
           </Form.Item>

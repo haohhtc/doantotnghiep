@@ -47,6 +47,6 @@ public class CustomerController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deactivate(@PathVariable Long id) {
         customerService.deactivate(id);
-        return ApiResponse.ok("Da ngung hop tac khach hang", null);
+        return ApiResponse.ok("Da xoa khach hang", null);
     }
 }

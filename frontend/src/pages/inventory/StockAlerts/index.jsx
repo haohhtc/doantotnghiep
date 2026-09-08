@@ -3,8 +3,13 @@ import { Typography, Button, Table, Tag, Space, Modal, Form, Select, InputNumber
 import { CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { hasAnyRole } from '../../../utils/auth';
 
 const { Title, Text } = Typography;
+
+// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua nguong va
+// danh dau xu ly, SALES_STAFF chi duoc xem (GET).
+const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // INV-05: canh bao san pham sap het hang - xem backend/.../inventory/controller/StockAlertController.java.
 // "Ton hien tai" khong nam trong entity StockAlert (chi luu nguong min_quantity) - lay song song
@@ -125,28 +130,32 @@ export default function StockAlertsPage() {
         return qty <= 0 ? <Tag color="red">Hết hàng</Tag> : <Tag color="orange">Sắp hết hàng</Tag>;
       },
     },
-    {
-      title: 'Thao tác',
-      key: 'actions',
-      render: (_, record) => (
-        <Space>
-          <Button size="small" onClick={() => openEditModal(record)}>
-            Sửa ngưỡng
-          </Button>
-          {record.status === 'ACTIVE' && (
-            <Popconfirm
-              title="Đánh dấu đã xử lý cảnh báo?"
-              description={`Sản phẩm ${record.product.code} - ${record.product.name} tại ${record.warehouse.name}`}
-              onConfirm={() => handleResolve(record)}
-            >
-              <Button size="small" icon={<CheckOutlined />} type="primary" ghost>
-                Đã xử lý
-              </Button>
-            </Popconfirm>
-          )}
-        </Space>
-      ),
-    },
+    ...(canWrite
+      ? [
+          {
+            title: 'Thao tác',
+            key: 'actions',
+            render: (_, record) => (
+              <Space>
+                <Button size="small" onClick={() => openEditModal(record)}>
+                  Sửa ngưỡng
+                </Button>
+                {record.status === 'ACTIVE' && (
+                  <Popconfirm
+                    title="Đánh dấu đã xử lý cảnh báo?"
+                    description={`Sản phẩm ${record.product.code} - ${record.product.name} tại ${record.warehouse.name}`}
+                    onConfirm={() => handleResolve(record)}
+                  >
+                    <Button size="small" icon={<CheckOutlined />} type="primary" ghost>
+                      Đã xử lý
+                    </Button>
+                  </Popconfirm>
+                )}
+              </Space>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -156,7 +165,7 @@ export default function StockAlertsPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên sản phẩm..."
-        onAdd={openCreateModal}
+        onAdd={canWrite ? openCreateModal : undefined}
         addTooltip="Thêm ngưỡng cảnh báo"
         onReload={() => {
           loadData();

@@ -2,8 +2,13 @@ import { useState } from 'react';
 import { Typography, Input, Button, Table, Space, Modal, Form, Popconfirm, message } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
+import { hasAnyRole } from '../../utils/auth';
 
 const { Title } = Typography;
+
+// Trang nay 100% mock (khong co backend that de goi API kiem tra quyen), nhung van an nut theo
+// dung yeu cau phan quyen: SALES_STAFF chi duoc xem.
+const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Du lieu mau (100% mock, khong goi API that) - theo dung cau truc bang Uoms trong ui-reference/01-danh-muc.
 const INITIAL_UOMS = [
@@ -65,19 +70,23 @@ export default function UomsPage() {
   const columns = [
     { title: 'Mã đơn vị', dataIndex: 'code', key: 'code' },
     { title: 'Tên đơn vị', dataIndex: 'name', key: 'name' },
-    {
-      title: 'Thao tác',
-      key: 'actions',
-      width: 160,
-      render: (_, record) => (
-        <Space>
-          <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-          <Popconfirm title="Xóa đơn vị tính này?" onConfirm={() => handleDelete(record)}>
-            <Button icon={<DeleteOutlined />} danger />
-          </Popconfirm>
-        </Space>
-      ),
-    },
+    ...(canWrite
+      ? [
+          {
+            title: 'Thao tác',
+            key: 'actions',
+            width: 160,
+            render: (_, record) => (
+              <Space>
+                <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
+                <Popconfirm title="Xóa đơn vị tính này?" onConfirm={() => handleDelete(record)}>
+                  <Button icon={<DeleteOutlined />} danger />
+                </Popconfirm>
+              </Space>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -87,7 +96,7 @@ export default function UomsPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={openCreateModal}
+        onAdd={canWrite ? openCreateModal : undefined}
         addTooltip="Thêm đơn vị tính"
         onReload={() => {
           setUoms(INITIAL_UOMS);

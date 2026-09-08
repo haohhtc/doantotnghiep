@@ -47,6 +47,6 @@ public class ProductController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deactivate(@PathVariable Long id) {
         productService.deactivate(id);
-        return ApiResponse.ok("Da ngung kinh doanh san pham", null);
+        return ApiResponse.ok("Da xoa san pham", null);
     }
 }

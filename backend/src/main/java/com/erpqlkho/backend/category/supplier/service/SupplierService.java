@@ -66,12 +66,18 @@ public class SupplierService {
         return supplierRepository.save(supplier);
     }
 
-    // Soft-delete (giong pattern ProductService): giu lai lich su vi supplier
-    // co the da duoc tham chieu boi goods_receipt.
+    // TAM THOI doi tu soft-delete sang xoa that (hard delete) theo yeu cau - de admin don duoc
+    // du lieu test/rac khoi DB. Van chan neu dang bi tham chieu boi goods_receipt de khong pha
+    // rang buoc khoa ngoai. Muon quay lai soft-delete: doi than ham nay ve
+    // "supplier.setActive(false); supplierRepository.save(supplier);".
     @Transactional
     public void deactivate(Long id) {
         Supplier supplier = findById(id);
-        supplier.setActive(false);
-        supplierRepository.save(supplier);
+        try {
+            supplierRepository.delete(supplier);
+            supplierRepository.flush();
+        } catch (Exception e) {
+            throw ApiException.conflict("Khong the xoa: nha cung cap dang duoc su dung o phieu nhap khac");
+        }
     }
 }

@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nghiệp Vụ DMS Tham Chiếu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F0F2EF; --surface:#FFFFFF; --surface-2:#E6EAE6;
+    --ink:#142420; --ink-muted:#55655D; --ink-faint:#7C8A83;
+    --accent:#0E6E63; --accent-soft:#E1F1EC; --accent-soft-line:#BFDED4;
+    --do:#1D5FA8; --do-soft:#E3EDF8;
+    --skip:#8A8A8A; --skip-soft:#ECECEC;
+    --line:#D8DED8; --line-strong:#C3CBC2;
+    --shadow:0 1px 2px rgba(20,36,32,.05), 0 8px 24px -12px rgba(20,36,32,.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#101512; --surface:#171F1B; --surface-2:#1E2622;
+      --ink:#E7EDE8; --ink-muted:#9AABA2; --ink-faint:#748177;
+      --accent:#52D6C2; --accent-soft:rgba(82,214,194,.12); --accent-soft-line:rgba(82,214,194,.3);
+      --do:#7FB3EC; --do-soft:rgba(127,179,236,.13);
+      --skip:#8A9691; --skip-soft:rgba(138,150,145,.12);
+      --line:#29332D; --line-strong:#374238;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#101512; --surface:#171F1B; --surface-2:#1E2622;
+    --ink:#E7EDE8; --ink-muted:#9AABA2; --ink-faint:#748177;
+    --accent:#52D6C2; --accent-soft:rgba(82,214,194,.12); --accent-soft-line:rgba(82,214,194,.3);
+    --do:#7FB3EC; --do-soft:rgba(127,179,236,.13);
+    --skip:#8A9691; --skip-soft:rgba(138,150,145,.12);
+    --line:#29332D; --line-strong:#374238;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box;}
+  body{ background:var(--bg); color:var(--ink); font-family:'IBM Plex Sans',system-ui,sans-serif; font-size:15px; line-height:1.6; }
+  h1,h2,h3,h4{ font-family:'Bitter',Georgia,serif; text-wrap:balance; margin:0; color:var(--ink); }
+  code,.mono{ font-family:'IBM Plex Mono',monospace; }
+  .wrap{ max-width:1060px; margin:0 auto; padding:52px 28px 90px; }
+
+  .eyebrow{ display:inline-flex; gap:7px; font-size:11.5px; font-weight:600; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--accent); background:var(--accent-soft); border:1px solid var(--accent-soft-line); padding:5px 11px; border-radius:100px; margin-bottom:16px; }
+  h1{ font-size:36px; font-weight:600; margin-bottom:12px; }
+  .lede{ font-size:16.5px; color:var(--ink-muted); max-width:720px; margin-bottom:30px; }
+
+  .legend{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:34px; font-size:12.5px; }
+  .lg{ display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:100px; font-weight:600; }
+  .lg.do{ background:var(--do-soft); color:var(--do); }
+  .lg.skip{ background:var(--skip-soft); color:var(--skip); }
+
+  nav.pills{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:52px; }
+  nav.pills a{ font-size:12.5px; font-weight:600; color:var(--ink-muted); background:var(--surface); border:1px solid var(--line); padding:6px 13px; border-radius:100px; text-decoration:none; }
+  nav.pills a:hover{ border-color:var(--accent-soft-line); color:var(--accent); }
+
+  section{ margin-bottom:62px; scroll-margin-top:20px; }
+  .sec-head{ margin-bottom:24px; }
+  .sec-head .num{ font-family:'IBM Plex Mono',monospace; color:var(--accent); font-size:12.5px; font-weight:600; display:block; margin-bottom:6px; }
+  .sec-head h2{ font-size:24px; font-weight:600; }
+  .sec-head p{ color:var(--ink-muted); max-width:700px; margin-top:8px; font-size:14.5px; }
+
+  .flowcard{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:24px 20px; box-shadow:var(--shadow); overflow-x:auto; }
+  .flowcard svg{ display:block; min-width:940px; width:100%; height:auto; }
+
+  /* module map */
+  .mods{ display:grid; grid-template-columns:repeat(auto-fill,minmax(258px,1fr)); gap:12px; }
+  .mod{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:15px 17px; box-shadow:var(--shadow); }
+  .mod.on{ border-left:3px solid var(--do); }
+  .mod.off{ opacity:.72; }
+  .mod h4{ font-size:14.5px; display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; }
+  .badge{ font-size:9.5px; font-family:'IBM Plex Mono',monospace; font-weight:600; padding:2px 7px; border-radius:100px; white-space:nowrap; }
+  .badge.do{ background:var(--do-soft); color:var(--do); }
+  .badge.skip{ background:var(--skip-soft); color:var(--skip); }
+  .mod ul{ margin:0; padding-left:16px; font-size:12.5px; color:var(--ink-muted); line-height:1.75; }
+
+  /* step blocks */
+  .steps{ border-left:2px solid var(--line); margin-left:20px; }
+  .stp{ position:relative; padding:0 0 30px 38px; }
+  .stp:last-child{ padding-bottom:4px; }
+  .stp .n{ position:absolute; left:-19px; top:-2px; width:36px; height:36px; border-radius:50%; background:var(--surface);
+    border:2px solid var(--accent); color:var(--accent); display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:13px; }
+  .stp h3{ font-size:16.5px; font-weight:600; margin-bottom:3px; }
+  .stp .scr{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--ink-faint); margin-bottom:7px; }
+  .stp p{ font-size:14px; color:var(--ink-muted); max-width:660px; }
+  .stp .effect{ display:inline-block; margin-top:9px; font-size:12.5px; background:var(--accent-soft); color:var(--accent);
+    border:1px solid var(--accent-soft-line); padding:4px 10px; border-radius:7px; font-weight:600; }
+  .stp .note{ font-size:12.5px; color:var(--ink-faint); margin-top:7px; }
+
+  table.t{ width:100%; border-collapse:collapse; font-size:13.5px; background:var(--surface); border:1px solid var(--line);
+    border-radius:12px; overflow:hidden; box-shadow:var(--shadow); }
+  table.t th{ text-align:left; background:var(--surface-2); font-size:10.5px; text-transform:uppercase; letter-spacing:.04em;
+    color:var(--ink-faint); padding:10px 13px; }
+  table.t td{ padding:10px 13px; border-top:1px solid var(--line); vertical-align:top; }
+  table.t td.c{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-muted); }
+  .tick{ color:var(--do); font-weight:700; }
+  .dash{ color:var(--skip); }
+
+  details.d{ background:var(--surface); border:1px solid var(--line); border-radius:12px; margin-bottom:11px; box-shadow:var(--shadow); overflow:hidden; }
+  details.d summary{ cursor:pointer; padding:14px 18px; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:14px; }
+  details.d summary::-webkit-details-marker{ display:none; }
+  details.d summary h3{ font-size:15px; font-weight:600; }
+  details.d summary .chev{ color:var(--ink-faint); transition:transform .15s; }
+  details.d[open] summary .chev{ transform:rotate(90deg); }
+  details.d .body{ padding:0 18px 18px; border-top:1px solid var(--line); }
+  .fieldlist{ display:flex; flex-wrap:wrap; gap:6px; margin-top:12px; }
+  .f{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; background:var(--surface-2); border:1px solid var(--line);
+    color:var(--ink); padding:3px 8px; border-radius:5px; }
+  .f.key{ background:var(--accent-soft); border-color:var(--accent-soft-line); color:var(--accent); font-weight:600; }
+  .tabs{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .tab{ font-size:11.5px; padding:3px 9px; border-radius:100px; background:var(--surface-2); border:1px solid var(--line); color:var(--ink-muted); }
+
+  .callout{ background:var(--do-soft); border:1px solid color-mix(in srgb, var(--do) 32%, transparent); border-radius:12px;
+    padding:16px 19px; font-size:13.5px; margin-top:16px; }
+  .callout b{ color:var(--do); }
+
+  footer{ padding-top:24px; border-top:1px solid var(--line); font-size:12px; color:var(--ink-faint); line-height:1.8; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <span class="eyebrow">Tài liệu tham chiếu · DMS/OMS thật — dự án Orion (tenant OFVTT)</span>
+  <h1>Nghiệp vụ &amp; màn hình DMS để dựng lại trong đồ án</h1>
+  <p class="lede">Khảo sát trực tiếp dự án <b style="color:var(--ink)">Orion</b>: <b style="color:var(--ink)">264 màn hình / 19 nhóm module</b>. Tài liệu mô tả chứng từ chạy theo thứ tự nào, mỗi màn hình có field gì — dùng làm khuôn dựng lại phiên bản rút gọn cho đồ án ERP kho thông minh.</p>
+
+  <div class="legend">
+    <span class="lg do">▸ Đồ án CÓ dựng lại</span>
+    <span class="lg skip">▸ Chỉ tham khảo, không làm</span>
+  </div>
+
+  <nav class="pills">
+    <a href="#tong-the">Bức tranh tổng thể</a>
+    <a href="#module">Bản đồ 20 module</a>
+    <a href="#luong-kho">Luồng kho chi tiết</a>
+    <a href="#man-hinh">Field từng màn hình</a>
+    <a href="#ap-dung">Áp dụng vào đồ án</a>
+  </nav>
+
+  <section id="tong-the">
+    <div class="sec-head">
+      <span class="num">01</span>
+      <h2>Bức tranh tổng thể — DMS vận hành thế nào</h2>
+      <p>DMS (Distribution Management System) quản lý toàn bộ vòng đời hàng hóa của nhà phân phối: <b>mua vào → giữ trong kho → bán ra → giao hàng → thu tiền</b>, cộng thêm lớp dữ liệu nền (master data) và lớp báo cáo phía trên.</p>
+    </div>
+    <div class="flowcard">
+      <svg viewBox="0 0 960 330" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Sans, sans-serif">
+        <!-- lop master data -->
+        <rect x="20" y="18" width="920" height="52" rx="10" fill="var(--surface-2)" stroke="var(--line)" stroke-width="1.5"/>
+        <text x="36" y="40" fill="var(--ink-faint)" font-size="10.5" font-weight="600" letter-spacing="0.5">LỚP NỀN — MASTER DATA (MDM)</text>
+        <text x="36" y="58" fill="var(--ink)" font-size="12.5">Sản phẩm · Đơn vị tính · Nhà cung cấp · Kho · Chi nhánh · Khách hàng · Vùng bán · Tuyến bán hàng · Nhân viên · Bảng giá</text>
+
+        <!-- 3 khoi nghiep vu chinh -->
+        <line x1="20" y1="150" x2="940" y2="150" stroke="var(--line-strong)" stroke-width="2"/>
+
+        <rect x="20" y="112" width="270" height="78" rx="10" fill="var(--do-soft)" stroke="color-mix(in srgb, var(--do) 40%, transparent)" stroke-width="1.5"/>
+        <text x="155" y="136" text-anchor="middle" fill="var(--do)" font-size="10.5" font-weight="600" letter-spacing="0.5">MUA HÀNG</text>
+        <text x="155" y="157" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600">Purchase Order</text>
+        <text x="155" y="175" text-anchor="middle" fill="var(--ink-muted)" font-size="10.5">Yêu cầu mua → PO → Nhận hàng</text>
+
+        <rect x="345" y="112" width="270" height="78" rx="10" fill="var(--accent-soft)" stroke="var(--accent-soft-line)" stroke-width="1.5"/>
+        <text x="480" y="136" text-anchor="middle" fill="var(--accent)" font-size="10.5" font-weight="600" letter-spacing="0.5">KHO — TRUNG TÂM</text>
+        <text x="480" y="157" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600">Inventory</text>
+        <text x="480" y="175" text-anchor="middle" fill="var(--ink-muted)" font-size="10.5">Nhập · Xuất · Chuyển kho · Kiểm kê</text>
+
+        <rect x="670" y="112" width="270" height="78" rx="10" fill="var(--do-soft)" stroke="color-mix(in srgb, var(--do) 40%, transparent)" stroke-width="1.5"/>
+        <text x="805" y="136" text-anchor="middle" fill="var(--do)" font-size="10.5" font-weight="600" letter-spacing="0.5">BÁN HÀNG</text>
+        <text x="805" y="157" text-anchor="middle" fill="var(--ink)" font-size="14" font-weight="600">Sales Order</text>
+        <text x="805" y="175" text-anchor="middle" fill="var(--ink-muted)" font-size="10.5">Đơn → Giao hàng → Hóa đơn</text>
+
+        <!-- mui ten xuong lop bao cao -->
+        <line x1="480" y1="190" x2="480" y2="240" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+        <rect x="20" y="245" width="920" height="62" rx="10" fill="var(--surface-2)" stroke="var(--line)" stroke-width="1.5"/>
+        <text x="36" y="267" fill="var(--ink-faint)" font-size="10.5" font-weight="600" letter-spacing="0.5">LỚP PHÂN TÍCH</text>
+        <text x="36" y="286" fill="var(--ink)" font-size="12.5">Mọi chứng từ đổ về kho dữ liệu → nhóm báo cáo HO_* (toàn công ty) · Branch_* (chi nhánh) · Salesforce_* (nhân viên bán hàng)</text>
+        <text x="36" y="301" fill="var(--ink-muted)" font-size="11">→ Trong đồ án, lớp này chính là Data Warehouse + Power BI + các mô hình AI</text>
+      </svg>
+    </div>
+    <div class="callout">
+      <b>Nguyên tắc xương sống của DMS:</b> tồn kho không bao giờ được sửa tay. Mọi thay đổi tồn đều phải phát sinh từ một <b>chứng từ</b> (phiếu nhập, phiếu xuất, phiếu chuyển kho, phiếu kiểm kê) — nhờ vậy luôn truy ngược được "vì sao tồn thay đổi". Đây là quy tắc đồ án bắt buộc phải giữ.
+    </div>
+  </section>
+
+  <section id="module">
+    <div class="sec-head">
+      <span class="num">02</span>
+      <h2>Bản đồ module — DMS có gì</h2>
+      <p>20 nhóm module cấp 1 trên thanh menu. Đồ án chỉ dựng lại 5 nhóm được đánh dấu xanh; phần còn lại chỉ để biết bức tranh đầy đủ.</p>
+    </div>
+    <div class="mods">
+      <div class="mod on"><h4>MDM <span class="badge do">47 · CÓ LÀM</span></h4>
+        <ul><li><b>Geographical:</b> Region · Province · District · Ward</li><li><b>Sales Organization:</b> Sales Territory · Selling Zones</li><li><b>Company Setup:</b> Vendors · Company · Branch · Warehouse</li><li><b>Product:</b> Items · Item Group · Uoms · Uom Groups · Tax Group · Product Hierarchy · Item-Branch Assignment</li><li><b>Price list:</b> Price Lists · Standard/Channel/Contract Price</li><li><b>Customers:</b> Customer Profile · Group · Account/Channel Definition</li><li><b>Employees:</b> Employee Master Data · Salesman Type · Position</li><li><b>Route &amp; MCP:</b> Route Master · Route Settings</li></ul></div>
+
+      <div class="mod on"><h4>Inventory <span class="badge do">8 · CÓ LÀM</span></h4>
+        <ul><li>Inventories — tồn hiện tại</li><li>Goods Receipt — phiếu nhập</li><li>Goods Issue — phiếu xuất</li><li>Inventory Transfers + Confirmation</li><li>Distributor Stock Counting — kiểm kê</li><li>Inventory Movement Confirmation</li><li>POSM Inventory</li></ul></div>
+
+      <div class="mod on"><h4>Sales Order <span class="badge do">14 · CÓ LÀM</span></h4>
+        <ul><li>Sales Request <code>/SR</code> → Sale Orders <code>/SO</code></li><li>Delivery Orders <code>/DO</code> → Invoices <code>/IN</code></li><li>Returns <code>/RN</code> · Credit Memos <code>/CM</code></li><li>Return Request · Mass Process Delivery</li><li>Picking List / Delivery Note Printing</li><li>Van Sales Daily Payment · Upload PO</li></ul></div>
+
+      <div class="mod on"><h4>Purchase Order <span class="badge do">9 · CÓ LÀM</span></h4>
+        <ul><li>Purchase Request</li><li>Goods Receipt PO + Confirmation</li><li>Goods Return Request → Confirm → Goods Return</li><li>Auto RPO log · SKU Target Setup</li></ul></div>
+
+      <div class="mod on"><h4>Quản trị <span class="badge do">19 · CÓ LÀM</span></h4>
+        <ul><li>Users · Roles · Organization units</li><li>Security logs · Login Device Management</li><li>Numbering Configs (đánh số chứng từ)</li><li>Approval Process · Settings · Email Config</li></ul></div>
+
+      <div class="mod off"><h4>Report <span class="badge skip">65 · tham khảo</span></h4>
+        <ul><li>HO_* (toàn công ty) · Branch_* · Salesforce_*</li><li>Inventory · Sell In · Sell Out · PIT · KPI</li><li>→ Đồ án thay bằng Power BI tự làm</li></ul></div>
+
+      <div class="mod off"><h4>Trade Marketing <span class="badge skip">44 · tham khảo</span></h4>
+        <ul><li>Promotions — engine khuyến mãi rất phức tạp</li><li>Surveys · Learning · Shelves</li><li>Stock Countings · Competitor</li><li>Budget allocation</li></ul></div>
+
+      <div class="mod off"><h4>KPIs <span class="badge skip">17 · tham khảo</span></h4>
+        <ul><li>Customer Revenue Target · Target Customer</li><li>Chỉ tiêu doanh số theo nhân viên/khách hàng</li></ul></div>
+
+      <div class="mod off"><h4>Sales Field Management <span class="badge skip">13 · tham khảo</span></h4>
+        <ul><li>MCP Adjustment — điều chỉnh tuyến</li><li>Quản lý ghé thăm, check-in theo tuyến</li></ul></div>
+
+      <div class="mod off"><h4>Các module khác <span class="badge skip">tham khảo</span></h4>
+        <ul><li>Electronic Claims (4) · Listing Management (2)</li><li>Evaluation Training (3) · Integration (3)</li><li>Transform Data — import Excel (2)</li><li>Time Sheet · Maps · Notification · File Management</li></ul></div>
+    </div>
+    <p style="font-size:12.5px;color:var(--ink-faint);margin-top:12px">Số trong nhãn = số màn hình thật đếm được trên menu Orion (OFVTT), tổng 264.</p>
+  </section>
+
+  <section id="luong-kho">
+    <div class="sec-head">
+      <span class="num">03</span>
+      <h2>Luồng kho chi tiết — phần đồ án phải dựng lại</h2>
+      <p>Thứ tự chứng từ thật của DMS. Mỗi bước ghi rõ: màn hình nào, tạo ra chứng từ gì, và ảnh hưởng tới tồn kho ra sao.</p>
+    </div>
+    <div class="steps">
+
+      <div class="stp"><div class="n">1</div>
+        <h3>Yêu cầu mua hàng</h3>
+        <div class="scr">Purchase Order › Purchase Request</div>
+        <p>Kho/chi nhánh đề nghị mua hàng khi tồn xuống thấp. Trong DMS bước này có thể tự sinh theo cấu hình (VMI/auto RPO).</p>
+        <div class="effect">Chưa ảnh hưởng tồn kho</div>
+        <div class="note">Đồ án: có thể gộp vào luôn bước tạo phiếu nhập cho đơn giản — hoặc giữ nếu muốn thể hiện quy trình duyệt.</div>
+      </div>
+
+      <div class="stp"><div class="n">2</div>
+        <h3>Nhận hàng — có bước xác nhận 2 lớp</h3>
+        <div class="scr">Purchase Order › Goods Receipt Po Confirmation → Goods Receipt PO</div>
+        <p>Orion tách 2 màn hình: người nhận hàng khai báo trước (<i>Confirmation</i>), rồi mới ghi sổ chính thức (<i>Goods Receipt PO</i>). Mục đích: người nhập liệu và người duyệt ghi sổ là 2 vai khác nhau.</p>
+        <div class="effect">Chưa ghi sổ ở bước Confirmation</div>
+        <div class="note">Đồ án rút gọn: gộp 2 bước thành 1 phiếu nhập duy nhất.</div>
+      </div>
+
+      <div class="stp"><div class="n">3</div>
+        <h3>Nhập kho</h3>
+        <div class="scr">Inventory › Goods Receipt <code>/Inventories/GoodsReceipt</code></div>
+        <p>Thủ kho tạo phiếu nhập: chọn nhà cung cấp, kho nhận, từng sản phẩm + số lượng thực nhận + đơn giá. Chứng từ có Doc Date và Posting Date riêng.</p>
+        <div class="effect">↑ Tồn kho tăng — sinh 1 dòng lịch sử nhập</div>
+        <div class="note">Đồ án bắt buộc: cộng tồn và ghi lịch sử phải nằm trong cùng 1 transaction.</div>
+      </div>
+
+      <div class="stp"><div class="n">4</div>
+        <h3>Theo dõi tồn kho</h3>
+        <div class="scr">Inventory › Inventories · Report › Inventory Actual Report</div>
+        <p>Tồn được theo dõi theo từng cặp <b>sản phẩm × kho</b> (DMS còn tách theo lô — Batch Management). Loại kho khác nhau: Main (kho chính), Van (kho xe bán hàng), Damage (hàng hỏng), Consignment (ký gửi).</p>
+        <div class="effect">Ảnh 4 loại kho: xem ui-reference/01-danh-muc/kho-warehouse.png</div>
+      </div>
+
+      <div class="stp"><div class="n">5</div>
+        <h3>Khách đặt hàng — chuỗi chứng từ bán hàng</h3>
+        <div class="scr">Sales Order: <code>/SR</code> Sales Request → <code>/SO</code> Sale Orders → <code>/DO</code> Delivery Orders → <code>/IN</code> Invoices</div>
+        <p>Đây là <b>chuỗi 4 chứng từ nối tiếp nhau</b> của DMS thật, mỗi cái là 1 màn hình riêng: yêu cầu bán → đơn hàng → lệnh giao → hóa đơn. Nhân viên bán hàng đi tuyến tạo SR; SO chốt số lượng và giá; DO là lệnh cho kho chuẩn bị hàng.</p>
+        <div class="effect">SR/SO: chưa trừ tồn · DO: chuẩn bị xuất</div>
+        <div class="note">Đồ án rút gọn: <b>gộp SR + SO + DO thành 1 bảng đơn hàng</b> — xác nhận đơn là trừ tồn luôn.</div>
+      </div>
+
+      <div class="stp"><div class="n">6</div>
+        <h3>Xuất kho giao hàng</h3>
+        <div class="scr">Inventory › Goods Issue <code>/Inventories/GoodsIssue</code></div>
+        <p>Hàng rời kho theo lệnh giao. Nếu tồn không đủ, hệ thống phải chặn ngay tại bước này.</p>
+        <div class="effect">↓ Tồn kho giảm — sinh 1 dòng lịch sử xuất</div>
+      </div>
+
+      <div class="stp"><div class="n">7</div>
+        <h3>Trả hàng — luồng ngược</h3>
+        <div class="scr">Sales Order: <code>/RR</code> Return Request → <code>/RN</code> Returns → <code>/CM</code> Credit Memos · Purchase: Goods Return Request → Confirm → Goods Return</div>
+        <p>DMS tách rõ 2 chiều trả hàng: khách trả cho mình (Returns + Credit Memo giảm công nợ), và mình trả lại nhà cung cấp (Goods Return). Cả hai đều đi qua bước Request → Confirm trước khi ghi sổ.</p>
+        <div class="effect">Khách trả: ↑ tồn tăng lại · Trả NCC: ↓ tồn giảm</div>
+        <div class="note">Đồ án: nên giữ ít nhất 1 chiều (khách trả hàng) — thể hiện được nghiệp vụ 2 chiều mà không tốn nhiều công.</div>
+      </div>
+
+      <div class="stp"><div class="n">8</div>
+        <h3>Chuyển kho giữa các kho</h3>
+        <div class="scr">Inventory › Inventory Transfers → Inventory Transfer Confirmation · Inventory Movement Confirmation</div>
+        <p>Kho A xuất, kho B nhận — phải có xác nhận 2 đầu để tránh hàng "bốc hơi" giữa đường. Đây là lý do có màn hình Confirmation riêng.</p>
+        <div class="effect">Kho đi ↓ · Kho đến ↑ — tổng tồn toàn công ty không đổi</div>
+      </div>
+
+      <div class="stp"><div class="n">9</div>
+        <h3>Kiểm kê định kỳ</h3>
+        <div class="scr">Inventory › Distributor Stock Counting</div>
+        <p>Đếm tồn thực tế rồi đối chiếu với tồn hệ thống. Chênh lệch phải ghi phiếu điều chỉnh, không sửa thẳng số tồn.</p>
+        <div class="effect">Điều chỉnh tồn — luôn kèm chứng từ</div>
+      </div>
+
+    </div>
+
+    <div class="callout" style="margin-top:22px">
+      <b>Thứ tự khai báo master data (bắt buộc theo đúng thứ tự này, thiếu là không tạo được chứng từ):</b><br>
+      1. Địa giới: Region → Province → District → Ward &nbsp;·&nbsp; 2. Tổ chức: Company → Branch → Warehouse<br>
+      3. Sản phẩm: Uom → Uom Group → Item Group → Items &nbsp;·&nbsp; 4. Đối tác: Vendors, Customers (+ Customer Group)<br>
+      5. Giá: Price List → Standard/Channel/Contract Price &nbsp;·&nbsp; 6. Bán hàng: Sales Territory → Selling Zone → Route Master → Route Setting<br>
+      7. Nhân sự: Employee → Salesman Type → gán User vào Branch
+    </div>
+  </section>
+
+  <section id="man-hinh">
+    <div class="sec-head">
+      <span class="num">04</span>
+      <h2>Field thật của từng màn hình</h2>
+      <p>Lấy trực tiếp từ hệ thống QC. Ảnh chụp tương ứng nằm trong thư mục <code>ui-reference/</code>.</p>
+    </div>
+
+    <details class="d" open>
+      <summary><h3>Items — Sản phẩm</h3><span class="chev">▶</span></summary>
+      <div class="body">
+        <p style="font-size:13.5px;color:var(--ink-muted);margin-top:12px">Cột danh sách:</p>
+        <div class="fieldlist">
+          <span class="f key">Code</span><span class="f key">Name</span><span class="f">Foreign Name</span><span class="f">ERP Code</span>
+          <span class="f">Manage By</span><span class="f">Item Type Name</span><span class="f">Uom Group</span><span class="f">Active</span>
+        </div>
+        <p style="font-size:13.5px;color:var(--ink-muted);margin-top:12px">Form tạo mới có 6 tab:</p>
+        <div class="tabs"><span class="tab">General</span><span class="tab">Inventory</span><span class="tab">Purchasing</span><span class="tab">Sales</span><span class="tab">Attribute</span><span class="tab">Image Sample</span></div>
+        <p style="font-size:13px;color:var(--ink-faint);margin-top:10px">Tab General còn có: Manage By (None/BATCH), Barcode, Expire Type, Expire Value, Issue Method, Valid/Frozen for, SU Factor, Sloc. <b>Đồ án chỉ cần</b>: Code, Name, nhóm SP, đơn vị tính, giá, trạng thái.</p>
+      </div>
+    </details>
+
+    <details class="d">
+      <summary><h3>Vendors — Nhà cung cấp</h3><span class="chev">▶</span></summary>
+      <div class="body">
+        <div class="fieldlist">
+          <span class="f key">Code</span><span class="f key">Name</span><span class="f">Foreign Name</span><span class="f">Phone</span>
+          <span class="f">Email</span><span class="f">Address</span><span class="f">Active</span>
+        </div>
+        <p style="font-size:13px;color:var(--ink-faint);margin-top:10px">Đồ án dùng gần như nguyên bộ field này.</p>
+      </div>
+    </details>
+
+    <details class="d">
+      <summary><h3>Warehouse — Kho</h3><span class="chev">▶</span></summary>
+      <div class="body">
+        <div class="fieldlist">
+          <span class="f key">Code</span><span class="f key">Name</span><span class="f">Branch Name</span>
+          <span class="f key">Whse Type</span><span class="f">Active</span>
+        </div>
+        <p style="font-size:13px;color:var(--ink-faint);margin-top:10px"><b>Whse Type</b> có 4 giá trị thật: Main · Van · Damage · Consignment. Đồ án nên giữ ít nhất Main + Damage để thể hiện nghiệp vụ hàng hỏng.</p>
+      </div>
+    </details>
+
+    <details class="d">
+      <summary><h3>Goods Receipt — Phiếu nhập kho</h3><span class="chev">▶</span></summary>
+      <div class="body">
+        <div class="fieldlist">
+          <span class="f key">Doc Number</span><span class="f">ERP Code</span><span class="f key">Doc Date</span><span class="f">Posting Date</span>
+          <span class="f">Branch</span><span class="f key">Whse</span><span class="f key">Status</span><span class="f">Remarks</span>
+        </div>
+        <p style="font-size:13px;color:var(--ink-faint);margin-top:10px">Phân biệt <b>Doc Date</b> (ngày chứng từ) và <b>Posting Date</b> (ngày ghi sổ) — báo cáo tồn kho tính theo Posting Date. Status thực tế thấy: <code>Closed</code>.</p>
+      </div>
+    </details>
+
+    <details class="d">
+      <summary><h3>Sale Orders — Đơn hàng bán</h3><span class="chev">▶</span></summary>
+      <div class="body">
+        <div class="fieldlist">
+          <span class="f key">Doc Number</span><span class="f key">Doc Date</span><span class="f key">Customer Code</span>
+          <span class="f">Customer Name</span><span class="f">Address</span>
+        </div>
+        <p style="font-size:13px;color:var(--ink-faint);margin-top:10px">Mã đơn dạng <code>SO00xxx</code> sinh tự động theo Numbering Configs. Đồ án nên làm tương tự thay vì để người dùng tự nhập mã.</p>
+      </div>
+    </details>
+
+    <details class="d">
+      <summary><h3>Branch · Selling Zone · Route — Chi nhánh &amp; tuyến bán hàng</h3><span class="chev">▶</span></summary>
+      <div class="body">
+        <p style="font-size:13.5px;color:var(--ink-muted);margin-top:12px"><b>Branch:</b></p>
+        <div class="fieldlist">
+          <span class="f key">Branch Code</span><span class="f key">Branch Name</span><span class="f">Company</span><span class="f">Tax ID</span>
+          <span class="f">Price List</span><span class="f">Region</span><span class="f">Province</span><span class="f">Ward</span>
+          <span class="f">Lat / Long</span><span class="f">Representative</span><span class="f">Effective / End Date</span>
+        </div>
+        <p style="font-size:13.5px;color:var(--ink-muted);margin-top:12px"><b>Selling Zone</b> (3 tab: Geographical · Assign Branch · Employee):</p>
+        <div class="fieldlist">
+          <span class="f key">Code</span><span class="f">Description</span><span class="f">Sales Organization Structure</span>
+          <span class="f key">Sales Area</span><span class="f">Company</span><span class="f">Branch</span><span class="f">Status</span>
+        </div>
+        <p style="font-size:13.5px;color:var(--ink-muted);margin-top:12px"><b>Route Master</b> (6 tab: Manage By · Salesman · List Of Route Setting · List Of Outlet · List Of Company · Check-in Schedule):</p>
+        <div class="fieldlist">
+          <span class="f key">Code</span><span class="f key">Name</span><span class="f">Channel</span><span class="f">Selling Zone</span>
+          <span class="f">Manage By</span><span class="f">Salesman</span><span class="f">Selling Category</span><span class="f">Type</span>
+          <span class="f">GPS Lock</span><span class="f">Minimum Visit Time</span><span class="f">Number of Outlets</span>
+        </div>
+        <p style="font-size:13.5px;color:var(--ink-muted);margin-top:12px"><b>Route Setting:</b></p>
+        <div class="fieldlist">
+          <span class="f key">Code</span><span class="f key">Name</span><span class="f key">Route Master</span><span class="f key">Sales Person</span>
+          <span class="f">Manage By</span><span class="f">Effective / End Date</span><span class="f">Coverage / Potential Outlet Qty</span>
+        </div>
+        <p style="font-size:13px;color:var(--ink-faint);margin-top:10px">Chi tiết phần này + bản rút gọn cho đồ án: xem file <code>docs/01-requirements/tuyen-ban-hang-overview.html</code>.</p>
+      </div>
+    </details>
+
+    <details class="d">
+      <summary><h3>Users &amp; Roles — Người dùng và phân quyền</h3><span class="chev">▶</span></summary>
+      <div class="body">
+        <div class="fieldlist">
+          <span class="f key">User name</span><span class="f">Email address</span><span class="f key">Roles</span><span class="f">Phone number</span>
+          <span class="f">Name / Surname</span><span class="f">Active</span><span class="f">Account lockout</span><span class="f">Email confirmed</span><span class="f">Two-factor auth</span>
+        </div>
+        <p style="font-size:13px;color:var(--ink-faint);margin-top:10px">Phân quyền DMS đi theo 2 tầng: quyền <b>chức năng</b> (Role → Permission theo từng màn hình, có sub-permission Create/Edit/Delete) và quyền <b>dữ liệu</b> (Branch User Assignment — user chỉ thấy chi nhánh được gán). Đồ án chỉ làm tầng 1.</p>
+      </div>
+    </details>
+  </section>
+
+  <section id="ap-dung">
+    <div class="sec-head">
+      <span class="num">05</span>
+      <h2>Áp dụng vào đồ án — giữ gì, bỏ gì</h2>
+      <p>Bảng đối chiếu trực tiếp giữa DMS thật và bảng dữ liệu đã dựng sẵn trong repo.</p>
+    </div>
+    <table class="t">
+      <tr><th>Nghiệp vụ DMS</th><th>Bảng trong đồ án</th><th>Trạng thái</th></tr>
+      <tr><td>Items / Item Group / UOM</td><td class="c">product · product_category</td><td><span class="tick">✓</span> đã có schema</td></tr>
+      <tr><td>Vendors</td><td class="c">supplier</td><td><span class="tick">✓</span> đã có schema</td></tr>
+      <tr><td>Warehouse (4 loại kho)</td><td class="c">warehouse.warehouse_type</td><td><span class="tick">✓</span> đã có schema</td></tr>
+      <tr><td>Customer Profile</td><td class="c">customer</td><td><span class="tick">✓</span> đã có schema</td></tr>
+      <tr><td>Branch / Selling Zone / Route</td><td class="c">branch · selling_zone · route_master · route_setting</td><td><span class="tick">✓</span> đã có schema</td></tr>
+      <tr><td>Goods Receipt (+ PO)</td><td class="c">goods_receipt · goods_receipt_detail</td><td><span class="tick">✓</span> đã có schema — <b>gộp PO vào phiếu nhập</b></td></tr>
+      <tr><td>Sale Order → Delivery → Goods Issue</td><td class="c">sales_order · sales_order_detail</td><td><span class="tick">✓</span> — <b>gộp 3 bước thành 1</b>: xác nhận đơn là xuất kho</td></tr>
+      <tr><td>Inventories (tồn hiện tại)</td><td class="c">stock</td><td><span class="tick">✓</span> đã có schema</td></tr>
+      <tr><td>Lịch sử biến động tồn</td><td class="c">stock_transaction (IN/OUT/ADJUST)</td><td><span class="tick">✓</span> đã có schema</td></tr>
+      <tr><td>Stock Counting (kiểm kê)</td><td class="c">stock_take · stock_take_detail</td><td><span class="tick">✓</span> đã có schema</td></tr>
+      <tr><td>Cảnh báo tồn thấp</td><td class="c">stock_alert</td><td><span class="tick">✓</span> đã có schema</td></tr>
+      <tr><td>Users / Roles / Permissions</td><td class="c">user · role · permission · role_permission</td><td><span class="tick">✓</span> đã code mẫu đầy đủ</td></tr>
+      <tr><td>Batch Management (quản lý lô)</td><td class="c">—</td><td class="dash">— không làm</td></tr>
+      <tr><td>Invoices / Credit Memos</td><td class="c">—</td><td class="dash">— không làm</td></tr>
+      <tr><td>Promotions / Trade Marketing</td><td class="c">—</td><td class="dash">— không làm</td></tr>
+      <tr><td>Branch User Assignment (quyền dữ liệu)</td><td class="c">—</td><td class="dash">— không làm</td></tr>
+      <tr><td>Nhóm Report HO_/Branch_/Salesforce_</td><td class="c">Data Warehouse + Power BI</td><td><span class="tick">✓</span> thay bằng tự làm</td></tr>
+    </table>
+
+    <div class="callout">
+      <b>3 điều nên bắt chước DMS cho giống hệ thống thật:</b><br>
+      1. Mã chứng từ tự sinh theo tiền tố (<code>GR00001</code>, <code>SO00123</code>) chứ không cho nhập tay.<br>
+      2. Chứng từ có trạng thái rõ ràng và không xóa cứng — chỉ đổi trạng thái (Draft → Closed / Cancelled).<br>
+      3. Mọi màn hình danh sách đều có bộ lọc theo cột + phân trang + xuất Excel — đây là thói quen dùng của người vận hành kho.
+    </div>
+  </section>
+
+  <footer>
+    Tổng hợp từ khảo sát trực tiếp hệ thống DMS/OMS trên môi trường QC nội bộ (menu, danh sách màn hình, form tạo mới của từng màn). Tài liệu dùng nội bộ cho đồ án ERPQLKHO — không phải tài liệu chính thức của nhà cung cấp phần mềm. Tên màn hình/field giữ nguyên tiếng Anh theo giao diện gốc để tiện đối chiếu.
+  </footer>
+</div>
+
+</body>
+</html>

@@ -3,7 +3,7 @@ import { Layout, Menu, Space, Button, Breadcrumb, Avatar, Badge, Tooltip } from 
 import {
   HomeOutlined, AppstoreOutlined, InboxOutlined, ShoppingCartOutlined,
   DatabaseOutlined, SafetyOutlined, LogoutOutlined, MenuFoldOutlined,
-  MenuUnfoldOutlined, UserOutlined, BellOutlined,
+  MenuUnfoldOutlined, UserOutlined, BellOutlined, EnvironmentOutlined, GlobalOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
@@ -20,6 +20,24 @@ function buildMenuItems(role) {
     {
       key: 'danh-muc', icon: <AppstoreOutlined />, label: 'Danh mục',
       children: [
+        {
+          key: 'vung-dia-ly', icon: <GlobalOutlined />, label: 'Vùng địa lý',
+          children: [
+            { key: '/regions', label: <Link to="/regions">Vùng</Link> },
+            { key: '/provinces', label: <Link to="/provinces">Tỉnh/Thành phố</Link> },
+            { key: '/districts', label: <Link to="/districts">Quận/Huyện</Link> },
+            { key: '/wards', label: <Link to="/wards">Phường/Xã</Link> },
+          ],
+        },
+        {
+          key: 'tuyen-ban-hang', icon: <EnvironmentOutlined />, label: 'Tuyến bán hàng',
+          children: [
+            { key: '/branches', label: <Link to="/branches">Chi nhánh</Link> },
+            { key: '/selling-zones', label: <Link to="/selling-zones">Vùng bán hàng</Link> },
+            { key: '/route-masters', label: <Link to="/route-masters">Khung tuyến</Link> },
+            { key: '/route-settings', label: <Link to="/route-settings">Giao tuyến vận hành</Link> },
+          ],
+        },
         { key: '/products', label: <Link to="/products">Sản phẩm</Link> },
         { key: '/product-categories', label: <Link to="/product-categories">Danh mục sản phẩm</Link> },
         { key: '/vendors', label: <Link to="/vendors">Nhà cung cấp</Link> },
@@ -64,6 +82,14 @@ const BREADCRUMB_MAP = {
   '/warehouses': ['Danh mục', 'Kho'],
   '/customers': ['Danh mục', 'Khách hàng'],
   '/uoms': ['Danh mục', 'Đơn vị tính'],
+  '/branches': ['Danh mục', 'Tuyến bán hàng', 'Chi nhánh'],
+  '/selling-zones': ['Danh mục', 'Tuyến bán hàng', 'Vùng bán hàng'],
+  '/route-masters': ['Danh mục', 'Tuyến bán hàng', 'Khung tuyến'],
+  '/route-settings': ['Danh mục', 'Tuyến bán hàng', 'Giao tuyến vận hành'],
+  '/regions': ['Danh mục', 'Vùng địa lý', 'Vùng'],
+  '/provinces': ['Danh mục', 'Vùng địa lý', 'Tỉnh/Thành phố'],
+  '/districts': ['Danh mục', 'Vùng địa lý', 'Quận/Huyện'],
+  '/wards': ['Danh mục', 'Vùng địa lý', 'Phường/Xã'],
   '/goods-receipts': ['Nhập hàng'],
   '/sales-orders': ['Bán hàng'],
   '/inventory/inventories': ['Tồn kho', 'Báo cáo tồn kho'],
@@ -75,8 +101,33 @@ const BREADCRUMB_MAP = {
   '/roles': ['Hệ thống', 'Phân quyền'],
 };
 
-// TODO: them lai Select chon chi nhanh/don vi o day sau khi co bang branch/don vi
-// that trong SQL (hien schema chua co khai niem chi nhanh - app dang single-tenant).
+// Danh sach key cua cac submenu cha (theo thu tu tu ngoai vao trong) ung voi tung route -
+// dung de tu dong mo dung nhanh submenu chua route dang đứng, khong dua vao hanh vi mac dinh
+// cua AntD (co the khac nhau giua cac phien ban) - xem ham computeOpenKeys ben duoi.
+const MENU_ANCESTOR_KEYS = {
+  '/products': ['danh-muc'],
+  '/product-categories': ['danh-muc'],
+  '/vendors': ['danh-muc'],
+  '/warehouses': ['danh-muc'],
+  '/customers': ['danh-muc'],
+  '/uoms': ['danh-muc'],
+  '/branches': ['danh-muc', 'tuyen-ban-hang'],
+  '/selling-zones': ['danh-muc', 'tuyen-ban-hang'],
+  '/route-masters': ['danh-muc', 'tuyen-ban-hang'],
+  '/route-settings': ['danh-muc', 'tuyen-ban-hang'],
+  '/regions': ['danh-muc', 'vung-dia-ly'],
+  '/provinces': ['danh-muc', 'vung-dia-ly'],
+  '/districts': ['danh-muc', 'vung-dia-ly'],
+  '/wards': ['danh-muc', 'vung-dia-ly'],
+  '/inventory/inventories': ['ton-kho'],
+  '/inventory/goods-issue': ['ton-kho'],
+  '/inventory/transfer': ['ton-kho'],
+  '/inventory/stock-counting': ['ton-kho'],
+  '/inventory/stock-alerts': ['ton-kho'],
+  '/users': ['he-thong'],
+  '/roles': ['he-thong'],
+};
+
 export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -84,6 +135,16 @@ export default function AppLayout() {
   const menuItems = buildMenuItems(user?.role);
   const [collapsed, setCollapsed] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
+  const [openKeys, setOpenKeys] = useState(MENU_ANCESTOR_KEYS[location.pathname] || []);
+
+  useEffect(() => {
+    // Chuyen trang (kể ca bang Link trong menu) -> dam bao nhanh submenu chua route hien tai
+    // luon o trang thai mo, khong tu dong dong - giu nguyen cac nhanh nguoi dung da tu mo khac.
+    const ancestors = MENU_ANCESTOR_KEYS[location.pathname];
+    if (ancestors) {
+      setOpenKeys((prev) => Array.from(new Set([...prev, ...ancestors])));
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     // INV-05: dem so canh bao ton kho dang ACTIVE de hien badge. Fetch khi tai trang, va fetch lai
@@ -115,7 +176,14 @@ export default function AppLayout() {
         <div style={{ color: '#fff', textAlign: 'center', padding: 16, fontWeight: 'bold', fontSize: 18 }}>
           {collapsed ? 'EQK' : 'ERP QLKHO'}
         </div>
-        <Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={menuItems} />
+        <Menu
+          theme="dark"
+          mode="inline"
+          selectedKeys={[location.pathname]}
+          openKeys={openKeys}
+          onOpenChange={setOpenKeys}
+          items={menuItems}
+        />
       </Sider>
       <Layout>
         <Header style={{ background: '#fff', padding: '0 16px', display: 'flex', alignItems: 'center', gap: 16 }}>

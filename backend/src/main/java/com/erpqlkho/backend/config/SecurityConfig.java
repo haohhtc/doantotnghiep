@@ -82,6 +82,61 @@ public class SecurityConfig {
                         // Khach hang: ca 3 role deu duoc toan quyen CRUD.
                         .requestMatchers("/api/customers/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER", "SALES_STAFF")
 
+                        // Nhap hang & Kiem ke kho: ai dang nhap cung xem duoc, nhung SALES_STAFF chi duoc
+                        // xem - tao/sua/xoa VA xac nhan/duyet (POST .../confirm, .../approve - van la POST
+                        // nen khop chung voi rule POST duoi day) chi ADMIN + WAREHOUSE_MANAGER duoc lam.
+                        .requestMatchers(HttpMethod.GET, "/api/goods-receipts/**", "/api/stock-takes/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/goods-receipts/**", "/api/stock-takes/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PUT, "/api/goods-receipts/**", "/api/stock-takes/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/goods-receipts/**", "/api/stock-takes/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+
+                        // Canh bao ton kho (INV-05): ai dang nhap cung xem duoc, nhung SALES_STAFF chi duoc
+                        // xem - tao/sua nguong VA danh dau xu ly (PUT .../resolve - khop chung voi rule PUT)
+                        // chi ADMIN + WAREHOUSE_MANAGER duoc lam.
+                        .requestMatchers(HttpMethod.GET, "/api/stock-alerts/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/stock-alerts/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PUT, "/api/stock-alerts/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+
+                        // Tuyen ban hang & Chi nhanh (Branch/SellingZone/RouteMaster/RouteSetting): ai dang
+                        // nhap cung xem duoc, chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa - khop dung
+                        // pattern "Danh muc" (Product/Warehouse) vi Nhi yeu cau dat nhom nay trong Danh muc.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/branches/**", "/api/selling-zones/**",
+                                "/api/route-masters/**", "/api/route-settings/**").authenticated()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/branches/**", "/api/selling-zones/**",
+                                "/api/route-masters/**", "/api/route-settings/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/branches/**", "/api/selling-zones/**",
+                                "/api/route-masters/**", "/api/route-settings/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/branches/**", "/api/selling-zones/**",
+                                "/api/route-masters/**", "/api/route-settings/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+
+                        // Vung dia ly (Region/Province/District/Ward): ai dang nhap cung xem duoc,
+                        // chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa - khop dung pattern chung.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/regions/**", "/api/provinces/**",
+                                "/api/districts/**", "/api/wards/**").authenticated()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/regions/**", "/api/provinces/**",
+                                "/api/districts/**", "/api/wards/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/regions/**", "/api/provinces/**",
+                                "/api/districts/**", "/api/wards/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/regions/**", "/api/provinces/**",
+                                "/api/districts/**", "/api/wards/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

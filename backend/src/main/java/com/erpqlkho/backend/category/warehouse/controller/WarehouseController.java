@@ -47,6 +47,6 @@ public class WarehouseController {
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deactivate(@PathVariable Long id) {
         warehouseService.deactivate(id);
-        return ApiResponse.ok("Da ngung su dung kho", null);
+        return ApiResponse.ok("Da xoa kho", null);
     }
 }
