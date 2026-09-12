@@ -3,6 +3,12 @@ package com.erpqlkho.backend.category.customer.service;
 import com.erpqlkho.backend.category.customer.dto.CustomerDto;
 import com.erpqlkho.backend.category.customer.entity.Customer;
 import com.erpqlkho.backend.category.customer.repository.CustomerRepository;
+import com.erpqlkho.backend.category.customerchannel.entity.CustomerChannel;
+import com.erpqlkho.backend.category.customerchannel.repository.CustomerChannelRepository;
+import com.erpqlkho.backend.category.customergroup.entity.CustomerGroup;
+import com.erpqlkho.backend.category.customergroup.repository.CustomerGroupRepository;
+import com.erpqlkho.backend.category.pricelist.entity.PriceList;
+import com.erpqlkho.backend.category.pricelist.repository.PriceListRepository;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.common.geography.GeographyResolver;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +23,9 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final GeographyResolver geographyResolver;
+    private final PriceListRepository priceListRepository;
+    private final CustomerGroupRepository customerGroupRepository;
+    private final CustomerChannelRepository customerChannelRepository;
 
     public List<Customer> findAll() {
         return customerRepository.findAll();
@@ -41,6 +50,9 @@ public class CustomerService {
         customer.setAddress(dto.getAddress());
         customer.setActive(dto.getActive() == null || dto.getActive());
         applyGeography(customer, dto);
+        customer.setPriceList(findPriceList(dto.getPriceListId()));
+        customer.setGroup(findGroup(dto.getGroupId()));
+        customer.setChannel(findChannel(dto.getChannelId()));
 
         return customerRepository.save(customer);
     }
@@ -62,6 +74,9 @@ public class CustomerService {
             customer.setActive(dto.getActive());
         }
         applyGeography(customer, dto);
+        customer.setPriceList(findPriceList(dto.getPriceListId()));
+        customer.setGroup(findGroup(dto.getGroupId()));
+        customer.setChannel(findChannel(dto.getChannelId()));
 
         return customerRepository.save(customer);
     }
@@ -86,5 +101,23 @@ public class CustomerService {
         customer.setProvince(geographyResolver.resolveProvince(dto.getProvinceId()));
         customer.setDistrict(geographyResolver.resolveDistrict(dto.getDistrictId()));
         customer.setWard(geographyResolver.resolveWard(dto.getWardId()));
+    }
+
+    private PriceList findPriceList(Long id) {
+        if (id == null) return null;
+        return priceListRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay bang gia id=" + id));
+    }
+
+    private CustomerGroup findGroup(Long id) {
+        if (id == null) return null;
+        return customerGroupRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay nhom khach hang id=" + id));
+    }
+
+    private CustomerChannel findChannel(Long id) {
+        if (id == null) return null;
+        return customerChannelRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay kenh ban hang id=" + id));
     }
 }

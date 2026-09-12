@@ -121,6 +121,27 @@ export default function SalesOrderPage() {
     setDetailModalOpen(true);
   }
 
+  // Tra gia tu dong theo Bang gia: customer.price_list_id -> branch.price_list_id (qua kho xuat)
+  // -> product.price. Xem backend/.../category/pricelist/service/PriceListService.lookupPrice.
+  // Van cho sua tay unitPrice sau khi dien tu dong (khong disable field), khop hanh vi truoc day.
+  function handleProductSelect(productId) {
+    const fallbackPrice = productOptions.find((p) => p.value === productId)?.price;
+    detailForm.setFieldsValue({ unitPrice: fallbackPrice });
+
+    const customerId = form.getFieldValue('customerId');
+    const warehouseId = form.getFieldValue('warehouseId');
+    axiosClient
+      .get('/price-lists/lookup', { params: { productId, customerId, warehouseId } })
+      .then(({ data }) => {
+        if (data.data != null) {
+          detailForm.setFieldsValue({ unitPrice: data.data });
+        }
+      })
+      .catch(() => {
+        // Giu gia fallback tu product.price neu tra gia loi - khong chan luong nhap don hang.
+      });
+  }
+
   function handleSubmitDetailRow() {
     detailForm.validateFields().then((values) => {
       setDetailRows((prev) => [...prev, { id: Date.now(), ...values }]);
@@ -314,7 +335,7 @@ export default function SalesOrderPage() {
             <Select
               options={productOptions}
               placeholder="Chọn sản phẩm"
-              onChange={(value) => detailForm.setFieldsValue({ unitPrice: productOptions.find((p) => p.value === value)?.price })}
+              onChange={handleProductSelect}
             />
           </Form.Item>
           <Row gutter={16}>

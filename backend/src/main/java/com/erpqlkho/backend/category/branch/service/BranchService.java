@@ -8,10 +8,14 @@ import com.erpqlkho.backend.category.company.entity.Company;
 import com.erpqlkho.backend.category.company.repository.CompanyRepository;
 import com.erpqlkho.backend.category.product.entity.ItemBranch;
 import com.erpqlkho.backend.category.product.entity.Product;
+import com.erpqlkho.backend.category.pricelist.entity.PriceList;
+import com.erpqlkho.backend.category.pricelist.repository.PriceListRepository;
 import com.erpqlkho.backend.category.product.repository.ItemBranchRepository;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.common.geography.GeographyResolver;
+import com.erpqlkho.backend.user.entity.User;
+import com.erpqlkho.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +32,8 @@ public class BranchService {
     private final GeographyResolver geographyResolver;
     private final ItemBranchRepository itemBranchRepository;
     private final ProductRepository productRepository;
+    private final PriceListRepository priceListRepository;
+    private final UserRepository userRepository;
 
     public List<Branch> findAll() {
         return branchRepository.findAll();
@@ -52,6 +58,7 @@ public class BranchService {
         branch.setActive(dto.getActive() == null || dto.getActive());
         branch.setCompany(findCompany(dto.getCompanyId()));
         applyGeography(branch, dto);
+        branch.setPriceList(findPriceList(dto.getPriceListId()));
 
         return branchRepository.save(branch);
     }
@@ -73,6 +80,7 @@ public class BranchService {
         }
         branch.setCompany(findCompany(dto.getCompanyId()));
         applyGeography(branch, dto);
+        branch.setPriceList(findPriceList(dto.getPriceListId()));
 
         return branchRepository.save(branch);
     }
@@ -95,6 +103,12 @@ public class BranchService {
     private Company findCompany(Long id) {
         return companyRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay cong ty id=" + id));
+    }
+
+    private PriceList findPriceList(Long id) {
+        if (id == null) return null;
+        return priceListRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay bang gia id=" + id));
     }
 
     private void applyGeography(Branch branch, BranchDto dto) {
@@ -136,5 +150,12 @@ public class BranchService {
             throw ApiException.notFound("Phan bo nay khong thuoc chi nhanh id=" + branchId);
         }
         itemBranchRepository.delete(itemBranch);
+    }
+
+    // Danh sach salesman (User co role SALES_STAFF) dang thuoc chi nhanh nay - dung cho man hinh
+    // Route Master chon salesman theo tung chi nhanh. Xem tonghop.md muc "Nhan vien".
+    public List<User> findSalesmen(Long branchId) {
+        findById(branchId);
+        return userRepository.findByBranchIdAndRole_Code(branchId, "SALES_STAFF");
     }
 }

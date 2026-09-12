@@ -28,4 +28,11 @@ public class CustomerDto {
     private Long provinceId;
     private Long districtId;
     private Long wardId;
+
+    // Bang gia rieng ap dung cho khach hang (nullable) - xem V14__price_list.sql.
+    private Long priceListId;
+
+    // Nhom khach hang / Kenh ban hang (nullable) - xem V15__customer_group_channel.sql.
+    private Long groupId;
+    private Long channelId;
 }

@@ -156,6 +156,41 @@ public class SecurityConfig {
                                 "/api/districts/**", "/api/wards/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
 
+                        // Bang gia (Price List): ai dang nhap cung xem duoc (SalesOrder can goi
+                        // /api/price-lists/lookup de tra gia), chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa.
+                        .requestMatchers(HttpMethod.GET, "/api/price-lists/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/price-lists/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PUT, "/api/price-lists/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.DELETE, "/api/price-lists/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+
+                        // Nhom khach hang & Kenh ban hang: ai dang nhap cung xem duoc, chi ADMIN +
+                        // WAREHOUSE_MANAGER duoc them/sua/xoa - khop dung pattern chung.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/customer-groups/**", "/api/customer-channels/**").authenticated()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/customer-groups/**", "/api/customer-channels/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/customer-groups/**", "/api/customer-channels/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/customer-groups/**", "/api/customer-channels/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+
+                        // Chuc vu & Loai nhan vien ban hang: ai dang nhap cung xem duoc, chi ADMIN +
+                        // WAREHOUSE_MANAGER duoc them/sua/xoa - khop dung pattern chung.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/employee-positions/**", "/api/salesman-types/**").authenticated()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/employee-positions/**", "/api/salesman-types/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/employee-positions/**", "/api/salesman-types/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/employee-positions/**", "/api/salesman-types/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

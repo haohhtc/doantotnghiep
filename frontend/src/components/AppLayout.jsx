@@ -4,7 +4,7 @@ import {
   HomeOutlined, AppstoreOutlined, InboxOutlined, ShoppingCartOutlined,
   DatabaseOutlined, SafetyOutlined, LogoutOutlined, MenuFoldOutlined,
   MenuUnfoldOutlined, UserOutlined, BellOutlined, EnvironmentOutlined, GlobalOutlined, BankOutlined,
-  ContainerOutlined,
+  ContainerOutlined, ClusterOutlined, CompassOutlined, TagOutlined, IdcardOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
@@ -31,20 +31,18 @@ function buildMenuItems(role) {
           ],
         },
         {
+          key: 'sales-organization', icon: <ClusterOutlined />, label: 'Sales Organization',
+          children: [
+            { key: '/selling-zones', label: <Link to="/selling-zones">Vùng bán hàng</Link> },
+          ],
+        },
+        {
           key: 'company-setup', icon: <BankOutlined />, label: 'Company Setup',
           children: [
             { key: '/company', label: <Link to="/company">Công ty</Link> },
             { key: '/vendors', label: <Link to="/vendors">Nhà cung cấp</Link> },
             { key: '/branches', label: <Link to="/branches">Chi nhánh</Link> },
             { key: '/warehouses', label: <Link to="/warehouses">Kho</Link> },
-          ],
-        },
-        {
-          key: 'tuyen-ban-hang', icon: <EnvironmentOutlined />, label: 'Tuyến bán hàng',
-          children: [
-            { key: '/selling-zones', label: <Link to="/selling-zones">Vùng bán hàng</Link> },
-            { key: '/route-masters', label: <Link to="/route-masters">Khung tuyến</Link> },
-            { key: '/route-settings', label: <Link to="/route-settings">Giao tuyến vận hành</Link> },
           ],
         },
         {
@@ -56,7 +54,37 @@ function buildMenuItems(role) {
             { key: '/tax-groups', label: <Link to="/tax-groups">Nhóm thuế</Link> },
           ],
         },
-        { key: '/customers', label: <Link to="/customers">Khách hàng</Link> },
+        {
+          key: 'bang-gia', icon: <TagOutlined />, label: 'Bảng giá',
+          children: [
+            { key: '/price-lists', label: <Link to="/price-lists">Bảng giá</Link> },
+          ],
+        },
+        {
+          key: 'khach-hang', icon: <IdcardOutlined />, label: 'Khách hàng',
+          children: [
+            { key: '/customers', label: <Link to="/customers">Khách hàng</Link> },
+            { key: '/customer-groups', label: <Link to="/customer-groups">Nhóm khách hàng</Link> },
+            { key: '/customer-channels', label: <Link to="/customer-channels">Kênh bán hàng</Link> },
+          ],
+        },
+        {
+          key: 'nhan-vien', icon: <UserOutlined />, label: 'Nhân viên',
+          children: [
+            // /users bi ProtectedRoute chan chi cho ADMIN (xem AppRoutes.jsx) - chi hien link nay
+            // cho ADMIN de tranh nguoi dung khac bam vao bi chan 403.
+            ...(role === 'ADMIN' ? [{ key: '/users', label: <Link to="/users">Nhân viên</Link> }] : []),
+            { key: '/employee-positions', label: <Link to="/employee-positions">Chức vụ</Link> },
+            { key: '/salesman-types', label: <Link to="/salesman-types">Loại nhân viên bán hàng</Link> },
+          ],
+        },
+        {
+          key: 'route-mcp', icon: <CompassOutlined />, label: 'Route & MCP',
+          children: [
+            { key: '/route-masters', label: <Link to="/route-masters">Khung tuyến</Link> },
+            { key: '/route-settings', label: <Link to="/route-settings">Giao tuyến vận hành</Link> },
+          ],
+        },
       ],
     },
     { key: '/goods-receipts', icon: <InboxOutlined />, label: <Link to="/goods-receipts">Nhập hàng</Link> },
@@ -93,14 +121,19 @@ const BREADCRUMB_MAP = {
   '/product-categories': ['Danh mục', 'Sản phẩm', 'Nhóm sản phẩm'],
   '/units': ['Danh mục', 'Sản phẩm', 'Đơn vị tính'],
   '/tax-groups': ['Danh mục', 'Sản phẩm', 'Nhóm thuế'],
-  '/customers': ['Danh mục', 'Khách hàng'],
+  '/price-lists': ['Danh mục', 'Bảng giá', 'Bảng giá'],
+  '/customers': ['Danh mục', 'Khách hàng', 'Khách hàng'],
+  '/customer-groups': ['Danh mục', 'Khách hàng', 'Nhóm khách hàng'],
+  '/customer-channels': ['Danh mục', 'Khách hàng', 'Kênh bán hàng'],
   '/company': ['Danh mục', 'Company Setup', 'Công ty'],
   '/vendors': ['Danh mục', 'Company Setup', 'Nhà cung cấp'],
   '/branches': ['Danh mục', 'Company Setup', 'Chi nhánh'],
   '/warehouses': ['Danh mục', 'Company Setup', 'Kho'],
-  '/selling-zones': ['Danh mục', 'Tuyến bán hàng', 'Vùng bán hàng'],
-  '/route-masters': ['Danh mục', 'Tuyến bán hàng', 'Khung tuyến'],
-  '/route-settings': ['Danh mục', 'Tuyến bán hàng', 'Giao tuyến vận hành'],
+  '/selling-zones': ['Danh mục', 'Sales Organization', 'Vùng bán hàng'],
+  '/route-masters': ['Danh mục', 'Route & MCP', 'Khung tuyến'],
+  '/route-settings': ['Danh mục', 'Route & MCP', 'Giao tuyến vận hành'],
+  '/employee-positions': ['Danh mục', 'Nhân viên', 'Chức vụ'],
+  '/salesman-types': ['Danh mục', 'Nhân viên', 'Loại nhân viên bán hàng'],
   '/regions': ['Danh mục', 'Vùng địa lý', 'Vùng'],
   '/provinces': ['Danh mục', 'Vùng địa lý', 'Tỉnh/Thành phố'],
   '/districts': ['Danh mục', 'Vùng địa lý', 'Quận/Huyện'],
@@ -124,14 +157,19 @@ const MENU_ANCESTOR_KEYS = {
   '/product-categories': ['danh-muc', 'san-pham'],
   '/units': ['danh-muc', 'san-pham'],
   '/tax-groups': ['danh-muc', 'san-pham'],
-  '/customers': ['danh-muc'],
+  '/price-lists': ['danh-muc', 'bang-gia'],
+  '/customers': ['danh-muc', 'khach-hang'],
+  '/customer-groups': ['danh-muc', 'khach-hang'],
+  '/customer-channels': ['danh-muc', 'khach-hang'],
   '/company': ['danh-muc', 'company-setup'],
   '/vendors': ['danh-muc', 'company-setup'],
   '/branches': ['danh-muc', 'company-setup'],
   '/warehouses': ['danh-muc', 'company-setup'],
-  '/selling-zones': ['danh-muc', 'tuyen-ban-hang'],
-  '/route-masters': ['danh-muc', 'tuyen-ban-hang'],
-  '/route-settings': ['danh-muc', 'tuyen-ban-hang'],
+  '/selling-zones': ['danh-muc', 'sales-organization'],
+  '/route-masters': ['danh-muc', 'route-mcp'],
+  '/route-settings': ['danh-muc', 'route-mcp'],
+  '/employee-positions': ['danh-muc', 'nhan-vien'],
+  '/salesman-types': ['danh-muc', 'nhan-vien'],
   '/regions': ['danh-muc', 'vung-dia-ly'],
   '/provinces': ['danh-muc', 'vung-dia-ly'],
   '/districts': ['danh-muc', 'vung-dia-ly'],

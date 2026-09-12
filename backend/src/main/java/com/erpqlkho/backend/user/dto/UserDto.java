@@ -23,4 +23,10 @@ public class UserDto {
     private String roleCode;
 
     private String status;
+
+    // Chuc vu / Loai nhan vien ban hang / Chi nhanh lam viec (nullable) - xem
+    // V16__employee_position_salesman_type.sql.
+    private Long positionId;
+    private Long salesmanTypeId;
+    private Long branchId;
 }

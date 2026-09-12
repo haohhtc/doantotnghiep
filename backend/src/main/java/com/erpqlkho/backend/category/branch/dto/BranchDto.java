@@ -31,4 +31,7 @@ public class BranchDto {
     private Long provinceId;
     private Long districtId;
     private Long wardId;
+
+    // Bang gia mac dinh ap dung cho chi nhanh (nullable) - xem V14__price_list.sql.
+    private Long priceListId;
 }

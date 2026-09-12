@@ -1,5 +1,8 @@
 package com.erpqlkho.backend.user.entity;
 
+import com.erpqlkho.backend.category.branch.entity.Branch;
+import com.erpqlkho.backend.category.employeeposition.entity.EmployeePosition;
+import com.erpqlkho.backend.category.salesmantype.entity.SalesmanType;
 import com.erpqlkho.backend.common.base.BaseEntity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
@@ -43,6 +46,21 @@ public class User extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserStatus status = UserStatus.ACTIVE;
+
+    // Chuc vu / Loai nhan vien ban hang / Chi nhanh lam viec (nullable) - Employee Master Data
+    // don gian hoa, dung chung bang User thay vi tach bang rieng - xem
+    // V16__employee_position_salesman_type.sql va tonghop.md muc "Nhan vien".
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "position_id")
+    private EmployeePosition position;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "salesman_type_id")
+    private SalesmanType salesmanType;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "branch_id")
+    private Branch branch;
 
     public enum UserStatus {
         ACTIVE, LOCKED

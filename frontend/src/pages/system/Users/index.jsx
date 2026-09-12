@@ -28,6 +28,9 @@ function roleLabel(roleCode) {
 // "mo khoa" - phai goi PUT voi status=ACTIVE.
 export default function UsersPage() {
   const [users, setUsers] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [positions, setPositions] = useState([]);
+  const [salesmanTypes, setSalesmanTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -35,11 +38,24 @@ export default function UsersPage() {
   const [filterValues, setFilterValues] = useState({});
   const [form] = Form.useForm();
 
+  const branchOptions = branches.map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` }));
+  const positionOptions = positions.map((p) => ({ value: p.id, label: p.name }));
+  const salesmanTypeOptions = salesmanTypes.map((t) => ({ value: t.id, label: t.name }));
+
   function loadData() {
     setLoading(true);
-    axiosClient
-      .get('/users')
-      .then(({ data }) => setUsers(data.data))
+    Promise.all([
+      axiosClient.get('/users'),
+      axiosClient.get('/branches'),
+      axiosClient.get('/employee-positions'),
+      axiosClient.get('/salesman-types'),
+    ])
+      .then(([usersRes, branchesRes, positionsRes, salesmanTypesRes]) => {
+        setUsers(usersRes.data.data);
+        setBranches(branchesRes.data.data);
+        setPositions(positionsRes.data.data);
+        setSalesmanTypes(salesmanTypesRes.data.data);
+      })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách người dùng'))
       .finally(() => setLoading(false));
   }
@@ -76,11 +92,16 @@ export default function UsersPage() {
       fullName: record.fullName,
       email: record.email,
       roleCode: record.role?.code,
+      branchId: record.branch?.id,
+      positionId: record.position?.id,
+      salesmanTypeId: record.salesmanType?.id,
     });
     setModalOpen(true);
   }
 
   function handleToggleLock(record) {
+    // Giu nguyen branchId/positionId/salesmanTypeId khi khoa/mo khoa - UserService.update ghi de
+    // toan bo field tu DTO, khong truyen se bi xoa mat du lieu da gan truoc do.
     const request =
       record.status === 'ACTIVE'
         ? axiosClient.delete(`/users/${record.id}`)
@@ -89,6 +110,9 @@ export default function UsersPage() {
             fullName: record.fullName,
             email: record.email,
             roleCode: record.role?.code,
+            branchId: record.branch?.id,
+            positionId: record.position?.id,
+            salesmanTypeId: record.salesmanType?.id,
             status: 'ACTIVE',
           });
     request
@@ -123,6 +147,8 @@ export default function UsersPage() {
       key: 'roleCode',
       render: (_, u) => <Tag>{roleLabel(u.role?.code)}</Tag>,
     },
+    { title: 'Chi nhánh', key: 'branch', render: (_, u) => u.branch?.name || '-' },
+    { title: 'Chức vụ', key: 'position', render: (_, u) => u.position?.name || '-' },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
@@ -211,6 +237,15 @@ export default function UsersPage() {
             rules={[{ required: true, message: 'Vai trò không được để trống' }]}
           >
             <Select options={ROLE_OPTIONS} placeholder="Chọn vai trò" />
+          </Form.Item>
+          <Form.Item label="Chi nhánh" name="branchId">
+            <Select options={branchOptions} placeholder="Chọn chi nhánh" allowClear showSearch optionFilterProp="label" />
+          </Form.Item>
+          <Form.Item label="Chức vụ" name="positionId">
+            <Select options={positionOptions} placeholder="Chọn chức vụ" allowClear showSearch optionFilterProp="label" />
+          </Form.Item>
+          <Form.Item label="Loại nhân viên bán hàng" name="salesmanTypeId">
+            <Select options={salesmanTypeOptions} placeholder="Chọn loại nhân viên bán hàng" allowClear showSearch optionFilterProp="label" />
           </Form.Item>
         </Form>
       </Modal>

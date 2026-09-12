@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Typography, Input, Button, Table, Space, Modal, Form, Checkbox, Row, Col, Popconfirm, message } from 'antd';
+import { Typography, Input, Button, Table, Space, Modal, Form, Select, Checkbox, Row, Col, Popconfirm, message } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import ActiveStatus from '../../components/ActiveStatus';
@@ -19,6 +19,9 @@ const ACTIVE_FILTER_OPTIONS = [
 // nhung field/tab do da bo khi noi API that, chi giu dung field co trong schema.
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [channels, setChannels] = useState([]);
+  const [priceLists, setPriceLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -26,11 +29,24 @@ export default function CustomersPage() {
   const [filterValues, setFilterValues] = useState({});
   const [form] = Form.useForm();
 
+  const groupOptions = groups.map((g) => ({ value: g.id, label: g.name }));
+  const channelOptions = channels.map((c) => ({ value: c.id, label: c.name }));
+  const priceListOptions = priceLists.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
+
   function loadData() {
     setLoading(true);
-    axiosClient
-      .get('/customers')
-      .then(({ data }) => setCustomers(data.data))
+    Promise.all([
+      axiosClient.get('/customers'),
+      axiosClient.get('/customer-groups'),
+      axiosClient.get('/customer-channels'),
+      axiosClient.get('/price-lists'),
+    ])
+      .then(([customersRes, groupsRes, channelsRes, priceListsRes]) => {
+        setCustomers(customersRes.data.data);
+        setGroups(groupsRes.data.data);
+        setChannels(channelsRes.data.data);
+        setPriceLists(priceListsRes.data.data);
+      })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách khách hàng'))
       .finally(() => setLoading(false));
   }
@@ -59,6 +75,9 @@ export default function CustomersPage() {
     setEditingCustomer(record);
     form.setFieldsValue({
       ...record,
+      groupId: record.group?.id,
+      channelId: record.channel?.id,
+      priceListId: record.priceList?.id,
       regionId: record.region?.id,
       provinceId: record.province?.id,
       districtId: record.district?.id,
@@ -179,6 +198,44 @@ export default function CustomersPage() {
           <Form.Item label="Địa chỉ" name="address">
             <Input />
           </Form.Item>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item label="Nhóm khách hàng" name="groupId">
+                <Select
+                  options={groupOptions}
+                  placeholder="Chọn nhóm"
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  popupMatchSelectWidth={false}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Kênh bán hàng" name="channelId">
+                <Select
+                  options={channelOptions}
+                  placeholder="Chọn kênh"
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  popupMatchSelectWidth={false}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Bảng giá" name="priceListId">
+                <Select
+                  options={priceListOptions}
+                  placeholder="Chọn bảng giá"
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  popupMatchSelectWidth={false}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
           <AddressCascadeFields form={form} />
           <Form.Item name="active" valuePropName="checked">
             <Checkbox>Kích hoạt</Checkbox>

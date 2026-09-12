@@ -6,6 +6,7 @@ import com.erpqlkho.backend.category.branch.entity.Branch;
 import com.erpqlkho.backend.category.branch.service.BranchService;
 import com.erpqlkho.backend.category.product.entity.ItemBranch;
 import com.erpqlkho.backend.common.response.ApiResponse;
+import com.erpqlkho.backend.user.entity.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -67,5 +68,11 @@ public class BranchController {
     public ApiResponse<Void> unassignProduct(@PathVariable Long id, @PathVariable Long itemBranchId) {
         branchService.unassignProduct(id, itemBranchId);
         return ApiResponse.ok("Da go phan bo san pham", null);
+    }
+
+    // Danh sach salesman (role SALES_STAFF) thuoc chi nhanh nay - xem tonghop.md muc "Nhan vien".
+    @GetMapping("/{id}/salesmen")
+    public ApiResponse<List<User>> findSalesmen(@PathVariable Long id) {
+        return ApiResponse.ok(branchService.findSalesmen(id));
     }
 }

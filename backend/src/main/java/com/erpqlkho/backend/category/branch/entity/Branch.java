@@ -2,6 +2,7 @@ package com.erpqlkho.backend.category.branch.entity;
 
 import com.erpqlkho.backend.category.company.entity.Company;
 import com.erpqlkho.backend.category.district.entity.District;
+import com.erpqlkho.backend.category.pricelist.entity.PriceList;
 import com.erpqlkho.backend.category.province.entity.Province;
 import com.erpqlkho.backend.category.region.entity.Region;
 import com.erpqlkho.backend.category.ward.entity.Ward;
@@ -59,4 +60,10 @@ public class Branch extends BaseEntity {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "ward_id")
     private Ward ward;
+
+    // Bang gia mac dinh ap dung cho chi nhanh nay (nullable) - xem V14__price_list.sql.
+    // Chi la fallback cap 2 trong PriceListService.lookupPrice (uu tien customer.priceList truoc).
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "price_list_id")
+    private PriceList priceList;
 }

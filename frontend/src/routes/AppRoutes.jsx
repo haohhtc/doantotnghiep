@@ -8,8 +8,11 @@ import CompanyPage from '../pages/company';
 import VendorsPage from '../pages/vendors';
 import WarehousesPage from '../pages/warehouses';
 import CustomersPage from '../pages/customers';
+import CustomerGroupsPage from '../pages/customerGroups';
+import CustomerChannelsPage from '../pages/customerChannels';
 import UnitsPage from '../pages/units';
 import TaxGroupsPage from '../pages/taxGroups';
+import PriceListsPage from '../pages/priceLists';
 import BranchesPage from '../pages/branches';
 import SellingZonesPage from '../pages/sellingZones';
 import RouteMastersPage from '../pages/routeMasters';
@@ -27,6 +30,8 @@ import StockCountingPage from '../pages/inventory/StockCounting';
 import StockAlertsPage from '../pages/inventory/StockAlerts';
 import UsersPage from '../pages/system/Users';
 import RolesPage from '../pages/system/Roles';
+import EmployeePositionsPage from '../pages/employeePositions';
+import SalesmanTypesPage from '../pages/salesmanTypes';
 import PlaceholderPage from '../components/PlaceholderPage';
 
 export default function AppRoutes() {
@@ -43,8 +48,11 @@ export default function AppRoutes() {
             <Route path="/vendors" element={<VendorsPage />} />
             <Route path="/warehouses" element={<WarehousesPage />} />
             <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/customer-groups" element={<CustomerGroupsPage />} />
+            <Route path="/customer-channels" element={<CustomerChannelsPage />} />
             <Route path="/units" element={<UnitsPage />} />
             <Route path="/tax-groups" element={<TaxGroupsPage />} />
+            <Route path="/price-lists" element={<PriceListsPage />} />
             <Route path="/branches" element={<BranchesPage />} />
             <Route path="/selling-zones" element={<SellingZonesPage />} />
             <Route path="/route-masters" element={<RouteMastersPage />} />
@@ -63,6 +71,9 @@ export default function AppRoutes() {
             <Route path="/inventory/transfer" element={<TransferPage />} />
             <Route path="/inventory/stock-counting" element={<StockCountingPage />} />
             <Route path="/inventory/stock-alerts" element={<StockAlertsPage />} />
+
+            <Route path="/employee-positions" element={<EmployeePositionsPage />} />
+            <Route path="/salesman-types" element={<SalesmanTypesPage />} />
 
             {/* Nguoi dung & Phan quyen: chi ADMIN duoc truy cap - go thang URL se bi chan hien 403 */}
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
