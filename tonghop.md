@@ -87,3 +87,53 @@ Quyết định: **không tách Employee thành bảng riêng** — giữ nguyê
 - [x] Đã implement xong (Migration + Backend + Frontend), đã test qua API (login → CRUD → lookup), build frontend sạch. Đã up git.
 
 </details>
+
+## Module: Inventory — Goods Issue (V17) + Inventory Transfer (V18)
+
+Nguồn: file `NGHIEP-VU-DMS-THAM-CHIEU.html` — mục Inventory (8 màn hình), đối chiếu với ảnh chụp DMS thật (`ui-reference/04-ton-kho/`).
+
+Quyết định đã chốt cho cả nhóm Inventory (7 mục, bỏ POSM):
+- **Inventories, Goods Receipt, Distributor Stock Counting**: ✅ đã xong từ trước, không đụng tới.
+- **Goods Issue**: ban đầu định gộp vào Sales Order (theo ghi chú cũ trong file DMS), nhưng xem ảnh DMS thật thì đây là màn hình độc lập thật sự — quyết định **làm thật riêng** theo đúng cấu trúc ảnh, tận dụng UI mock có sẵn ở `/inventory/goods-issue`.
+- **Inventory Transfer + Confirmation + Inventory Movement Confirmation**: gộp 3 thành 1 bước xác nhận duy nhất (giống cách đã đơn giản hóa Goods Receipt trước đây: gộp 2 bước Confirmation + Goods Receipt PO thành 1).
+- **POSM Inventory**: bỏ qua — thuộc phạm vi Trade Marketing (đã bị loại từ đầu), không phải nghiệp vụ tồn kho cốt lõi.
+
+### Module con 1: Goods Issue (Phiếu xuất kho) — Migration V17
+
+**1. Database Migration (V17)**
+- Bảng `goods_issue`: `id`, `doc_number` (auto-gen tiền tố `PX`, giống `PN` của Goods Receipt), `doc_date`, `posting_date`, `warehouse_id` (FK), `reason`, `remarks`, `status` (DRAFT/CLOSED), `created_by` (FK User), `created_at`, `updated_at`.
+- Bảng `goods_issue_item`: `id`, `goods_issue_id` (FK), `product_id` (FK), `quantity`, `batch` (free-text, không phải Batch Management thật — chỉ lưu mô tả), `note`.
+- Không thêm cột `branch_id` riêng — chi nhánh suy ra từ `warehouse.branch` như các module khác.
+
+**2. Backend Spring Boot**
+- `GoodsIssueController`/`Service`/`Repository`/`Entity`/`Dto` — pattern y hệt `GoodsReceipt` (CRUD khi DRAFT, không cho sửa/xóa khi CLOSED).
+- Xác nhận phiếu (`POST /api/goods-issues/{id}/confirm`): gọi `StockService.decrease()` cho từng dòng (y hệt cách `SalesOrderService` đang làm), `referenceType = "GOODS_ISSUE"`. Không viết logic trừ kho mới — tái dùng `StockService` có sẵn.
+- `SecurityConfig`: GET authenticated, POST/PUT/DELETE `ADMIN`+`WAREHOUSE_MANAGER` — khớp pattern `goods-receipts`/`stock-takes`.
+
+**3. Frontend React**
+- Nối trang mock `pages/inventory/GoodsIssue/index.jsx` (`/inventory/goods-issue`, route giữ nguyên) sang API thật — bỏ `INITIAL_ISSUES`/`WAREHOUSE_OPTIONS`/`PRODUCT_OPTIONS` cứng, load qua `axiosClient` giống `GoodsReceipt`/`SalesOrder`.
+
+### Module con 2: Inventory Transfer (Điều chuyển kho) — Migration V18
+
+**Điểm đã chốt lại (thay đổi so với bản đầu):** KHÔNG gộp 1 bước nữa — tách thành **2 bước xác nhận thật, 2 màn hình riêng**, đúng như DMS thật (ảnh `dieu-chuyen-kho-inventorytransfer-tao-moi.png` + sidebar thật có 2 mục "Inventory Transfer for Branch" và "Inventory Transfer Confirmation" tách biệt) — để tránh hàng "bốc hơi" giữa đường, kho nguồn và kho đích xác nhận độc lập.
+
+**Luồng trạng thái:** `DRAFT` → (kho nguồn xác nhận xuất) → `IN_TRANSIT` → (kho đích xác nhận nhận) → `CLOSED`
+
+**1. Database Migration (V18)**
+- Bảng `inventory_transfer`: `id`, `doc_number` (auto-gen tiền tố `DC`), `doc_date`, `posting_date`, `from_warehouse_id` (FK), `to_warehouse_id` (FK), `sales_employee_id` (FK User, nullable), `reason`, `remarks`, `status` (DRAFT/IN_TRANSIT/CLOSED), `sent_at`, `received_at`, `created_by`, `created_at`, `updated_at`.
+- Bảng `inventory_transfer_item`: `id`, `inventory_transfer_id` (FK), `product_id` (FK), `quantity`, `batch`, `note`.
+
+**2. Backend Spring Boot**
+- `InventoryTransferController`/`Service`/`Repository`/`Entity`/`Dto` — pattern y hệt `GoodsReceipt`/`GoodsIssue`, CRUD khi DRAFT.
+- `POST /api/inventory-transfers/{id}/confirm-send` (kho nguồn xác nhận xuất): chỉ cho phép khi status=DRAFT. Với từng dòng gọi `StockService.decrease(product, fromWarehouse, qty, "INVENTORY_TRANSFER", id)`. Status → `IN_TRANSIT`.
+- `POST /api/inventory-transfers/{id}/confirm-receive` (kho đích xác nhận nhận): chỉ cho phép khi status=IN_TRANSIT. Với từng dòng gọi `StockService.increase(product, toWarehouse, qty, "INVENTORY_TRANSFER", id)`. Status → `CLOSED`.
+- Mỗi bước là 1 request/1 transaction riêng (đúng bản chất 2 kho xác nhận ở 2 thời điểm khác nhau, không còn atomic-chung-1-transaction như bản cũ). Không cần thêm type `TRANSFER` mới trong `stock_transaction` — tái dùng `IN`/`OUT` có sẵn, chỉ thêm `referenceType = "INVENTORY_TRANSFER"` mới.
+- `SecurityConfig`: pattern như trên.
+
+**3. Frontend React — 2 trang riêng**
+- **"Chuyển hàng tồn kho"** (`/inventory/transfer`, route giữ nguyên, đổi tên hiển thị trên Sidebar) — nối trang mock `pages/inventory/Transfer/index.jsx` sang API thật; nút "Xác nhận" ở đây gọi `confirm-send` (chỉ trừ kho nguồn, chưa cộng kho đích).
+- **"Xác nhận di chuyển hàng tồn kho"** (`/inventory/transfer-confirmation`, trang MỚI) — danh sách các phiếu đang `IN_TRANSIT` (đã xuất, chờ kho đích xác nhận), nút "Xác nhận nhận hàng" gọi `confirm-receive` (cộng kho đích, đóng phiếu).
+- Sidebar nhóm "Tồn kho" thêm 1 mục mới cho trang Xác nhận di chuyển.
+
+### Trạng thái
+- [x] Đã implement xong (Migration V17+V18 + Backend + Frontend), đã test qua API thật (login → tạo phiếu → xác nhận → kiểm tra `stock`/`stock_transaction` đúng số liệu, kể cả chặn xác nhận lại phiếu đã đóng 409), build frontend sạch. Chưa up git.

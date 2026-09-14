@@ -4,25 +4,11 @@ import {
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
+import axiosClient from '../../../api/axiosClient';
+import { hasAnyRole } from '../../../utils/auth';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
-
-// Khop voi du lieu mock o pages/warehouses, pages/category/Product de dong bo giua cac module.
-const WAREHOUSE_OPTIONS = [
-  { value: 'Q1MWH01', label: 'Q1MWH01 - Kho chính Quận 1' },
-  { value: 'Q1VWH01', label: 'Q1VWH01 - Kho xe tải Quận 1' },
-  { value: 'TBDWH01', label: 'TBDWH01 - Kho hàng lỗi Tân Bình' },
-  { value: 'TBCWH01', label: 'TBCWH01 - Kho ký gửi Tân Bình' },
-];
-
-const PRODUCT_OPTIONS = [
-  { value: 'SP001', label: 'SP001 - Nước ngọt Cola lon 330ml', unit: 'THUNG', price: 180000 },
-  { value: 'SP002', label: 'SP002 - Nước suối 500ml', unit: 'THUNG', price: 90000 },
-  { value: 'SP003', label: 'SP003 - Cá hộp sốt cà', unit: 'HOP', price: 25000 },
-  { value: 'SP004', label: 'SP004 - Bánh quy bơ', unit: 'GOI', price: 15000 },
-  { value: 'SP005', label: 'SP005 - Kẹo dẻo trái cây', unit: 'TUI', price: 32000 },
-];
 
 const REASON_OPTIONS = [
   { value: 'SALE', label: 'Xuất bán' },
@@ -31,45 +17,22 @@ const REASON_OPTIONS = [
   { value: 'ADJUST', label: 'Điều chỉnh giảm sau kiểm kê' },
 ];
 
-function optionLabel(options, code) {
-  return options.find((o) => o.value === code)?.label || code;
+function reasonLabel(code) {
+  return REASON_OPTIONS.find((o) => o.value === code)?.label || code;
 }
 
-function productOf(code) {
-  return PRODUCT_OPTIONS.find((o) => o.value === code) || {};
-}
+// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/xac nhan
+// phieu xuat, SALES_STAFF chi duoc xem (GET).
+const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
-// Du lieu mau (100% mock). Backend chua co bang/Controller rieng cho "Goods Issue" - chi co
-// stock_transaction chung (type OUT) trong V5__inventory.sql, khong phai chung tu doc lap.
-const INITIAL_ISSUES = [
-  {
-    id: 1,
-    docNumber: 'PX0001',
-    docDate: '2026-08-21',
-    postingDate: '2026-08-21',
-    warehouseCode: 'Q1MWH01',
-    reason: 'SALE',
-    remarks: '',
-    status: 'CONFIRMED',
-    details: [{ id: 1, productCode: 'SP001', quantity: 20, batch: '', note: '' }],
-  },
-  {
-    id: 2,
-    docNumber: 'PX0002',
-    docDate: '2026-08-26',
-    postingDate: '',
-    warehouseCode: 'TBDWH01',
-    reason: 'DAMAGE',
-    remarks: 'Hàng bị móp trong quá trình vận chuyển',
-    status: 'DRAFT',
-    details: [{ id: 1, productCode: 'SP003', quantity: 15, batch: 'B240801', note: '' }],
-  },
-];
-
+// Trang nay da noi API that (khong con mock) - xem backend/.../inventory/controller/GoodsIssueController.java.
+// Man hinh doc lap thuc su (giong DMS that), KHONG gop vao Sales Order - xem tonghop.md muc Inventory.
 export default function GoodsIssuePage() {
-  const [issues, setIssues] = useState(INITIAL_ISSUES);
-  const [searchText, setSearchText] = useState('');
+  const [issues, setIssues] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -77,22 +40,37 @@ export default function GoodsIssuePage() {
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+  const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
+  const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
 
-  function reload() {
-    setLoading(true);
-    setIssues(INITIAL_ISSUES);
-    setSearchText('');
-    setTimeout(() => setLoading(false), 400);
+  function optionLabel(options, id) {
+    return options.find((o) => o.value === id)?.label || '';
   }
+
+  function loadData() {
+    setLoading(true);
+    Promise.all([
+      axiosClient.get('/goods-issues'),
+      axiosClient.get('/warehouses'),
+      axiosClient.get('/products'),
+    ])
+      .then(([issuesRes, warehousesRes, productsRes]) => {
+        setIssues(issuesRes.data.data);
+        setWarehouses(warehousesRes.data.data);
+        setProducts(productsRes.data.data);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu phiếu xuất'))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filteredIssues = issues.filter((i) => {
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
-    return i.docNumber.toLowerCase().includes(keyword) || optionLabel(WAREHOUSE_OPTIONS, i.warehouseCode).toLowerCase().includes(keyword);
+    return i.docNumber.toLowerCase().includes(keyword) || (i.warehouse?.name || '').toLowerCase().includes(keyword);
   });
 
   function openCreateModal() {
@@ -105,19 +83,36 @@ export default function GoodsIssuePage() {
 
   function openEditModal(record) {
     setEditingIssue(record);
-    form.setFieldsValue(record);
-    setDetailRows(record.details || []);
+    form.setFieldsValue({
+      docNumber: record.docNumber,
+      docDate: record.docDate,
+      postingDate: record.postingDate,
+      warehouseId: record.warehouse?.id,
+      reason: record.reason,
+      remarks: record.remarks,
+    });
+    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, quantity: d.quantity, batch: d.batch, note: d.note })));
     setModalOpen(true);
   }
 
   function handleDelete(record) {
-    setIssues((prev) => prev.filter((i) => i.id !== record.id));
-    message.success('Đã xóa phiếu xuất kho');
+    axiosClient
+      .delete(`/goods-issues/${record.id}`)
+      .then(() => {
+        message.success('Đã xóa phiếu xuất kho');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
 
   function handleConfirmIssue(record) {
-    setIssues((prev) => prev.map((i) => (i.id === record.id ? { ...i, status: 'CONFIRMED' } : i)));
-    message.success('Đã xác nhận phiếu xuất kho - trừ tồn kho');
+    axiosClient
+      .post(`/goods-issues/${record.id}/confirm`)
+      .then(() => {
+        message.success('Đã xác nhận phiếu xuất kho - trừ tồn kho');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xác nhận thất bại'));
   }
 
   function handleAddDetailRow() {
@@ -138,68 +133,70 @@ export default function GoodsIssuePage() {
 
   function handleSubmit() {
     form.validateFields().then((values) => {
-      if (editingIssue) {
-        setIssues((prev) => prev.map((i) => (i.id === editingIssue.id ? { ...i, ...values, details: detailRows } : i)));
-        message.success('Cập nhật thành công');
-      } else {
-        const newIssue = {
-          id: Date.now(),
-          docNumber: values.docNumber || `PX${String(issues.length + 1).padStart(4, '0')}`,
-          status: 'DRAFT',
-          ...values,
-          details: detailRows,
-        };
-        setIssues((prev) => [newIssue, ...prev]);
-        message.success('Tạo phiếu xuất kho thành công');
+      if (detailRows.length === 0) {
+        message.error('Phiếu xuất phải có ít nhất 1 dòng sản phẩm');
+        return;
       }
-      setModalOpen(false);
+      const payload = {
+        ...values,
+        items: detailRows.map((d) => ({ productId: d.productId, quantity: d.quantity, batch: d.batch, note: d.note })),
+      };
+      const request = editingIssue
+        ? axiosClient.put(`/goods-issues/${editingIssue.id}`, payload)
+        : axiosClient.post('/goods-issues', payload);
+      request
+        .then(() => {
+          message.success(editingIssue ? 'Cập nhật thành công' : 'Tạo phiếu xuất kho thành công');
+          setModalOpen(false);
+          loadData();
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
   }
 
   const totalQty = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0), 0);
-  const totalAmount = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0) * productOf(d.productCode).price, 0);
 
   const columns = [
     { title: 'Số phiếu', dataIndex: 'docNumber', key: 'docNumber' },
     { title: 'Ngày chứng từ', dataIndex: 'docDate', key: 'docDate' },
     { title: 'Ngày ghi sổ', dataIndex: 'postingDate', key: 'postingDate' },
-    { title: 'Kho xuất', key: 'warehouse', render: (_, r) => optionLabel(WAREHOUSE_OPTIONS, r.warehouseCode) },
-    { title: 'Lý do xuất', key: 'reason', render: (_, r) => optionLabel(REASON_OPTIONS, r.reason) },
+    { title: 'Kho xuất', key: 'warehouse', render: (_, r) => r.warehouse?.name },
+    { title: 'Lý do xuất', key: 'reason', render: (_, r) => reasonLabel(r.reason) },
     {
       title: 'Trạng thái',
       dataIndex: 'status',
       key: 'status',
-      render: (status) => (status === 'CONFIRMED' ? <Tag color="green">Đã xuất</Tag> : <Tag color="gold">Nháp</Tag>),
+      render: (status) => (status === 'CLOSED' ? <Tag color="green">Đã xuất</Tag> : <Tag color="gold">Nháp</Tag>),
     },
-    {
-      title: 'Thao tác',
-      key: 'actions',
-      render: (_, record) => {
-        const isDraft = record.status === 'DRAFT';
-        return (
-          <Space>
-            <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
-            {isDraft && (
-              <Popconfirm
-                title="Xác nhận phiếu xuất này?"
-                description="Sau khi xác nhận sẽ trừ tồn kho và không thể sửa/xoá."
-                onConfirm={() => handleConfirmIssue(record)}
-              >
-                <Button icon={<CheckOutlined />} type="primary" ghost />
-              </Popconfirm>
-            )}
-            <Popconfirm title="Xóa phiếu này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
-              <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
-            </Popconfirm>
-          </Space>
-        );
-      },
-    },
+    ...(canWrite
+      ? [
+          {
+            title: 'Thao tác',
+            key: 'actions',
+            render: (_, record) => (
+              <Space>
+                <Button icon={<EditOutlined />} disabled={record.status === 'CLOSED'} onClick={() => openEditModal(record)} />
+                {record.status === 'DRAFT' && (
+                  <Popconfirm
+                    title="Xác nhận phiếu xuất này?"
+                    description="Sau khi xác nhận sẽ trừ tồn kho và không thể sửa/xoá."
+                    onConfirm={() => handleConfirmIssue(record)}
+                  >
+                    <Button icon={<CheckOutlined />} type="primary" ghost />
+                  </Popconfirm>
+                )}
+                <Popconfirm title="Xóa phiếu này?" disabled={record.status === 'CLOSED'} onConfirm={() => handleDelete(record)}>
+                  <Button icon={<DeleteOutlined />} danger disabled={record.status === 'CLOSED'} />
+                </Popconfirm>
+              </Space>
+            ),
+          },
+        ]
+      : []),
   ];
 
   const detailColumns = [
-    { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(PRODUCT_OPTIONS, d.productCode) },
-    { title: 'ĐVT', key: 'unit', render: (_, d) => productOf(d.productCode).unit },
+    { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
     { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity' },
     { title: 'Số lô', dataIndex: 'batch', key: 'batch' },
     { title: 'Ghi chú', dataIndex: 'note', key: 'note' },
@@ -220,9 +217,12 @@ export default function GoodsIssuePage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số phiếu hoặc kho..."
-        onAdd={openCreateModal}
+        onAdd={canWrite ? openCreateModal : undefined}
         addTooltip="Thêm phiếu xuất kho"
-        onReload={reload}
+        onReload={() => {
+          loadData();
+          setSearchText('');
+        }}
       />
 
       <Table rowKey="id" columns={columns} dataSource={filteredIssues} loading={loading} />
@@ -255,8 +255,8 @@ export default function GoodsIssuePage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Kho xuất" name="warehouseCode" rules={[{ required: true, message: 'Kho xuất không được để trống' }]}>
-                <Select options={WAREHOUSE_OPTIONS} placeholder="Chọn kho" />
+              <Form.Item label="Kho xuất" name="warehouseId" rules={[{ required: true, message: 'Kho xuất không được để trống' }]}>
+                <Select options={warehouseOptions} placeholder="Chọn kho" />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -290,9 +290,6 @@ export default function GoodsIssuePage() {
           <Text>
             Tổng số lượng: <Text strong>{totalQty.toLocaleString('vi-VN')}</Text>
           </Text>
-          <Text>
-            Tổng tiền: <Text strong>{totalAmount.toLocaleString('vi-VN')} đ</Text>
-          </Text>
         </div>
       </Modal>
 
@@ -306,8 +303,8 @@ export default function GoodsIssuePage() {
         destroyOnHidden
       >
         <Form form={detailForm} layout="vertical">
-          <Form.Item label="Sản phẩm" name="productCode" rules={[{ required: true, message: 'Sản phẩm không được để trống' }]}>
-            <Select options={PRODUCT_OPTIONS} placeholder="Chọn sản phẩm" />
+          <Form.Item label="Sản phẩm" name="productId" rules={[{ required: true, message: 'Sản phẩm không được để trống' }]}>
+            <Select options={productOptions} placeholder="Chọn sản phẩm" />
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>

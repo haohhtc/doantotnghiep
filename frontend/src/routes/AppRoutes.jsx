@@ -26,8 +26,8 @@ import SalesOrderPage from '../pages/sales/SalesOrder';
 import InventoriesPage from '../pages/inventory/Inventories';
 import GoodsIssuePage from '../pages/inventory/GoodsIssue';
 import TransferPage from '../pages/inventory/Transfer';
+import TransferConfirmationPage from '../pages/inventory/TransferConfirmation';
 import StockCountingPage from '../pages/inventory/StockCounting';
-import StockAlertsPage from '../pages/inventory/StockAlerts';
 import UsersPage from '../pages/system/Users';
 import RolesPage from '../pages/system/Roles';
 import EmployeePositionsPage from '../pages/employeePositions';
@@ -69,8 +69,8 @@ export default function AppRoutes() {
             <Route path="/inventory/inventories" element={<InventoriesPage />} />
             <Route path="/inventory/goods-issue" element={<GoodsIssuePage />} />
             <Route path="/inventory/transfer" element={<TransferPage />} />
+            <Route path="/inventory/transfer-confirmation" element={<TransferConfirmationPage />} />
             <Route path="/inventory/stock-counting" element={<StockCountingPage />} />
-            <Route path="/inventory/stock-alerts" element={<StockAlertsPage />} />
 
             <Route path="/employee-positions" element={<EmployeePositionsPage />} />
             <Route path="/salesman-types" element={<SalesmanTypesPage />} />

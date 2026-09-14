@@ -191,6 +191,22 @@ public class SecurityConfig {
                                 "/api/employee-positions/**", "/api/salesman-types/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
 
+                        // Phieu xuat kho & Dieu chuyen kho: ai dang nhap cung xem duoc, nhung SALES_STAFF
+                        // chi duoc xem - tao/sua/xoa VA xac nhan (POST .../confirm, .../confirm-send,
+                        // .../confirm-receive - van la POST nen khop chung voi rule POST duoi day) chi
+                        // ADMIN + WAREHOUSE_MANAGER duoc lam. Khop dung pattern goods-receipts/stock-takes.
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/goods-issues/**", "/api/inventory-transfers/**").authenticated()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/goods-issues/**", "/api/inventory-transfers/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/goods-issues/**", "/api/inventory-transfers/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/goods-issues/**", "/api/inventory-transfers/**")
+                        .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
+
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

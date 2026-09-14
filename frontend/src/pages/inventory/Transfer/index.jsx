@@ -4,31 +4,10 @@ import {
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
+import axiosClient from '../../../api/axiosClient';
+import { hasAnyRole } from '../../../utils/auth';
 
 const { Title, Text } = Typography;
-const { TextArea } = Input;
-
-// Khop voi du lieu mock o pages/warehouses, pages/category/Product, pages/system/Users
-// de dong bo giua cac module.
-const WAREHOUSE_OPTIONS = [
-  { value: 'Q1MWH01', label: 'Q1MWH01 - Kho chính Quận 1' },
-  { value: 'Q1VWH01', label: 'Q1VWH01 - Kho xe tải Quận 1' },
-  { value: 'TBDWH01', label: 'TBDWH01 - Kho hàng lỗi Tân Bình' },
-  { value: 'TBCWH01', label: 'TBCWH01 - Kho ký gửi Tân Bình' },
-];
-
-const PRODUCT_OPTIONS = [
-  { value: 'SP001', label: 'SP001 - Nước ngọt Cola lon 330ml', unit: 'THUNG' },
-  { value: 'SP002', label: 'SP002 - Nước suối 500ml', unit: 'THUNG' },
-  { value: 'SP003', label: 'SP003 - Cá hộp sốt cà', unit: 'HOP' },
-  { value: 'SP004', label: 'SP004 - Bánh quy bơ', unit: 'GOI' },
-  { value: 'SP005', label: 'SP005 - Kẹo dẻo trái cây', unit: 'TUI' },
-];
-
-const EMPLOYEE_OPTIONS = [
-  { value: 'kho01', label: 'Trần Thị B (kho01)' },
-  { value: 'kho02', label: 'Lê Văn C (kho02)' },
-];
 
 const REASON_OPTIONS = [
   { value: 'REBALANCE', label: 'Cân đối tồn kho giữa các kho' },
@@ -36,48 +15,30 @@ const REASON_OPTIONS = [
   { value: 'CONSIGNMENT', label: 'Chuyển hàng ký gửi' },
 ];
 
-function optionLabel(options, code) {
-  return options.find((o) => o.value === code)?.label || code;
+function reasonLabel(code) {
+  return REASON_OPTIONS.find((o) => o.value === code)?.label || code;
 }
 
-function productOf(code) {
-  return PRODUCT_OPTIONS.find((o) => o.value === code) || {};
+function statusTag(status) {
+  if (status === 'CLOSED') return <Tag color="green">Đã nhận hàng</Tag>;
+  if (status === 'IN_TRANSIT') return <Tag color="blue">Đang vận chuyển</Tag>;
+  return <Tag color="gold">Nháp</Tag>;
 }
 
-// Du lieu mau (100% mock). Backend chua co bang/Controller rieng cho "Inventory Transfer" -
-// ve nguyen tac se la 2 stock_transaction (OUT o kho di + IN o kho den) nhung schema hien
-// chua co type TRANSFER rieng (V5__inventory.sql chi co IN/OUT/ADJUST).
-const INITIAL_TRANSFERS = [
-  {
-    id: 1,
-    docNumber: 'DC0001',
-    docDate: '2026-08-23',
-    postingDate: '2026-08-23',
-    fromWarehouseCode: 'Q1MWH01',
-    toWarehouseCode: 'TBDWH01',
-    employeeCode: 'kho01',
-    reason: 'REBALANCE',
-    status: 'CONFIRMED',
-    details: [{ id: 1, productCode: 'SP001', quantity: 30, batch: '', note: '' }],
-  },
-  {
-    id: 2,
-    docNumber: 'DC0002',
-    docDate: '2026-08-27',
-    postingDate: '',
-    fromWarehouseCode: 'Q1MWH01',
-    toWarehouseCode: 'Q1VWH01',
-    employeeCode: 'kho02',
-    reason: 'REQUEST',
-    status: 'DRAFT',
-    details: [{ id: 1, productCode: 'SP002', quantity: 10, batch: '', note: '' }],
-  },
-];
+// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/xac nhan.
+const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
+// Buoc 1/2 cua Dieu chuyen kho (giong DMS that - man hinh rieng voi buoc Xac nhan di chuyen).
+// Trang nay chi lam viec "kho nguon xac nhan xuat" (DRAFT -> IN_TRANSIT). Buoc "kho dich xac
+// nhan nhan" (IN_TRANSIT -> CLOSED) nam o trang rieng /inventory/transfer-confirmation.
+// Xem backend/.../inventory/controller/InventoryTransferController.java.
 export default function TransferPage() {
-  const [transfers, setTransfers] = useState(INITIAL_TRANSFERS);
-  const [searchText, setSearchText] = useState('');
+  const [transfers, setTransfers] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTransfer, setEditingTransfer] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -85,17 +46,39 @@ export default function TransferPage() {
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(timer);
-  }, []);
+  const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
+  const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
+  const employeeOptions = employees.map((u) => ({ value: u.id, label: u.fullName || u.username }));
 
-  function reload() {
-    setLoading(true);
-    setTransfers(INITIAL_TRANSFERS);
-    setSearchText('');
-    setTimeout(() => setLoading(false), 400);
+  function optionLabel(options, id) {
+    return options.find((o) => o.value === id)?.label || '';
   }
+
+  function loadData() {
+    setLoading(true);
+    // GET /api/users chi ADMIN + WAREHOUSE_MANAGER duoc doc (xem SecurityConfig) - chi goi khi
+    // can, tranh 403 lam fail ca Promise.all doi voi SALES_STAFF (chi xem).
+    const requests = [
+      axiosClient.get('/inventory-transfers'),
+      axiosClient.get('/warehouses'),
+      axiosClient.get('/products'),
+    ];
+    if (canWrite) requests.push(axiosClient.get('/users'));
+
+    Promise.all(requests)
+      .then(([transfersRes, warehousesRes, productsRes, usersRes]) => {
+        setTransfers(transfersRes.data.data);
+        setWarehouses(warehousesRes.data.data);
+        setProducts(productsRes.data.data);
+        if (usersRes) setEmployees(usersRes.data.data);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu điều chuyển kho'))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filteredTransfers = transfers.filter((t) => {
     const keyword = searchText.trim().toLowerCase();
@@ -113,19 +96,38 @@ export default function TransferPage() {
 
   function openEditModal(record) {
     setEditingTransfer(record);
-    form.setFieldsValue(record);
-    setDetailRows(record.details || []);
+    form.setFieldsValue({
+      docNumber: record.docNumber,
+      docDate: record.docDate,
+      postingDate: record.postingDate,
+      fromWarehouseId: record.fromWarehouse?.id,
+      toWarehouseId: record.toWarehouse?.id,
+      salesEmployeeId: record.salesEmployee?.id,
+      reason: record.reason,
+      remarks: record.remarks,
+    });
+    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, quantity: d.quantity, batch: d.batch, note: d.note })));
     setModalOpen(true);
   }
 
   function handleDelete(record) {
-    setTransfers((prev) => prev.filter((t) => t.id !== record.id));
-    message.success('Đã xóa phiếu điều chuyển');
+    axiosClient
+      .delete(`/inventory-transfers/${record.id}`)
+      .then(() => {
+        message.success('Đã xóa phiếu điều chuyển');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
 
-  function handleConfirmTransfer(record) {
-    setTransfers((prev) => prev.map((t) => (t.id === record.id ? { ...t, status: 'CONFIRMED' } : t)));
-    message.success('Đã xác nhận điều chuyển kho');
+  function handleConfirmSend(record) {
+    axiosClient
+      .post(`/inventory-transfers/${record.id}/confirm-send`)
+      .then(() => {
+        message.success('Đã xác nhận xuất kho nguồn - hàng đang vận chuyển');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xác nhận thất bại'));
   }
 
   function handleAddDetailRow() {
@@ -146,25 +148,28 @@ export default function TransferPage() {
 
   function handleSubmit() {
     form.validateFields().then((values) => {
-      if (values.fromWarehouseCode === values.toWarehouseCode) {
+      if (values.fromWarehouseId === values.toWarehouseId) {
         message.error('Kho đi và kho đến không được trùng nhau');
         return;
       }
-      if (editingTransfer) {
-        setTransfers((prev) => prev.map((t) => (t.id === editingTransfer.id ? { ...t, ...values, details: detailRows } : t)));
-        message.success('Cập nhật thành công');
-      } else {
-        const newTransfer = {
-          id: Date.now(),
-          docNumber: values.docNumber || `DC${String(transfers.length + 1).padStart(4, '0')}`,
-          status: 'DRAFT',
-          ...values,
-          details: detailRows,
-        };
-        setTransfers((prev) => [newTransfer, ...prev]);
-        message.success('Tạo phiếu điều chuyển thành công');
+      if (detailRows.length === 0) {
+        message.error('Phiếu điều chuyển phải có ít nhất 1 dòng sản phẩm');
+        return;
       }
-      setModalOpen(false);
+      const payload = {
+        ...values,
+        items: detailRows.map((d) => ({ productId: d.productId, quantity: d.quantity, batch: d.batch, note: d.note })),
+      };
+      const request = editingTransfer
+        ? axiosClient.put(`/inventory-transfers/${editingTransfer.id}`, payload)
+        : axiosClient.post('/inventory-transfers', payload);
+      request
+        .then(() => {
+          message.success(editingTransfer ? 'Cập nhật thành công' : 'Tạo phiếu điều chuyển thành công');
+          setModalOpen(false);
+          loadData();
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
   }
 
@@ -173,44 +178,42 @@ export default function TransferPage() {
   const columns = [
     { title: 'Số phiếu', dataIndex: 'docNumber', key: 'docNumber' },
     { title: 'Ngày chứng từ', dataIndex: 'docDate', key: 'docDate' },
-    { title: 'Kho đi', key: 'from', render: (_, r) => optionLabel(WAREHOUSE_OPTIONS, r.fromWarehouseCode) },
-    { title: 'Kho đến', key: 'to', render: (_, r) => optionLabel(WAREHOUSE_OPTIONS, r.toWarehouseCode) },
-    { title: 'Nhân viên phụ trách', key: 'employee', render: (_, r) => optionLabel(EMPLOYEE_OPTIONS, r.employeeCode) },
-    {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => (status === 'CONFIRMED' ? <Tag color="green">Đã điều chuyển</Tag> : <Tag color="gold">Nháp</Tag>),
-    },
-    {
-      title: 'Thao tác',
-      key: 'actions',
-      render: (_, record) => {
-        const isDraft = record.status === 'DRAFT';
-        return (
-          <Space>
-            <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
-            {isDraft && (
-              <Popconfirm
-                title="Xác nhận điều chuyển kho này?"
-                description="Sau khi xác nhận sẽ trừ tồn kho đi và cộng tồn kho đến, không thể sửa/xoá."
-                onConfirm={() => handleConfirmTransfer(record)}
-              >
-                <Button icon={<CheckOutlined />} type="primary" ghost />
-              </Popconfirm>
-            )}
-            <Popconfirm title="Xóa phiếu này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
-              <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
-            </Popconfirm>
-          </Space>
-        );
-      },
-    },
+    { title: 'Kho đi', key: 'from', render: (_, r) => r.fromWarehouse?.name },
+    { title: 'Kho đến', key: 'to', render: (_, r) => r.toWarehouse?.name },
+    { title: 'Nhân viên phụ trách', key: 'employee', render: (_, r) => r.salesEmployee?.fullName || r.salesEmployee?.username || '-' },
+    { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },
+    ...(canWrite
+      ? [
+          {
+            title: 'Thao tác',
+            key: 'actions',
+            render: (_, record) => {
+              const isDraft = record.status === 'DRAFT';
+              return (
+                <Space>
+                  <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
+                  {isDraft && (
+                    <Popconfirm
+                      title="Xác nhận xuất kho nguồn?"
+                      description="Sau khi xác nhận sẽ trừ tồn kho nguồn, hàng chuyển sang trạng thái đang vận chuyển."
+                      onConfirm={() => handleConfirmSend(record)}
+                    >
+                      <Button icon={<CheckOutlined />} type="primary" ghost />
+                    </Popconfirm>
+                  )}
+                  <Popconfirm title="Xóa phiếu này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
+                    <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
+                  </Popconfirm>
+                </Space>
+              );
+            },
+          },
+        ]
+      : []),
   ];
 
   const detailColumns = [
-    { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(PRODUCT_OPTIONS, d.productCode) },
-    { title: 'ĐVT', key: 'unit', render: (_, d) => productOf(d.productCode).unit },
+    { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
     { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity' },
     { title: 'Số lô', dataIndex: 'batch', key: 'batch' },
     { title: 'Ghi chú', dataIndex: 'note', key: 'note' },
@@ -226,14 +229,17 @@ export default function TransferPage() {
 
   return (
     <div>
-      <Title level={3}>Điều chuyển kho</Title>
+      <Title level={3}>Chuyển hàng tồn kho</Title>
       <TableToolbar
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số phiếu..."
-        onAdd={openCreateModal}
+        onAdd={canWrite ? openCreateModal : undefined}
         addTooltip="Thêm phiếu điều chuyển"
-        onReload={reload}
+        onReload={() => {
+          loadData();
+          setSearchText('');
+        }}
       />
 
       <Table rowKey="id" columns={columns} dataSource={filteredTransfers} loading={loading} />
@@ -266,18 +272,18 @@ export default function TransferPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Kho đi" name="fromWarehouseCode" rules={[{ required: true, message: 'Kho đi không được để trống' }]}>
-                <Select options={WAREHOUSE_OPTIONS} placeholder="Chọn kho đi" />
+              <Form.Item label="Kho đi" name="fromWarehouseId" rules={[{ required: true, message: 'Kho đi không được để trống' }]}>
+                <Select options={warehouseOptions} placeholder="Chọn kho đi" />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Kho đến" name="toWarehouseCode" rules={[{ required: true, message: 'Kho đến không được để trống' }]}>
-                <Select options={WAREHOUSE_OPTIONS} placeholder="Chọn kho đến" />
+              <Form.Item label="Kho đến" name="toWarehouseId" rules={[{ required: true, message: 'Kho đến không được để trống' }]}>
+                <Select options={warehouseOptions} placeholder="Chọn kho đến" />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Nhân viên phụ trách" name="employeeCode">
-                <Select options={EMPLOYEE_OPTIONS} placeholder="Chọn nhân viên" allowClear />
+              <Form.Item label="Nhân viên phụ trách" name="salesEmployeeId">
+                <Select options={employeeOptions} placeholder="Chọn nhân viên" allowClear />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -319,8 +325,8 @@ export default function TransferPage() {
         destroyOnHidden
       >
         <Form form={detailForm} layout="vertical">
-          <Form.Item label="Sản phẩm" name="productCode" rules={[{ required: true, message: 'Sản phẩm không được để trống' }]}>
-            <Select options={PRODUCT_OPTIONS} placeholder="Chọn sản phẩm" />
+          <Form.Item label="Sản phẩm" name="productId" rules={[{ required: true, message: 'Sản phẩm không được để trống' }]}>
+            <Select options={productOptions} placeholder="Chọn sản phẩm" />
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>

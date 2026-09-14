@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Layout, Menu, Space, Button, Breadcrumb, Avatar, Badge, Tooltip } from 'antd';
+import { Layout, Menu, Space, Button, Breadcrumb, Avatar } from 'antd';
 import {
-  HomeOutlined, AppstoreOutlined, InboxOutlined, ShoppingCartOutlined,
+  HomeOutlined, AppstoreOutlined, ShoppingCartOutlined,
   DatabaseOutlined, SafetyOutlined, LogoutOutlined, MenuFoldOutlined,
-  MenuUnfoldOutlined, UserOutlined, BellOutlined, EnvironmentOutlined, GlobalOutlined, BankOutlined,
+  MenuUnfoldOutlined, UserOutlined, EnvironmentOutlined, GlobalOutlined, BankOutlined,
   ContainerOutlined, ClusterOutlined, CompassOutlined, TagOutlined, IdcardOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import axiosClient from '../api/axiosClient';
 import { getCurrentUser } from '../utils/auth';
 
 const { Sider, Header, Content } = Layout;
@@ -87,16 +86,16 @@ function buildMenuItems(role) {
         },
       ],
     },
-    { key: '/goods-receipts', icon: <InboxOutlined />, label: <Link to="/goods-receipts">Nhập hàng</Link> },
     { key: '/sales-orders', icon: <ShoppingCartOutlined />, label: <Link to="/sales-orders">Bán hàng</Link> },
     {
       key: 'ton-kho', icon: <DatabaseOutlined />, label: 'Tồn kho',
       children: [
         { key: '/inventory/inventories', label: <Link to="/inventory/inventories">Báo cáo tồn kho</Link> },
+        { key: '/goods-receipts', label: <Link to="/goods-receipts">Nhập hàng</Link> },
         { key: '/inventory/goods-issue', label: <Link to="/inventory/goods-issue">Phiếu xuất kho</Link> },
-        { key: '/inventory/transfer', label: <Link to="/inventory/transfer">Điều chuyển kho</Link> },
+        { key: '/inventory/transfer', label: <Link to="/inventory/transfer">Chuyển hàng tồn kho</Link> },
+        { key: '/inventory/transfer-confirmation', label: <Link to="/inventory/transfer-confirmation">Xác nhận di chuyển hàng tồn kho</Link> },
         { key: '/inventory/stock-counting', label: <Link to="/inventory/stock-counting">Kiểm kê kho</Link> },
-        { key: '/inventory/stock-alerts', label: <Link to="/inventory/stock-alerts">Cảnh báo tồn kho</Link> },
       ],
     },
   ];
@@ -138,13 +137,13 @@ const BREADCRUMB_MAP = {
   '/provinces': ['Danh mục', 'Vùng địa lý', 'Tỉnh/Thành phố'],
   '/districts': ['Danh mục', 'Vùng địa lý', 'Quận/Huyện'],
   '/wards': ['Danh mục', 'Vùng địa lý', 'Phường/Xã'],
-  '/goods-receipts': ['Nhập hàng'],
+  '/goods-receipts': ['Tồn kho', 'Nhập hàng'],
   '/sales-orders': ['Bán hàng'],
   '/inventory/inventories': ['Tồn kho', 'Báo cáo tồn kho'],
   '/inventory/goods-issue': ['Tồn kho', 'Phiếu xuất kho'],
-  '/inventory/transfer': ['Tồn kho', 'Điều chuyển kho'],
+  '/inventory/transfer': ['Tồn kho', 'Chuyển hàng tồn kho'],
+  '/inventory/transfer-confirmation': ['Tồn kho', 'Xác nhận di chuyển hàng tồn kho'],
   '/inventory/stock-counting': ['Tồn kho', 'Kiểm kê kho'],
-  '/inventory/stock-alerts': ['Tồn kho', 'Cảnh báo tồn kho'],
   '/users': ['Hệ thống', 'Người dùng'],
   '/roles': ['Hệ thống', 'Phân quyền'],
 };
@@ -175,10 +174,11 @@ const MENU_ANCESTOR_KEYS = {
   '/districts': ['danh-muc', 'vung-dia-ly'],
   '/wards': ['danh-muc', 'vung-dia-ly'],
   '/inventory/inventories': ['ton-kho'],
+  '/goods-receipts': ['ton-kho'],
   '/inventory/goods-issue': ['ton-kho'],
   '/inventory/transfer': ['ton-kho'],
+  '/inventory/transfer-confirmation': ['ton-kho'],
   '/inventory/stock-counting': ['ton-kho'],
-  '/inventory/stock-alerts': ['ton-kho'],
   '/users': ['he-thong'],
   '/roles': ['he-thong'],
 };
@@ -189,7 +189,6 @@ export default function AppLayout() {
   const user = getCurrentUser();
   const menuItems = buildMenuItems(user?.role);
   const [collapsed, setCollapsed] = useState(false);
-  const [alertCount, setAlertCount] = useState(0);
   const [openKeys, setOpenKeys] = useState(MENU_ANCESTOR_KEYS[location.pathname] || []);
 
   useEffect(() => {
@@ -200,22 +199,6 @@ export default function AppLayout() {
       setOpenKeys((prev) => Array.from(new Set([...prev, ...ancestors])));
     }
   }, [location.pathname]);
-
-  useEffect(() => {
-    // INV-05: dem so canh bao ton kho dang ACTIVE de hien badge. Fetch khi tai trang, va fetch lai
-    // moi khi trang Canh bao ton kho tao/sua/resolve xong (bao qua su kien 'stock-alert-changed'
-    // vi Header va trang Canh bao la 2 component doc lap, khong chung state/props).
-    function fetchAlertCount() {
-      axiosClient
-        .get('/stock-alerts', { params: { status: 'ACTIVE' } })
-        .then(({ data }) => setAlertCount(data.data.length))
-        .catch(() => setAlertCount(0));
-    }
-
-    fetchAlertCount();
-    window.addEventListener('stock-alert-changed', fetchAlertCount);
-    return () => window.removeEventListener('stock-alert-changed', fetchAlertCount);
-  }, []);
 
   const breadcrumbItems = (BREADCRUMB_MAP[location.pathname] || []).map((label) => ({ title: label }));
 
@@ -250,16 +233,6 @@ export default function AppLayout() {
           <Breadcrumb items={breadcrumbItems} />
           <div style={{ flex: 1 }} />
           <Space size={20}>
-            <Tooltip title={alertCount > 0 ? `${alertCount} sản phẩm sắp hết hàng` : 'Không có cảnh báo tồn kho'}>
-              <Badge count={alertCount} size="small">
-                <Button
-                  type="text"
-                  shape="circle"
-                  icon={<BellOutlined style={{ fontSize: 18 }} />}
-                  onClick={() => navigate('/inventory/stock-alerts')}
-                />
-              </Badge>
-            </Tooltip>
             <Avatar icon={<UserOutlined />} />
             {user?.fullName || user?.username || 'User'}
             <Button type="link" icon={<LogoutOutlined />} onClick={handleLogout}>
