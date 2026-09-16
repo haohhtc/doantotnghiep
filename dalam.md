@@ -60,7 +60,7 @@ Toàn bộ 7 nhóm trong file `tonghop.md` mục "Nhi đặt hàng lớn" — Mi
 
 ### Nhóm 2: Kho & Tồn kho theo Chi nhánh
 - Tạo Chi nhánh mới → tự động sinh 3 Kho (MAIN/VAN/DAMAGE, mã `{mã CN}MWH01`/`VWH01`/`DWH01`).
-- Trang "Tồn kho" (đổi tên từ "Báo cáo tồn kho") lọc theo Branch Selector ở Header — chỉ hiện SP thuộc chi nhánh đó × 3 kho của chi nhánh, luôn đủ 3 dòng/SP kể cả tồn = 0. Cột "Kho" đổi thành "Loại kho".
+- Trang "Kho" (`/warehouses`) và trang "Tồn kho" (đổi tên từ "Báo cáo tồn kho") đều tự lọc theo Branch Selector ở Header (đã bỏ bộ lọc Chi nhánh riêng ở trang Kho theo yêu cầu, đồng nhất UX). Trang Tồn kho: chỉ hiện SP thuộc chi nhánh đó × 3 kho của chi nhánh, luôn đủ 3 dòng/SP kể cả tồn = 0, cột "Kho" đổi thành "Loại kho".
 
 ### Nhóm 3: Product 3-tab + Nhóm sản phẩm (M:N)
 - Product: bỏ `price`/ĐVT cũ, tách `purchase_uom/tax_group`, `sale_uom/tax_group`, `inventory_uom/tax_group` (dùng chung 1 `uom_group`).

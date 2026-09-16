@@ -5,6 +5,7 @@ import TableToolbar from '../../components/TableToolbar';
 import ActiveStatus from '../../components/ActiveStatus';
 import axiosClient from '../../api/axiosClient';
 import { hasAnyRole } from '../../utils/auth';
+import { useBranch } from '../../contexts/BranchContext';
 
 const { Title } = Typography;
 
@@ -30,9 +31,12 @@ function whseTypeLabel(value) {
 // Trang nay da noi API that (khong con mock) - xem backend/.../category/warehouse/
 // WarehouseController (GET/POST/PUT/DELETE /api/warehouses) + GET /api/users (danh sach
 // chon nguoi quan ly kho, chi doc).
+// Loc theo Chi nhanh dang chon o Header (BranchSelector) - dong nhat UX voi trang Ton kho, thay
+// cho bo loc Chi nhanh rieng cu (theo yeu cau nguoi dung).
 // canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function WarehousesPage() {
   const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
+  const { selectedBranchId, loading: branchLoading } = useBranch();
   const [warehouses, setWarehouses] = useState([]);
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -47,10 +51,14 @@ export default function WarehousesPage() {
   const branchOptions = branches.map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` }));
 
   function loadData() {
+    if (!selectedBranchId) return;
     setLoading(true);
     // GET /api/users chi ADMIN + WAREHOUSE_MANAGER duoc doc (xem SecurityConfig) - dung y het voi
     // canWrite nen chi goi khi can, tranh 403 lam fail ca Promise.all doi voi SALES_STAFF (chi xem).
-    const requests = [axiosClient.get('/warehouses'), axiosClient.get('/branches')];
+    const requests = [
+      axiosClient.get('/warehouses', { params: { branchId: selectedBranchId } }),
+      axiosClient.get('/branches'),
+    ];
     if (canWrite) requests.push(axiosClient.get('/users'));
 
     Promise.all(requests)
@@ -65,7 +73,7 @@ export default function WarehousesPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedBranchId]);
 
   const filteredWarehouses = warehouses.filter((w) => {
     const keyword = searchText.trim().toLowerCase();
@@ -74,14 +82,13 @@ export default function WarehousesPage() {
     }
     if (filterValues.warehouseType && w.warehouseType !== filterValues.warehouseType) return false;
     if (filterValues.active && String(w.active) !== filterValues.active) return false;
-    if (filterValues.branchId && w.branch?.id !== filterValues.branchId) return false;
     return true;
   });
 
   function openCreateModal() {
     setEditingWarehouse(null);
     form.resetFields();
-    form.setFieldsValue({ active: true, warehouseType: 'MAIN' });
+    form.setFieldsValue({ active: true, warehouseType: 'MAIN', branchId: selectedBranchId });
     setModalOpen(true);
   }
 
@@ -164,14 +171,13 @@ export default function WarehousesPage() {
         }}
         filters={[
           { name: 'warehouseType', label: 'Loại kho', options: WHSE_TYPE_OPTIONS },
-          { name: 'branchId', label: 'Chi nhánh', options: branchOptions },
           { name: 'active', label: 'Trạng thái', options: ACTIVE_FILTER_OPTIONS },
         ]}
         filterValues={filterValues}
         onFilterChange={setFilterValues}
       />
 
-      <Table rowKey="id" columns={columns} dataSource={filteredWarehouses} loading={loading} />
+      <Table rowKey="id" columns={columns} dataSource={filteredWarehouses} loading={loading || branchLoading} />
 
       <Modal
         title={editingWarehouse ? 'Sửa kho' : 'Thêm kho'}
