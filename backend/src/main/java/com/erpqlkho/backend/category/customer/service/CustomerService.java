@@ -123,6 +123,10 @@ public class CustomerService {
     // Thong tin tuyen cua khach hang (chi nhanh + lich ghe tham) suy ra tu route_master_outlet -
     // dung cho Sales Order (Nhom 6). Khach hang chua duoc gan tuyen nao -> tra ve DTO rong (moi
     // field null/false), khong nem loi, de Frontend tu quyet dinh canh bao hay khong.
+    // @Transactional: RouteMasterOutlet.routeMaster la FetchType.LAZY (tranh vong lap JSON o cho
+    // dung binh thuong) - phai giu session mo de doc outlet.getRouteMaster() o day, neu khong se
+    // nem LazyInitializationException ("no Session") vi open-in-view=false.
+    @Transactional(readOnly = true)
     public CustomerRouteInfoDto findRouteInfo(Long customerId) {
         findById(customerId);
         CustomerRouteInfoDto dto = new CustomerRouteInfoDto();
