@@ -14,12 +14,13 @@ function statusTag(status) {
 }
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc xac nhan nhan hang.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Buoc 2/2 cua Dieu chuyen kho (giong DMS that - man hinh "Inventory Transfer Confirmation"
 // rieng biet voi man hinh tao phieu o /inventory/transfer). Kho dich xac nhan da nhan hang ->
 // IN_TRANSIT -> CLOSED, cong ton kho dich. Xem backend/.../inventory/controller/InventoryTransferController.java.
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function TransferConfirmationPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');

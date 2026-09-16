@@ -11,12 +11,13 @@ const { Title, Text } = Typography;
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/duyet
 // dot kiem ke, SALES_STAFF chi duoc xem (GET).
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../inventory/controller/StockTakeController.java.
 // Luu y: khong con can nhap tay "Ton he thong" - backend tu tinh tu bang stock hien tai
 // ngay luc tao dong chi tiet (xem StockTakeService.applyDto).
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function StockCountingPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [counts, setCounts] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);

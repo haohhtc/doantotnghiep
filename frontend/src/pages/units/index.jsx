@@ -11,11 +11,12 @@ import { hasAnyRole } from '../../utils/auth';
 const { Title, Text } = Typography;
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // MDM "Uoms & Uom Groups" - thay the han trang /uoms mock cu. Xem
 // backend/.../category/uom/ va backend/.../category/uomgroup/ (co sub-resource /conversions).
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function UnitsPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   return (
     <div>
       <Title level={3}>Đơn vị tính</Title>

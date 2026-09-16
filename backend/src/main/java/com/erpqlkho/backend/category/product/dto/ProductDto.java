@@ -1,12 +1,9 @@
 package com.erpqlkho.backend.category.product.dto;
 
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.math.BigDecimal;
 
 @Getter
 @Setter
@@ -25,18 +22,19 @@ public class ProductDto {
     @NotNull(message = "Danh muc khong duoc de trong")
     private Long categoryId;
 
-    private String unit;
-
-    @DecimalMin(value = "0", message = "Gia khong duoc am")
-    private BigDecimal price;
-
     private String description;
 
     // null khi tao moi = mac dinh active=true (xu ly trong service)
     private Boolean active;
 
-    // MDM Product day du (nullable) - xem V13__product_mdm.sql.
-    private Long uomId;
+    // Dung chung 1 nhom quy doi cho ca 3 tab - xem V13__product_mdm.sql.
     private Long uomGroupId;
-    private Long taxGroupId;
+
+    // 3 tab Purchase/Sale/Inventory - xem V19__product_tabs_price_list_type.sql.
+    private Long purchaseUomId;
+    private Long purchaseTaxGroupId;
+    private Long saleUomId;
+    private Long saleTaxGroupId;
+    private Long inventoryUomId;
+    private Long inventoryTaxGroupId;
 }

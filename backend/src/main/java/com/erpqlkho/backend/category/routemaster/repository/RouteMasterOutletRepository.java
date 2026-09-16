@@ -10,4 +10,6 @@ public interface RouteMasterOutletRepository extends JpaRepository<RouteMasterOu
     List<RouteMasterOutlet> findByRouteMasterId(Long routeMasterId);
     Optional<RouteMasterOutlet> findByRouteMasterIdAndCustomerId(Long routeMasterId, Long customerId);
     boolean existsByRouteMasterIdAndCustomerId(Long routeMasterId, Long customerId);
+    boolean existsByCustomerId(Long customerId);
+    Optional<RouteMasterOutlet> findByCustomerId(Long customerId);
 }

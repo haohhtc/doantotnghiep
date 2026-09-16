@@ -9,6 +9,7 @@ import com.erpqlkho.backend.category.pricelist.entity.PriceListItem;
 import com.erpqlkho.backend.category.pricelist.repository.PriceListItemRepository;
 import com.erpqlkho.backend.category.pricelist.repository.PriceListRepository;
 import com.erpqlkho.backend.category.product.entity.Product;
+import com.erpqlkho.backend.category.product.repository.ItemBranchRepository;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
 import com.erpqlkho.backend.category.uom.entity.Uom;
 import com.erpqlkho.backend.category.uom.repository.UomRepository;
@@ -23,10 +24,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class PriceListService {
+
+    private static final Set<String> VALID_TYPES = Set.of("PURCHASE", "SALE");
 
     private final PriceListRepository priceListRepository;
     private final PriceListItemRepository priceListItemRepository;
@@ -34,6 +38,7 @@ public class PriceListService {
     private final UomRepository uomRepository;
     private final CustomerRepository customerRepository;
     private final WarehouseRepository warehouseRepository;
+    private final ItemBranchRepository itemBranchRepository;
 
     public List<PriceList> findAll() {
         return priceListRepository.findAll();
@@ -52,7 +57,7 @@ public class PriceListService {
         PriceList priceList = new PriceList();
         priceList.setCode(dto.getCode());
         priceList.setName(dto.getName());
-        priceList.setType(dto.getType() != null ? dto.getType() : "STANDARD");
+        priceList.setType(validateType(dto.getType()));
         priceList.setStartDate(dto.getStartDate());
         priceList.setEndDate(dto.getEndDate());
         priceList.setActive(dto.getActive() == null || dto.getActive());
@@ -67,13 +72,20 @@ public class PriceListService {
         }
         priceList.setCode(dto.getCode());
         priceList.setName(dto.getName());
-        priceList.setType(dto.getType() != null ? dto.getType() : "STANDARD");
+        priceList.setType(validateType(dto.getType()));
         priceList.setStartDate(dto.getStartDate());
         priceList.setEndDate(dto.getEndDate());
         if (dto.getActive() != null) {
             priceList.setActive(dto.getActive());
         }
         return priceListRepository.save(priceList);
+    }
+
+    private String validateType(String type) {
+        if (type == null || !VALID_TYPES.contains(type)) {
+            throw new ApiException("Loai bang gia phai la PURCHASE hoac SALE");
+        }
+        return type;
     }
 
     // Xoa that - chan neu dang bi Branch/Customer tham chieu. Xoa het dong gia ben trong truoc
@@ -123,42 +135,53 @@ public class PriceListService {
         if (!item.getPriceList().getId().equals(priceListId)) {
             throw ApiException.notFound("Dong gia nay khong thuoc bang gia id=" + priceListId);
         }
+        // Khong cho xoa dong gia cua SP dang duoc phan bo o chi nhanh nao do (chi cho sua gia) -
+        // don/phieu cu khong bi anh huong vi unitPrice da chot cung tung dong, rule nay chi bao ve
+        // tinh nhat quan cho don/phieu MOI sau nay - xem tonghop.md Nhom 4.
+        if (itemBranchRepository.existsByProductId(item.getProduct().getId())) {
+            throw ApiException.conflict("Khong the xoa: san pham nay dang duoc phan bo o mot chi nhanh - chi duoc sua gia, khong duoc xoa");
+        }
         priceListItemRepository.delete(item);
     }
 
-    // --- Tra gia tu dong: customer.price_list_id -> branch.price_list_id (qua warehouse) ->
-    // product.price (fallback cuoi cung). Xem tonghop.md muc "Bang gia" de biet ly do chon thu tu nay.
+    // --- Tra gia tu dong: customer.price_list_id -> branch.price_list_id (qua warehouse), chi xet
+    // dung bang gia co type = purpose (PURCHASE/SALE). KHONG con fallback ve product.price (da bi
+    // xoa cot o V19) - khong tim duoc gia hop le thi nem loi ro rang, chan tao/xac nhan phieu.
+    // Xem tonghop.md muc "Nhi dat hang lon" Nhom 4.
 
-    public BigDecimal lookupPrice(Long productId, Long customerId, Long warehouseId) {
+    public BigDecimal lookupPrice(Long productId, Long customerId, Long warehouseId, String purpose) {
         Product product = findProduct(productId);
 
         if (customerId != null) {
             Customer customer = customerRepository.findById(customerId).orElse(null);
-            if (customer != null && customer.getPriceList() != null) {
-                Optional<BigDecimal> price = pickPrice(customer.getPriceList().getId(), productId, product);
+            if (customer != null && customer.getPriceList() != null && purpose.equals(customer.getPriceList().getType())) {
+                Optional<BigDecimal> price = pickPrice(customer.getPriceList().getId(), productId, product, purpose);
                 if (price.isPresent()) return price.get();
             }
         }
 
         if (warehouseId != null) {
             Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
-            if (warehouse != null && warehouse.getBranch() != null && warehouse.getBranch().getPriceList() != null) {
-                Optional<BigDecimal> price = pickPrice(warehouse.getBranch().getPriceList().getId(), productId, product);
+            if (warehouse != null && warehouse.getBranch() != null && warehouse.getBranch().getPriceList() != null
+                    && purpose.equals(warehouse.getBranch().getPriceList().getType())) {
+                Optional<BigDecimal> price = pickPrice(warehouse.getBranch().getPriceList().getId(), productId, product, purpose);
                 if (price.isPresent()) return price.get();
             }
         }
 
-        return product.getPrice();
+        throw new ApiException("Không tìm thấy giá " + ("SALE".equals(purpose) ? "bán" : "mua")
+                + " hợp lệ cho sản phẩm \"" + product.getName() + "\" - vui lòng cấu hình bảng giá trước");
     }
 
-    // Uu tien dong gia trung uom mac dinh cua san pham (product.uom); neu khong co thi lay dong
-    // dau tien tim thay trong bang gia do cho san pham nay.
-    private Optional<BigDecimal> pickPrice(Long priceListId, Long productId, Product product) {
+    // Uu tien dong gia trung uom cua tab tuong ung (sale_uom/purchase_uom cua san pham); neu
+    // khong co thi lay dong dau tien tim thay trong bang gia do cho san pham nay.
+    private Optional<BigDecimal> pickPrice(Long priceListId, Long productId, Product product, String purpose) {
         List<PriceListItem> items = priceListItemRepository.findByPriceListIdAndProductId(priceListId, productId);
         if (items.isEmpty()) return Optional.empty();
-        if (product.getUom() != null) {
+        var preferredUom = "SALE".equals(purpose) ? product.getSaleUom() : product.getPurchaseUom();
+        if (preferredUom != null) {
             Optional<PriceListItem> matched = items.stream()
-                    .filter(i -> i.getUom().getId().equals(product.getUom().getId()))
+                    .filter(i -> i.getUom().getId().equals(preferredUom.getId()))
                     .findFirst();
             if (matched.isPresent()) return Optional.of(matched.get().getPrice());
         }

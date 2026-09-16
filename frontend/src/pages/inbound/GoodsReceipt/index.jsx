@@ -12,12 +12,14 @@ const { TextArea } = Input;
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/xac nhan
 // phieu nhap, SALES_STAFF chi duoc xem (GET).
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../inbound/controller/GoodsReceiptController.java.
-// Luu y: unit_price/amount van nhap tay o dong chi tiet (khong tu dong lay gia san pham) vi
-// backend khong tra gia mac dinh cho GoodsReceiptDto.
+// unit_price tu dong tra theo Bang gia loai PURCHASE (GET /price-lists/lookup?purpose=PURCHASE)
+// khi chon San pham + da chon Kho - khong con fallback ve product.price (da bi xoa cot o V19).
+// Van cho sua tay sau khi dien tu dong, khop hanh vi cua trang Sales Order.
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function GoodsReceiptPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [receipts, setReceipts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -33,7 +35,7 @@ export default function GoodsReceiptPage() {
 
   const supplierOptions = suppliers.map((s) => ({ value: s.id, label: `${s.code} - ${s.name}` }));
   const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
-  const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}`, price: p.price }));
+  const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';
@@ -112,6 +114,21 @@ export default function GoodsReceiptPage() {
   function handleAddDetailRow() {
     detailForm.resetFields();
     setDetailModalOpen(true);
+  }
+
+  function handleProductSelect(productId) {
+    detailForm.setFieldsValue({ unitPrice: undefined });
+    const warehouseId = form.getFieldValue('warehouseId');
+    axiosClient
+      .get('/price-lists/lookup', { params: { productId, warehouseId, purpose: 'PURCHASE' } })
+      .then(({ data }) => {
+        if (data.data != null) {
+          detailForm.setFieldsValue({ unitPrice: data.data });
+        }
+      })
+      .catch((err) => {
+        message.error(err.response?.data?.message || 'Không tra được giá mua cho sản phẩm này - vui lòng nhập tay hoặc cấu hình bảng giá');
+      });
   }
 
   function handleSubmitDetailRow() {
@@ -322,7 +339,7 @@ export default function GoodsReceiptPage() {
             <Select
               options={productOptions}
               placeholder="Chọn sản phẩm"
-              onChange={(value) => detailForm.setFieldsValue({ unitPrice: productOptions.find((p) => p.value === value)?.price })}
+              onChange={handleProductSelect}
             />
           </Form.Item>
           <Row gutter={16}>

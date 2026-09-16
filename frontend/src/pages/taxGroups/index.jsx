@@ -8,10 +8,11 @@ import { hasAnyRole } from '../../utils/auth';
 const { Title } = Typography;
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa nhom thue.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // MDM "Tax Group" - xem backend/.../category/taxgroup/controller/TaxGroupController.java.
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function TaxGroupsPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [taxGroups, setTaxGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');

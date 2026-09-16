@@ -9,10 +9,11 @@ import { hasAnyRole } from '../../utils/auth';
 const { Title } = Typography;
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa vung ban hang.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Module "Tuyen ban hang" (theo yeu cau TV2) - xem backend/.../category/sellingzone/controller/SellingZoneController.java.
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function SellingZonesPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [zones, setZones] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);

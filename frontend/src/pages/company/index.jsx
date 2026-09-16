@@ -7,11 +7,12 @@ import { hasAnyRole } from '../../utils/auth';
 const { Title } = Typography;
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc sua thong tin cong ty.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Cap to chuc cao nhat (Company Setup) - chi 1 ban ghi duy nhat (singleton), khong tao/xoa duoc.
 // Xem backend/.../category/company/controller/CompanyController.java (chi co GET/PUT).
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function CompanyPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();

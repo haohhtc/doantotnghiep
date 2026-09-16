@@ -2,6 +2,7 @@ package com.erpqlkho.backend.category.branch.entity;
 
 import com.erpqlkho.backend.category.company.entity.Company;
 import com.erpqlkho.backend.category.district.entity.District;
+import com.erpqlkho.backend.category.employee.entity.Employee;
 import com.erpqlkho.backend.category.pricelist.entity.PriceList;
 import com.erpqlkho.backend.category.province.entity.Province;
 import com.erpqlkho.backend.category.region.entity.Region;
@@ -66,4 +67,14 @@ public class Branch extends BaseEntity {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "price_list_id")
     private PriceList priceList;
+
+    // Gia tri goi y mac dinh khi tao Route moi (nullable, khong bat buoc) - xem
+    // V21__employee_route_customer_group_mn.sql.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "default_manager_id")
+    private Employee defaultManager;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "default_salesman_id")
+    private Employee defaultSalesman;
 }

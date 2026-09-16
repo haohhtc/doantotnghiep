@@ -72,12 +72,14 @@ public class PriceListController {
     }
 
     // Tra gia tu dong cho 1 san pham theo Customer/Warehouse dang tao don hang - xem
-    // PriceListService.lookupPrice de biet thu tu uu tien.
+    // PriceListService.lookupPrice de biet thu tu uu tien. purpose=SALE (Sales Order) hoac
+    // purpose=PURCHASE (Goods Receipt) - bat buoc, chi xet dung loai bang gia tuong ung.
     @GetMapping("/lookup")
     public ApiResponse<BigDecimal> lookup(
             @RequestParam Long productId,
             @RequestParam(required = false) Long customerId,
-            @RequestParam(required = false) Long warehouseId) {
-        return ApiResponse.ok(priceListService.lookupPrice(productId, customerId, warehouseId));
+            @RequestParam(required = false) Long warehouseId,
+            @RequestParam String purpose) {
+        return ApiResponse.ok(priceListService.lookupPrice(productId, customerId, warehouseId, purpose));
     }
 }

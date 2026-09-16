@@ -1,6 +1,7 @@
 package com.erpqlkho.backend.category.customer.controller;
 
 import com.erpqlkho.backend.category.customer.dto.CustomerDto;
+import com.erpqlkho.backend.category.customer.dto.CustomerRouteInfoDto;
 import com.erpqlkho.backend.category.customer.entity.Customer;
 import com.erpqlkho.backend.category.customer.service.CustomerService;
 import com.erpqlkho.backend.common.response.ApiResponse;
@@ -48,5 +49,12 @@ public class CustomerController {
     public ApiResponse<Void> deactivate(@PathVariable Long id) {
         customerService.deactivate(id);
         return ApiResponse.ok("Da xoa khach hang", null);
+    }
+
+    // Chi nhanh + lich ghe tham cua khach hang (suy ra tu tuyen dang gan) - dung cho Sales Order
+    // validate Chi nhanh va tinh "Loai ghe tham" - xem tonghop.md Nhom 6.
+    @GetMapping("/{id}/route-info")
+    public ApiResponse<CustomerRouteInfoDto> findRouteInfo(@PathVariable Long id) {
+        return ApiResponse.ok(customerService.findRouteInfo(id));
     }
 }

@@ -1,18 +1,34 @@
 import { useEffect, useState } from 'react';
-import { Typography, Input, Button, Table, Space, Modal, Form, Select, Popconfirm, message, List, Empty } from 'antd';
-import { EditOutlined, DeleteOutlined, TeamOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Checkbox, Row, Col,
+  Popconfirm, message, List, Empty, Tabs,
+} from 'antd';
+import { EditOutlined, DeleteOutlined, TeamOutlined, PlusOutlined, UserSwitchOutlined, StopOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import axiosClient from '../../api/axiosClient';
 import { hasAnyRole } from '../../utils/auth';
 
 const { Title, Text } = Typography;
 
+const WEEKDAY_FIELDS = [
+  { name: 'monday', label: 'T2' }, { name: 'tuesday', label: 'T3' }, { name: 'wednesday', label: 'T4' },
+  { name: 'thursday', label: 'T5' }, { name: 'friday', label: 'T6' }, { name: 'saturday', label: 'T7' },
+  { name: 'sunday', label: 'CN' },
+];
+const WEEK_FIELDS = [
+  { name: 'week1', label: 'Tuần 1' }, { name: 'week2', label: 'Tuần 2' },
+  { name: 'week3', label: 'Tuần 3' }, { name: 'week4', label: 'Tuần 4' },
+];
+
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa khung tuyen
 // va gan/go khach hang.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Module "Tuyen ban hang" (theo yeu cau TV2) - xem backend/.../category/routemaster/controller/RouteMasterController.java.
+// Nhan su tuyen (Salesman/Manager) da chuyen sang 2 timeline doc lap route_salesman_assignment/
+// route_manager_assignment (THAY THE han module RouteSetting cu) - xem tonghop.md Nhom 5.
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function RouteMastersPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [routes, setRoutes] = useState([]);
   const [sellingZones, setSellingZones] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -29,11 +45,29 @@ export default function RouteMastersPage() {
   const [outlets, setOutlets] = useState([]);
   const [outletLoading, setOutletLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
-  const [newCustomerId, setNewCustomerId] = useState(null);
+  const [outletForm] = Form.useForm();
+
+  // Modal "Nhan su tuyen" - 2 timeline doc lap Salesman/Manager.
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assignRoute, setAssignRoute] = useState(null);
+  const [assignTab, setAssignTab] = useState('salesman');
+  const [salesmanAssignments, setSalesmanAssignments] = useState([]);
+  const [managerAssignments, setManagerAssignments] = useState([]);
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [employees, setEmployees] = useState([]);
+  const [assignForm] = Form.useForm();
+  const [closingAssignment, setClosingAssignment] = useState(null);
+  const [closeForm] = Form.useForm();
 
   const zoneOptions = sellingZones.map((z) => ({ value: z.id, label: `${z.code} - ${z.name}` }));
   const branchOptions = branches.map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` }));
   const userOptions = users.map((u) => ({ value: u.id, label: u.fullName || u.username }));
+  const salesmanEmployeeOptions = employees
+    .filter((e) => e.type === 'NVBH')
+    .map((e) => ({ value: e.id, label: `${e.code} - ${e.fullName}` }));
+  const managerEmployeeOptions = employees
+    .filter((e) => e.type === 'NV')
+    .map((e) => ({ value: e.id, label: `${e.code} - ${e.fullName}` }));
 
   function loadData() {
     setLoading(true);
@@ -60,6 +94,10 @@ export default function RouteMastersPage() {
         .get('/customers')
         .then(({ data }) => setCustomers(data.data))
         .catch(() => setCustomers([]));
+      axiosClient
+        .get('/employees')
+        .then(({ data }) => setEmployees(data.data))
+        .catch(() => setEmployees([]));
     }
   }, []);
 
@@ -119,7 +157,7 @@ export default function RouteMastersPage() {
 
   function openOutletModal(record) {
     setOutletRoute(record);
-    setNewCustomerId(null);
+    outletForm.resetFields();
     setOutletModalOpen(true);
     loadOutlets(record.id);
   }
@@ -134,18 +172,16 @@ export default function RouteMastersPage() {
   }
 
   function handleAddOutlet() {
-    if (!newCustomerId) {
-      message.warning('Chọn khách hàng trước khi thêm');
-      return;
-    }
-    axiosClient
-      .post(`/route-masters/${outletRoute.id}/outlets`, { customerId: newCustomerId })
-      .then(() => {
-        message.success('Đã thêm khách hàng vào khung tuyến');
-        setNewCustomerId(null);
-        loadOutlets(outletRoute.id);
-      })
-      .catch((err) => message.error(err.response?.data?.message || 'Thêm thất bại'));
+    outletForm.validateFields().then((values) => {
+      axiosClient
+        .post(`/route-masters/${outletRoute.id}/outlets`, values)
+        .then(() => {
+          message.success('Đã thêm khách hàng vào khung tuyến');
+          outletForm.resetFields();
+          loadOutlets(outletRoute.id);
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Thêm thất bại'));
+    });
   }
 
   function handleRemoveOutlet(outletId) {
@@ -163,6 +199,67 @@ export default function RouteMastersPage() {
     .filter((c) => !assignedCustomerIds.includes(c.id))
     .map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
 
+  // --- Nhan su tuyen (2 timeline doc lap Salesman/Manager) ---
+
+  function openAssignModal(record) {
+    setAssignRoute(record);
+    setAssignTab('salesman');
+    assignForm.resetFields();
+    setAssignModalOpen(true);
+    loadAssignments(record.id);
+  }
+
+  function loadAssignments(routeId) {
+    setAssignLoading(true);
+    Promise.all([
+      axiosClient.get(`/route-masters/${routeId}/salesman-assignments`),
+      axiosClient.get(`/route-masters/${routeId}/manager-assignments`),
+    ])
+      .then(([salesmanRes, managerRes]) => {
+        setSalesmanAssignments(salesmanRes.data.data);
+        setManagerAssignments(managerRes.data.data);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được nhân sự tuyến'))
+      .finally(() => setAssignLoading(false));
+  }
+
+  function handleAddAssignment() {
+    assignForm.validateFields().then((values) => {
+      const path = assignTab === 'salesman' ? 'salesman-assignments' : 'manager-assignments';
+      axiosClient
+        .post(`/route-masters/${assignRoute.id}/${path}`, values)
+        .then(() => {
+          message.success('Đã thêm phân bổ');
+          assignForm.resetFields();
+          loadAssignments(assignRoute.id);
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Thêm thất bại'));
+    });
+  }
+
+  function openCloseModal(assignment) {
+    setClosingAssignment(assignment);
+    closeForm.resetFields();
+    closeForm.setFieldsValue({ endDate: new Date().toISOString().slice(0, 10) });
+  }
+
+  function handleCloseAssignment() {
+    closeForm.validateFields().then((values) => {
+      const path = assignTab === 'salesman' ? 'salesman-assignments' : 'manager-assignments';
+      axiosClient
+        .post(`/route-masters/${assignRoute.id}/${path}/${closingAssignment.id}/close`, values)
+        .then(() => {
+          message.success('Đã đóng dòng phân bổ');
+          setClosingAssignment(null);
+          loadAssignments(assignRoute.id);
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Đóng thất bại'));
+    });
+  }
+
+  const currentAssignmentList = assignTab === 'salesman' ? salesmanAssignments : managerAssignments;
+  const currentEmployeeOptions = assignTab === 'salesman' ? salesmanEmployeeOptions : managerEmployeeOptions;
+
   const columns = [
     { title: 'Mã tuyến', dataIndex: 'code', key: 'code' },
     { title: 'Tên khung tuyến', dataIndex: 'name', key: 'name' },
@@ -178,6 +275,9 @@ export default function RouteMastersPage() {
         <Space>
           <Button size="small" icon={<TeamOutlined />} onClick={() => openOutletModal(record)}>
             Khách hàng
+          </Button>
+          <Button size="small" icon={<UserSwitchOutlined />} onClick={() => openAssignModal(record)}>
+            Nhân sự
           </Button>
           {canWrite && (
             <>
@@ -261,23 +361,45 @@ export default function RouteMastersPage() {
         open={outletModalOpen}
         onCancel={() => setOutletModalOpen(false)}
         footer={null}
+        width={640}
         destroyOnHidden
       >
         {canWrite && (
-          <Space.Compact style={{ width: '100%', marginBottom: 16 }}>
-            <Select
-              style={{ width: '100%' }}
-              placeholder="Chọn khách hàng để thêm vào tuyến"
-              options={availableCustomerOptions}
-              value={newCustomerId}
-              onChange={setNewCustomerId}
-              showSearch
-              optionFilterProp="label"
-            />
+          <Form form={outletForm} layout="vertical" style={{ marginBottom: 16, padding: 12, background: '#fafafa', borderRadius: 4 }}>
+            <Row gutter={12}>
+              <Col span={16}>
+                <Form.Item label="Khách hàng" name="customerId" rules={[{ required: true, message: 'Chọn khách hàng' }]} style={{ marginBottom: 8 }}>
+                  <Select options={availableCustomerOptions} placeholder="Chọn khách hàng để thêm vào tuyến" showSearch optionFilterProp="label" />
+                </Form.Item>
+              </Col>
+              <Col span={8}>
+                <Form.Item label="Thứ tự ghé thăm" name="visitOrder" style={{ marginBottom: 8 }}>
+                  <InputNumber min={1} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Form.Item label="Lịch ghé thăm - Thứ" style={{ marginBottom: 8 }}>
+              <Space wrap>
+                {WEEKDAY_FIELDS.map((d) => (
+                  <Form.Item key={d.name} name={d.name} valuePropName="checked" noStyle>
+                    <Checkbox>{d.label}</Checkbox>
+                  </Form.Item>
+                ))}
+              </Space>
+            </Form.Item>
+            <Form.Item label="Lịch ghé thăm - Tuần trong tháng" style={{ marginBottom: 8 }}>
+              <Space wrap>
+                {WEEK_FIELDS.map((w) => (
+                  <Form.Item key={w.name} name={w.name} valuePropName="checked" noStyle>
+                    <Checkbox>{w.label}</Checkbox>
+                  </Form.Item>
+                ))}
+              </Space>
+            </Form.Item>
             <Button type="primary" icon={<PlusOutlined />} onClick={handleAddOutlet}>
-              Thêm
+              Thêm vào tuyến
             </Button>
-          </Space.Compact>
+          </Form>
         )}
         <List
           loading={outletLoading}
@@ -295,10 +417,102 @@ export default function RouteMastersPage() {
                   : []
               }
             >
-              <Text>{o.customer.code} - {o.customer.name}</Text>
+              <Text>
+                {o.visitOrder ? `#${o.visitOrder} - ` : ''}{o.customer.code} - {o.customer.name}
+              </Text>
             </List.Item>
           )}
         />
+      </Modal>
+
+      <Modal
+        title={assignRoute ? `Nhân sự tuyến ${assignRoute.code}` : 'Nhân sự tuyến'}
+        open={assignModalOpen}
+        onCancel={() => setAssignModalOpen(false)}
+        footer={null}
+        width={640}
+        destroyOnHidden
+      >
+        <Tabs
+          activeKey={assignTab}
+          onChange={setAssignTab}
+          items={[
+            { key: 'salesman', label: 'Nhân viên bán hàng' },
+            { key: 'manager', label: 'Quản lý' },
+          ]}
+        />
+        {canWrite && (
+          <Form form={assignForm} layout="inline" style={{ marginBottom: 16 }}>
+            <Form.Item name="employeeId" rules={[{ required: true, message: 'Chọn nhân viên' }]}>
+              <Select
+                options={currentEmployeeOptions}
+                placeholder={assignTab === 'salesman' ? 'Chọn NVBH' : 'Chọn quản lý'}
+                style={{ width: 220 }}
+                showSearch
+                optionFilterProp="label"
+              />
+            </Form.Item>
+            <Form.Item name="effectiveDate" rules={[{ required: true, message: 'Ngày hiệu lực' }]}>
+              <Input type="date" placeholder="Ngày hiệu lực" />
+            </Form.Item>
+            <Form.Item name="endDate" extra="Bỏ trống nếu khung tuyến chưa có ngày kết thúc">
+              <Input type="date" placeholder="Ngày kết thúc (nếu có)" />
+            </Form.Item>
+            <Form.Item>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleAddAssignment}>
+                Thêm
+              </Button>
+            </Form.Item>
+          </Form>
+        )}
+        <List
+          loading={assignLoading}
+          dataSource={currentAssignmentList}
+          locale={{ emptyText: <Empty description="Chưa có phân bổ nào" /> }}
+          renderItem={(a) => {
+            const isOpen = !a.endDate || new Date(a.endDate) >= new Date(new Date().toDateString());
+            return (
+              <List.Item
+                actions={
+                  canWrite && isOpen
+                    ? [
+                        <Button key="close" size="small" icon={<StopOutlined />} onClick={() => openCloseModal(a)}>
+                          Đóng
+                        </Button>,
+                      ]
+                    : []
+                }
+              >
+                <Space>
+                  <Text>{a.employee.code} - {a.employee.fullName}</Text>
+                  <Text type="secondary">{a.effectiveDate} → {a.endDate || 'chưa kết thúc'}</Text>
+                  {isOpen ? <Tag color="green">Đang hoạt động</Tag> : <Tag>Đã đóng</Tag>}
+                </Space>
+              </List.Item>
+            );
+          }}
+        />
+      </Modal>
+
+      <Modal
+        title="Đóng dòng phân bổ"
+        open={!!closingAssignment}
+        onOk={handleCloseAssignment}
+        onCancel={() => setClosingAssignment(null)}
+        okText="Xác nhận đóng"
+        cancelText="Hủy"
+        destroyOnHidden
+      >
+        <Form form={closeForm} layout="vertical">
+          <Form.Item
+            label="Ngày kết thúc"
+            name="endDate"
+            rules={[{ required: true, message: 'Ngày kết thúc không được để trống' }]}
+            extra="Phải từ hôm nay trở đi, không được lùi về quá khứ."
+          >
+            <Input type="date" />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );

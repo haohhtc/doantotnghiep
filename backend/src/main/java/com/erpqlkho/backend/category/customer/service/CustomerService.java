@@ -1,14 +1,16 @@
 package com.erpqlkho.backend.category.customer.service;
 
 import com.erpqlkho.backend.category.customer.dto.CustomerDto;
+import com.erpqlkho.backend.category.customer.dto.CustomerRouteInfoDto;
 import com.erpqlkho.backend.category.customer.entity.Customer;
 import com.erpqlkho.backend.category.customer.repository.CustomerRepository;
 import com.erpqlkho.backend.category.customerchannel.entity.CustomerChannel;
 import com.erpqlkho.backend.category.customerchannel.repository.CustomerChannelRepository;
-import com.erpqlkho.backend.category.customergroup.entity.CustomerGroup;
-import com.erpqlkho.backend.category.customergroup.repository.CustomerGroupRepository;
+import com.erpqlkho.backend.category.customergroup.repository.CustomerGroupMemberRepository;
 import com.erpqlkho.backend.category.pricelist.entity.PriceList;
 import com.erpqlkho.backend.category.pricelist.repository.PriceListRepository;
+import com.erpqlkho.backend.category.routemaster.entity.RouteMasterOutlet;
+import com.erpqlkho.backend.category.routemaster.repository.RouteMasterOutletRepository;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.common.geography.GeographyResolver;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -24,8 +27,9 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
     private final GeographyResolver geographyResolver;
     private final PriceListRepository priceListRepository;
-    private final CustomerGroupRepository customerGroupRepository;
     private final CustomerChannelRepository customerChannelRepository;
+    private final CustomerGroupMemberRepository customerGroupMemberRepository;
+    private final RouteMasterOutletRepository routeMasterOutletRepository;
 
     public List<Customer> findAll() {
         return customerRepository.findAll();
@@ -51,7 +55,6 @@ public class CustomerService {
         customer.setActive(dto.getActive() == null || dto.getActive());
         applyGeography(customer, dto);
         customer.setPriceList(findPriceList(dto.getPriceListId()));
-        customer.setGroup(findGroup(dto.getGroupId()));
         customer.setChannel(findChannel(dto.getChannelId()));
 
         return customerRepository.save(customer);
@@ -75,7 +78,6 @@ public class CustomerService {
         }
         applyGeography(customer, dto);
         customer.setPriceList(findPriceList(dto.getPriceListId()));
-        customer.setGroup(findGroup(dto.getGroupId()));
         customer.setChannel(findChannel(dto.getChannelId()));
 
         return customerRepository.save(customer);
@@ -88,6 +90,9 @@ public class CustomerService {
     @Transactional
     public void deactivate(Long id) {
         Customer customer = findById(id);
+        // Go het thanh vien nhom (M:N) truoc - khong tinh la "dang duoc su dung" (chi la du lieu
+        // mo ta/phan loai, khac han sales_order/route_master_outlet).
+        customerGroupMemberRepository.deleteAll(customerGroupMemberRepository.findByCustomerId(id));
         try {
             customerRepository.delete(customer);
             customerRepository.flush();
@@ -109,15 +114,38 @@ public class CustomerService {
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay bang gia id=" + id));
     }
 
-    private CustomerGroup findGroup(Long id) {
-        if (id == null) return null;
-        return customerGroupRepository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Khong tim thay nhom khach hang id=" + id));
-    }
-
     private CustomerChannel findChannel(Long id) {
         if (id == null) return null;
         return customerChannelRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay kenh ban hang id=" + id));
+    }
+
+    // Thong tin tuyen cua khach hang (chi nhanh + lich ghe tham) suy ra tu route_master_outlet -
+    // dung cho Sales Order (Nhom 6). Khach hang chua duoc gan tuyen nao -> tra ve DTO rong (moi
+    // field null/false), khong nem loi, de Frontend tu quyet dinh canh bao hay khong.
+    public CustomerRouteInfoDto findRouteInfo(Long customerId) {
+        findById(customerId);
+        CustomerRouteInfoDto dto = new CustomerRouteInfoDto();
+        Optional<RouteMasterOutlet> outletOpt = routeMasterOutletRepository.findByCustomerId(customerId);
+        if (outletOpt.isEmpty()) return dto;
+
+        RouteMasterOutlet outlet = outletOpt.get();
+        var branch = outlet.getRouteMaster().getBranch();
+        if (branch != null) {
+            dto.setBranchId(branch.getId());
+            dto.setBranchName(branch.getName());
+        }
+        dto.setMonday(outlet.isMonday());
+        dto.setTuesday(outlet.isTuesday());
+        dto.setWednesday(outlet.isWednesday());
+        dto.setThursday(outlet.isThursday());
+        dto.setFriday(outlet.isFriday());
+        dto.setSaturday(outlet.isSaturday());
+        dto.setSunday(outlet.isSunday());
+        dto.setWeek1(outlet.isWeek1());
+        dto.setWeek2(outlet.isWeek2());
+        dto.setWeek3(outlet.isWeek3());
+        dto.setWeek4(outlet.isWeek4());
+        return dto;
     }
 }

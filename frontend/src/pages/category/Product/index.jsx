@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
-  Typography, Input, InputNumber, Button, Table, Space, Modal, Form, Select, Checkbox, Popconfirm, message,
-  List, Empty, Tooltip,
+  Typography, Input, Button, Table, Space, Modal, Form, Select, Checkbox, Popconfirm, message,
+  List, Empty, Tooltip, Tabs,
 } from 'antd';
 import { EditOutlined, DeleteOutlined, ShopOutlined, PlusOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
@@ -11,15 +11,6 @@ import { hasAnyRole } from '../../../utils/auth';
 
 const { Title } = Typography;
 const { TextArea } = Input;
-
-// Don vi tinh van la danh sach tinh (mock) vi schema khong co bang UOM rieng -
-// Product.unit chi la 1 field string tu do (xem V2__master_data.sql).
-const UNIT_OPTIONS = [
-  { value: 'GOI', label: 'GÓI' },
-  { value: 'HOP', label: 'HỘP' },
-  { value: 'THUNG', label: 'THÙNG' },
-  { value: 'TUI', label: 'TÚI' },
-];
 
 const ACTIVE_FILTER_OPTIONS = [
   { value: 'true', label: 'Đang hoạt động' },
@@ -31,12 +22,16 @@ const ACTIVE_FILTER_OPTIONS = [
 // va ProductCategoryController (GET /api/product-categories, chi doc de lam danh sach chon).
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa san pham,
 // SALES_STAFF chi duoc xem (GET).
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
+// Da bo "Gia" va "Don vi tinh (cu)" - gia chuyen het sang Bang gia (Mua/Ban), don vi tinh tach
+// thanh 3 tab Purchase/Sale/Inventory (moi tab 1 UOM + 1 Nhom thue rieng, dung chung 1 nhom quy
+// doi) - xem V19__product_tabs_price_list_type.sql va tonghop.md Nhom 3. "Danh muc" (ProductCategory)
+// van giu nguyen field/API, chi doi nhan hien thi thanh "Thuoc tinh" (xem Nhom 3).
 
 export default function ProductPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [uoms, setUoms] = useState([]);
   const [uomGroups, setUomGroups] = useState([]);
   const [taxGroups, setTaxGroups] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -45,6 +40,7 @@ export default function ProductPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [filterValues, setFilterValues] = useState({});
+  const [groupUoms, setGroupUoms] = useState([]);
   const [form] = Form.useForm();
 
   // Modal "Chi nhanh ap dung" (Item-Branch Assignment)
@@ -67,12 +63,21 @@ export default function ProductPage() {
     value: c.id,
     label: c.parent ? `${c.parent.name} > ${c.name}` : c.name,
   }));
-  const uomOptions = uoms.map((u) => ({ value: u.id, label: `${u.code} - ${u.name}` }));
   const uomGroupOptions = uomGroups.map((g) => ({ value: g.id, label: g.name }));
   const taxGroupOptions = taxGroups.map((t) => ({ value: t.id, label: `${t.name} (${t.ratePercent}%)` }));
+  // UOM cho ca 3 tab luon loc theo Nhom quy doi da chon (dung chung 1 uomGroupId/san pham) -
+  // xem GET /uom-groups/{id}/conversions, dung y het pattern man hinh /units.
+  const groupUomOptions = groupUoms.map((c) => ({ value: c.uom.id, label: `${c.uom.code} - ${c.uom.name}` }));
 
-  function categoryLabel(categoryId) {
-    return categoryOptions.find((c) => c.value === categoryId)?.label || '';
+  function loadGroupUoms(uomGroupId) {
+    if (!uomGroupId) {
+      setGroupUoms([]);
+      return;
+    }
+    axiosClient
+      .get(`/uom-groups/${uomGroupId}/conversions`)
+      .then(({ data }) => setGroupUoms(data.data))
+      .catch(() => setGroupUoms([]));
   }
 
   function loadData() {
@@ -80,15 +85,13 @@ export default function ProductPage() {
     Promise.all([
       axiosClient.get('/products'),
       axiosClient.get('/product-categories'),
-      axiosClient.get('/uoms'),
       axiosClient.get('/uom-groups'),
       axiosClient.get('/tax-groups'),
       axiosClient.get('/branches'),
     ])
-      .then(([productsRes, categoriesRes, uomsRes, uomGroupsRes, taxGroupsRes, branchesRes]) => {
+      .then(([productsRes, categoriesRes, uomGroupsRes, taxGroupsRes, branchesRes]) => {
         setProducts(productsRes.data.data);
         setCategories(categoriesRes.data.data);
-        setUoms(uomsRes.data.data);
         setUomGroups(uomGroupsRes.data.data);
         setTaxGroups(taxGroupsRes.data.data);
         setBranches(branchesRes.data.data);
@@ -115,19 +118,25 @@ export default function ProductPage() {
 
   function openCreateModal() {
     setEditingProduct(null);
+    setGroupUoms([]);
     form.resetFields();
-    form.setFieldsValue({ active: true, price: 0 });
+    form.setFieldsValue({ active: true });
     setModalOpen(true);
   }
 
   function openEditModal(record) {
     setEditingProduct(record);
+    loadGroupUoms(record.uomGroup?.id);
     form.setFieldsValue({
       ...record,
       categoryId: record.category?.id,
-      uomId: record.uom?.id,
       uomGroupId: record.uomGroup?.id,
-      taxGroupId: record.taxGroup?.id,
+      purchaseUomId: record.purchaseUom?.id,
+      purchaseTaxGroupId: record.purchaseTaxGroup?.id,
+      saleUomId: record.saleUom?.id,
+      saleTaxGroupId: record.saleTaxGroup?.id,
+      inventoryUomId: record.inventoryUom?.id,
+      inventoryTaxGroupId: record.inventoryTaxGroup?.id,
     });
     setModalOpen(true);
   }
@@ -250,14 +259,9 @@ export default function ProductPage() {
     { title: 'Mã sản phẩm', dataIndex: 'code', key: 'code' },
     { title: 'Tên sản phẩm', dataIndex: 'name', key: 'name' },
     { title: 'Tên nước ngoài', dataIndex: 'foreignName', key: 'foreignName' },
-    { title: 'Danh mục', key: 'category', render: (_, r) => r.category?.name },
-    { title: 'Đơn vị tính', dataIndex: 'unit', key: 'unit' },
-    {
-      title: 'Giá',
-      dataIndex: 'price',
-      key: 'price',
-      render: (v) => Number(v)?.toLocaleString('vi-VN') + ' đ',
-    },
+    { title: 'Thuộc tính', key: 'category', render: (_, r) => r.category?.name },
+    { title: 'ĐVT bán', key: 'saleUom', render: (_, r) => r.saleUom?.code || '-' },
+    { title: 'ĐVT mua', key: 'purchaseUom', render: (_, r) => r.purchaseUom?.code || '-' },
     {
       title: 'Trạng thái',
       dataIndex: 'active',
@@ -330,6 +334,7 @@ export default function ProductPage() {
         onCancel={() => setModalOpen(false)}
         okText="Lưu"
         cancelText="Hủy"
+        width={560}
         destroyOnHidden
       >
         <Form form={form} layout="vertical">
@@ -342,27 +347,75 @@ export default function ProductPage() {
           <Form.Item label="Tên nước ngoài" name="foreignName">
             <Input />
           </Form.Item>
-          <Form.Item label="Danh mục" name="categoryId" rules={[{ required: true, message: 'Danh mục không được để trống' }]}>
-            <Select options={categoryOptions} placeholder="Chọn danh mục" />
+          <Form.Item label="Thuộc tính" name="categoryId" rules={[{ required: true, message: 'Thuộc tính không được để trống' }]}>
+            <Select options={categoryOptions} placeholder="Chọn thuộc tính" />
           </Form.Item>
-          <Form.Item label="Đơn vị tính (cũ)" name="unit" rules={[{ required: true, message: 'Đơn vị tính không được để trống' }]}>
-            <Select options={UNIT_OPTIONS} placeholder="Chọn đơn vị tính" />
-          </Form.Item>
-          <Form.Item label="Đơn vị tính" name="uomId">
-            <Select options={uomOptions} placeholder="Chọn đơn vị tính (MDM)" allowClear />
-          </Form.Item>
-          <Form.Item label="Nhóm quy đổi" name="uomGroupId">
-            <Select options={uomGroupOptions} placeholder="Chọn nhóm quy đổi" allowClear />
-          </Form.Item>
-          <Form.Item label="Nhóm thuế" name="taxGroupId">
-            <Select options={taxGroupOptions} placeholder="Chọn nhóm thuế" allowClear />
-          </Form.Item>
-          <Form.Item label="Giá" name="price" rules={[{ required: true, message: 'Giá không được để trống' }]}>
-            <InputNumber min={0} step={1000} style={{ width: '100%' }} formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
+          <Form.Item label="Nhóm quy đổi" name="uomGroupId" extra="Dùng chung cho cả 3 tab bên dưới - đổi nhóm sẽ nạp lại danh sách ĐVT.">
+            <Select
+              options={uomGroupOptions}
+              placeholder="Chọn nhóm quy đổi"
+              allowClear
+              onChange={(value) => {
+                loadGroupUoms(value);
+                form.setFieldsValue({ purchaseUomId: undefined, saleUomId: undefined, inventoryUomId: undefined });
+              }}
+            />
           </Form.Item>
           <Form.Item label="Mô tả" name="description">
             <TextArea rows={2} />
           </Form.Item>
+
+          <Tabs
+            items={[
+              {
+                key: 'purchase',
+                label: 'Purchase',
+                children: (
+                  <>
+                    <Form.Item label="Đơn vị tính mua" name="purchaseUomId">
+                      <Select options={groupUomOptions} placeholder="Chọn ĐVT mua" allowClear />
+                    </Form.Item>
+                    <Form.Item label="Nhóm thuế mua" name="purchaseTaxGroupId">
+                      <Select options={taxGroupOptions} placeholder="Chọn nhóm thuế mua" allowClear />
+                    </Form.Item>
+                  </>
+                ),
+              },
+              {
+                key: 'sale',
+                label: 'Sale',
+                children: (
+                  <>
+                    <Form.Item label="Đơn vị tính bán" name="saleUomId">
+                      <Select options={groupUomOptions} placeholder="Chọn ĐVT bán" allowClear />
+                    </Form.Item>
+                    <Form.Item label="Nhóm thuế bán" name="saleTaxGroupId">
+                      <Select options={taxGroupOptions} placeholder="Chọn nhóm thuế bán" allowClear />
+                    </Form.Item>
+                  </>
+                ),
+              },
+              {
+                key: 'inventory',
+                label: 'Inventory',
+                children: (
+                  <>
+                    <Form.Item
+                      label="Đơn vị tính tồn kho"
+                      name="inventoryUomId"
+                      extra="Đây là đơn vị mà số lượng tồn kho (stock.quantity) đang được tính theo."
+                    >
+                      <Select options={groupUomOptions} placeholder="Chọn ĐVT tồn kho" allowClear />
+                    </Form.Item>
+                    <Form.Item label="Nhóm thuế tồn kho" name="inventoryTaxGroupId">
+                      <Select options={taxGroupOptions} placeholder="Chọn nhóm thuế tồn kho" allowClear />
+                    </Form.Item>
+                  </>
+                ),
+              },
+            ]}
+          />
+
           <Form.Item name="active" valuePropName="checked">
             <Checkbox>Kích hoạt</Checkbox>
           </Form.Item>

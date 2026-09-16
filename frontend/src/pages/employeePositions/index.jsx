@@ -9,11 +9,12 @@ const { Title } = Typography;
 const { TextArea } = Input;
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa chuc vu.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // MDM "Employees > Position" - Employee Master Data don gian hoa, dung chung bang User (khong
 // tach Employee rieng) - xem backend/.../category/employeeposition/.
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function EmployeePositionsPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [positions, setPositions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');

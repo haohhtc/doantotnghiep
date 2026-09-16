@@ -14,11 +14,12 @@ const ACTIVE_FILTER_OPTIONS = [
 ];
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa NCC.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../category/supplier/
 // SupplierController (GET/POST/PUT/DELETE /api/suppliers, DELETE = ngung hop tac chu khong xoa han).
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function VendorsPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -187,7 +188,7 @@ export default function VendorsPage() {
             <Input />
           </Form.Item>
           <Form.Item name="active" valuePropName="checked">
-            <Checkbox>Kích hoạt</Checkbox>
+            <Checkbox>Hoạt động</Checkbox>
           </Form.Item>
         </Form>
       </Modal>

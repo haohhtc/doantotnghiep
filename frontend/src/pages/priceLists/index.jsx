@@ -11,24 +11,24 @@ import { hasAnyRole } from '../../utils/auth';
 const { Title, Text } = Typography;
 
 const TYPE_OPTIONS = [
-  { value: 'STANDARD', label: 'Standard - Giá niêm yết' },
-  { value: 'CHANNEL', label: 'Channel - Giá theo kênh' },
-  { value: 'CONTRACT', label: 'Contract - Giá hợp đồng' },
+  { value: 'SALE', label: 'Bảng giá bán' },
+  { value: 'PURCHASE', label: 'Bảng giá mua' },
 ];
 
 function typeTag(type) {
-  if (type === 'CONTRACT') return <Tag color="purple">Contract</Tag>;
-  if (type === 'CHANNEL') return <Tag color="blue">Channel</Tag>;
-  return <Tag color="default">Standard</Tag>;
+  if (type === 'PURCHASE') return <Tag color="orange">Mua</Tag>;
+  return <Tag color="blue">Bán</Tag>;
 }
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa bang gia.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
-// MDM "Price List" - xem backend/.../category/pricelist/. type chi la nhan mo ta, logic tra gia
-// that (customer -> branch -> product.price) nam o PriceListService.lookupPrice, duoc goi tu
-// trang Sales Order khi chon san pham.
+// MDM "Price List" - xem backend/.../category/pricelist/. type hard-code PURCHASE/SALE (khong con
+// STANDARD/CHANNEL/CONTRACT), chi xet dung loai bang gia theo muc dich tra gia (Sales Order dung
+// SALE, Goods Receipt dung PURCHASE) - xem PriceListService.lookupPrice. KHONG con fallback ve
+// product.price (da bi xoa cot) - lookup se nem loi neu khong tim duoc gia hop le.
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function PriceListsPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [priceLists, setPriceLists] = useState([]);
   const [products, setProducts] = useState([]);
   const [uoms, setUoms] = useState([]);
@@ -75,7 +75,7 @@ export default function PriceListsPage() {
   function openCreateModal() {
     setEditingPriceList(null);
     form.resetFields();
-    form.setFieldsValue({ type: 'STANDARD', active: true });
+    form.setFieldsValue({ type: 'SALE', active: true });
     setModalOpen(true);
   }
 
@@ -223,7 +223,7 @@ export default function PriceListsPage() {
           <Form.Item label="Tên bảng giá" name="name" rules={[{ required: true, message: 'Tên bảng giá không được để trống' }]}>
             <Input placeholder="VD: Bảng giá niêm yết 2026" />
           </Form.Item>
-          <Form.Item label="Loại" name="type">
+          <Form.Item label="Loại" name="type" rules={[{ required: true, message: 'Loại bảng giá không được để trống' }]}>
             <Select options={TYPE_OPTIONS} />
           </Form.Item>
           <Form.Item label="Ngày hiệu lực" name="startDate">

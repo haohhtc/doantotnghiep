@@ -6,12 +6,16 @@ import com.erpqlkho.backend.category.branch.entity.Branch;
 import com.erpqlkho.backend.category.branch.repository.BranchRepository;
 import com.erpqlkho.backend.category.company.entity.Company;
 import com.erpqlkho.backend.category.company.repository.CompanyRepository;
+import com.erpqlkho.backend.category.employee.entity.Employee;
+import com.erpqlkho.backend.category.employee.repository.EmployeeRepository;
 import com.erpqlkho.backend.category.product.entity.ItemBranch;
 import com.erpqlkho.backend.category.product.entity.Product;
 import com.erpqlkho.backend.category.pricelist.entity.PriceList;
 import com.erpqlkho.backend.category.pricelist.repository.PriceListRepository;
 import com.erpqlkho.backend.category.product.repository.ItemBranchRepository;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
+import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
+import com.erpqlkho.backend.category.warehouse.repository.WarehouseRepository;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.common.geography.GeographyResolver;
 import com.erpqlkho.backend.user.entity.User;
@@ -34,6 +38,16 @@ public class BranchService {
     private final ProductRepository productRepository;
     private final PriceListRepository priceListRepository;
     private final UserRepository userRepository;
+    private final WarehouseRepository warehouseRepository;
+    private final EmployeeRepository employeeRepository;
+
+    // Mau 3 kho tu dong sinh cho moi Chi nhanh moi (theo dung mau ma DMS that: {ma CN}MWH01/VWH01/DWH01)
+    // - xem tonghop.md muc "Nhi dat hang lon" > Nhom 2.
+    private static final String[][] AUTO_WAREHOUSE_TEMPLATES = {
+            { "MWH01", "MAIN", "Kho chính" },
+            { "VWH01", "VAN", "Kho xe tải" },
+            { "DWH01", "DAMAGE", "Kho hàng lỗi" },
+    };
 
     public List<Branch> findAll() {
         return branchRepository.findAll();
@@ -59,8 +73,28 @@ public class BranchService {
         branch.setCompany(findCompany(dto.getCompanyId()));
         applyGeography(branch, dto);
         branch.setPriceList(findPriceList(dto.getPriceListId()));
+        branch.setDefaultManager(findEmployee(dto.getDefaultManagerId()));
+        branch.setDefaultSalesman(findEmployee(dto.getDefaultSalesmanId()));
 
-        return branchRepository.save(branch);
+        Branch saved = branchRepository.save(branch);
+        createDefaultWarehouses(saved);
+        return saved;
+    }
+
+    // Sinh san 3 kho mac dinh (MAIN/VAN/DAMAGE) ngay khi tao Chi nhanh moi, tranh nguoi dung phai
+    // tu tay vao trang Kho tao lai tung cai - xem AUTO_WAREHOUSE_TEMPLATES o tren.
+    private void createDefaultWarehouses(Branch branch) {
+        for (String[] template : AUTO_WAREHOUSE_TEMPLATES) {
+            String code = branch.getCode() + template[0];
+            if (warehouseRepository.existsByCode(code)) continue;
+            Warehouse warehouse = new Warehouse();
+            warehouse.setCode(code);
+            warehouse.setName(template[2] + " - " + branch.getName());
+            warehouse.setWarehouseType(template[1]);
+            warehouse.setActive(true);
+            warehouse.setBranch(branch);
+            warehouseRepository.save(warehouse);
+        }
     }
 
     @Transactional
@@ -81,6 +115,8 @@ public class BranchService {
         branch.setCompany(findCompany(dto.getCompanyId()));
         applyGeography(branch, dto);
         branch.setPriceList(findPriceList(dto.getPriceListId()));
+        branch.setDefaultManager(findEmployee(dto.getDefaultManagerId()));
+        branch.setDefaultSalesman(findEmployee(dto.getDefaultSalesmanId()));
 
         return branchRepository.save(branch);
     }
@@ -109,6 +145,12 @@ public class BranchService {
         if (id == null) return null;
         return priceListRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay bang gia id=" + id));
+    }
+
+    private Employee findEmployee(Long id) {
+        if (id == null) return null;
+        return employeeRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay nhan vien id=" + id));
     }
 
     private void applyGeography(Branch branch, BranchDto dto) {

@@ -4,6 +4,7 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import Login from '../pages/Login';
 import ProductPage from '../pages/category/Product';
 import ProductCategoryPage from '../pages/category/ProductCategory';
+import ProductGroupsPage from '../pages/productGroups';
 import CompanyPage from '../pages/company';
 import VendorsPage from '../pages/vendors';
 import WarehousesPage from '../pages/warehouses';
@@ -16,7 +17,6 @@ import PriceListsPage from '../pages/priceLists';
 import BranchesPage from '../pages/branches';
 import SellingZonesPage from '../pages/sellingZones';
 import RouteMastersPage from '../pages/routeMasters';
-import RouteSettingsPage from '../pages/routeSettings';
 import RegionsPage from '../pages/regions';
 import ProvincesPage from '../pages/provinces';
 import DistrictsPage from '../pages/districts';
@@ -31,8 +31,10 @@ import StockCountingPage from '../pages/inventory/StockCounting';
 import UsersPage from '../pages/system/Users';
 import RolesPage from '../pages/system/Roles';
 import EmployeePositionsPage from '../pages/employeePositions';
+import EmployeesPage from '../pages/employees';
 import SalesmanTypesPage from '../pages/salesmanTypes';
 import PlaceholderPage from '../components/PlaceholderPage';
+import ReportPlaceholderPage from '../components/ReportPlaceholderPage';
 
 export default function AppRoutes() {
   return (
@@ -44,6 +46,7 @@ export default function AppRoutes() {
             <Route path="/" element={<PlaceholderPage title="Trang chủ" />} />
             <Route path="/products" element={<ProductPage />} />
             <Route path="/product-categories" element={<ProductCategoryPage />} />
+            <Route path="/product-groups" element={<ProductGroupsPage />} />
             <Route path="/company" element={<CompanyPage />} />
             <Route path="/vendors" element={<VendorsPage />} />
             <Route path="/warehouses" element={<WarehousesPage />} />
@@ -56,7 +59,6 @@ export default function AppRoutes() {
             <Route path="/branches" element={<BranchesPage />} />
             <Route path="/selling-zones" element={<SellingZonesPage />} />
             <Route path="/route-masters" element={<RouteMastersPage />} />
-            <Route path="/route-settings" element={<RouteSettingsPage />} />
 
             {/* Vung dia ly (Region/Province/District/Ward) - API that, xem V11__geography.sql */}
             <Route path="/regions" element={<RegionsPage />} />
@@ -72,8 +74,15 @@ export default function AppRoutes() {
             <Route path="/inventory/transfer-confirmation" element={<TransferConfirmationPage />} />
             <Route path="/inventory/stock-counting" element={<StockCountingPage />} />
 
+            <Route path="/employees" element={<EmployeesPage />} />
             <Route path="/employee-positions" element={<EmployeePositionsPage />} />
             <Route path="/salesman-types" element={<SalesmanTypesPage />} />
+
+            {/* Module rong cho Nhi (PowerBI) - khong co API/du lieu, xem tonghop.md Nhom 7 */}
+            <Route path="/reports/sales" element={<ReportPlaceholderPage title="Báo cáo bán hàng" />} />
+            <Route path="/reports/inventory" element={<ReportPlaceholderPage title="Báo cáo kho" />} />
+            <Route path="/reports/purchase" element={<ReportPlaceholderPage title="Báo cáo mua hàng" />} />
+            <Route path="/reports/catalog" element={<ReportPlaceholderPage title="Báo cáo danh mục" />} />
 
             {/* Nguoi dung & Phan quyen: chi ADMIN duoc truy cap - go thang URL se bi chan hien 403 */}
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>

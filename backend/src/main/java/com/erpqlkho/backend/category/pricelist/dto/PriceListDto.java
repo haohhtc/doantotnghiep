@@ -16,7 +16,9 @@ public class PriceListDto {
     @NotBlank(message = "Ten bang gia khong duoc de trong")
     private String name;
 
-    // STANDARD / CHANNEL / CONTRACT - mac dinh STANDARD neu de trong.
+    // PURCHASE / SALE - bat buoc, khong con mac dinh STANDARD (da bo cac loai
+    // STANDARD/CHANNEL/CONTRACT cu) - xem V19__product_tabs_price_list_type.sql.
+    @NotBlank(message = "Loai bang gia khong duoc de trong")
     private String type;
 
     private LocalDate startDate;

@@ -71,12 +71,12 @@ public class SecurityConfig {
 
                         // San pham & Danh muc san pham: ai dang nhap cung xem duoc, nhung SALES_STAFF
                         // chi duoc xem (khong them/sua/xoa) - chi ADMIN + WAREHOUSE_MANAGER moi sua duoc.
-                        .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/product-categories/**").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/products/**", "/api/product-categories/**")
+                        .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/product-categories/**", "/api/product-groups/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/products/**", "/api/product-categories/**", "/api/product-groups/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
-                        .requestMatchers(HttpMethod.PUT, "/api/products/**", "/api/product-categories/**")
+                        .requestMatchers(HttpMethod.PUT, "/api/products/**", "/api/product-categories/**", "/api/product-groups/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
-                        .requestMatchers(HttpMethod.DELETE, "/api/products/**", "/api/product-categories/**")
+                        .requestMatchers(HttpMethod.DELETE, "/api/products/**", "/api/product-categories/**", "/api/product-groups/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
 
                         // Don vi tinh (Uom/UomGroup+quy doi) & Nhom thue: ai dang nhap cung xem duoc,
@@ -114,23 +114,21 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/stock-alerts/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
                         .requestMatchers(HttpMethod.PUT, "/api/stock-alerts/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
 
-                        // Tuyen ban hang & Chi nhanh (Branch/SellingZone/RouteMaster/RouteSetting): ai dang
-                        // nhap cung xem duoc, chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa - khop dung
-                        // pattern "Danh muc" (Product/Warehouse) vi Nhi yeu cau dat nhom nay trong Danh muc.
+                        // Tuyen ban hang & Chi nhanh (Branch/SellingZone/RouteMaster, ke ca sub-resource
+                        // /route-masters/{id}/salesman-assignments|manager-assignments - thay the han
+                        // RouteSetting cu): ai dang nhap cung xem duoc, chi ADMIN + WAREHOUSE_MANAGER duoc
+                        // them/sua/xoa - khop dung pattern "Danh muc" (Product/Warehouse) vi Nhi yeu cau dat
+                        // nhom nay trong Danh muc.
                         .requestMatchers(HttpMethod.GET,
-                                "/api/branches/**", "/api/selling-zones/**",
-                                "/api/route-masters/**", "/api/route-settings/**").authenticated()
+                                "/api/branches/**", "/api/selling-zones/**", "/api/route-masters/**").authenticated()
                         .requestMatchers(HttpMethod.POST,
-                                "/api/branches/**", "/api/selling-zones/**",
-                                "/api/route-masters/**", "/api/route-settings/**")
+                                "/api/branches/**", "/api/selling-zones/**", "/api/route-masters/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
                         .requestMatchers(HttpMethod.PUT,
-                                "/api/branches/**", "/api/selling-zones/**",
-                                "/api/route-masters/**", "/api/route-settings/**")
+                                "/api/branches/**", "/api/selling-zones/**", "/api/route-masters/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
                         .requestMatchers(HttpMethod.DELETE,
-                                "/api/branches/**", "/api/selling-zones/**",
-                                "/api/route-masters/**", "/api/route-settings/**")
+                                "/api/branches/**", "/api/selling-zones/**", "/api/route-masters/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
 
                         // Cong ty (singleton, chi GET/PUT): ai dang nhap cung xem duoc, chi ADMIN +
@@ -177,18 +175,19 @@ public class SecurityConfig {
                                 "/api/customer-groups/**", "/api/customer-channels/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
 
-                        // Chuc vu & Loai nhan vien ban hang: ai dang nhap cung xem duoc, chi ADMIN +
-                        // WAREHOUSE_MANAGER duoc them/sua/xoa - khop dung pattern chung.
+                        // Chuc vu & Loai nhan vien ban hang & Nhan vien (Employee, thay the han viec dung
+                        // chung bang User cua V16): ai dang nhap cung xem duoc, chi ADMIN + WAREHOUSE_MANAGER
+                        // duoc them/sua/xoa - khop dung pattern chung.
                         .requestMatchers(HttpMethod.GET,
-                                "/api/employee-positions/**", "/api/salesman-types/**").authenticated()
+                                "/api/employee-positions/**", "/api/salesman-types/**", "/api/employees/**").authenticated()
                         .requestMatchers(HttpMethod.POST,
-                                "/api/employee-positions/**", "/api/salesman-types/**")
+                                "/api/employee-positions/**", "/api/salesman-types/**", "/api/employees/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
                         .requestMatchers(HttpMethod.PUT,
-                                "/api/employee-positions/**", "/api/salesman-types/**")
+                                "/api/employee-positions/**", "/api/salesman-types/**", "/api/employees/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
                         .requestMatchers(HttpMethod.DELETE,
-                                "/api/employee-positions/**", "/api/salesman-types/**")
+                                "/api/employee-positions/**", "/api/salesman-types/**", "/api/employees/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
 
                         // Phieu xuat kho & Dieu chuyen kho: ai dang nhap cung xem duoc, nhung SALES_STAFF

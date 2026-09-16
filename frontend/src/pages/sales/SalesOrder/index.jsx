@@ -5,6 +5,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, StopOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
 
@@ -14,9 +15,23 @@ function statusTag(status) {
   return <Tag color="gold">Chờ xác nhận</Tag>;
 }
 
+// Tra "Loai ghe tham" (Dung tuyen/Trai tuyen) tu lich route_master_outlet cua khach hang doi
+// chieu voi ngay dat hang - Thu + Tuan trong thang (Math.ceil(ngay/7)) - xem tonghop.md Nhom 6.
+const WEEKDAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+function computeVisitType(routeInfo, dateStr) {
+  if (!routeInfo || !routeInfo.branchId || !dateStr) return null;
+  const date = new Date(dateStr);
+  const weekdayKey = WEEKDAY_KEYS[date.getDay()];
+  const weekKey = `week${Math.ceil(date.getDate() / 7)}`;
+  return routeInfo[weekdayKey] && routeInfo[weekKey] ? 'ON_ROUTE' : 'OFF_ROUTE';
+}
+
 // Trang nay da noi API that (khong con mock) - xem backend/.../sales/controller/SalesOrderController.java.
 // SALE-05: xac nhan se tu dong xuat kho, backend tu chan neu khong du ton kho (HTTP 409).
+// Nhom 6 (tonghop.md): validate Khach hang phai thuoc dung Chi nhanh dang chon o Header (suy ra
+// tu tuyen cua khach, GET /api/customers/{id}/route-info) + tu dong tinh "Loai ghe tham".
 export default function SalesOrderPage() {
+  const { selectedBranch, selectedBranchId } = useBranch();
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -27,15 +42,27 @@ export default function SalesOrderPage() {
   const [editingOrder, setEditingOrder] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [customerRouteInfo, setCustomerRouteInfo] = useState(null);
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
   const customerOptions = customers.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
   const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
-  const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}`, price: p.price }));
+  const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
+  const visitType = computeVisitType(customerRouteInfo, Form.useWatch('docDate', form));
+  const branchMismatch = customerRouteInfo?.branchId && selectedBranchId && customerRouteInfo.branchId !== selectedBranchId;
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';
+  }
+
+  function handleCustomerSelect(customerId) {
+    setCustomerRouteInfo(null);
+    if (!customerId) return;
+    axiosClient
+      .get(`/customers/${customerId}/route-info`)
+      .then(({ data }) => setCustomerRouteInfo(data.data))
+      .catch(() => setCustomerRouteInfo(null));
   }
 
   function loadData() {
@@ -71,6 +98,7 @@ export default function SalesOrderPage() {
     form.resetFields();
     form.setFieldsValue({ docDate: new Date().toISOString().slice(0, 10) });
     setDetailRows([]);
+    setCustomerRouteInfo(null);
     setModalOpen(true);
   }
 
@@ -83,6 +111,7 @@ export default function SalesOrderPage() {
       warehouseId: record.warehouse?.id,
     });
     setDetailRows(record.details.map((d) => ({ id: d.id, productId: d.product.id, quantity: d.quantity, unitPrice: d.unitPrice })));
+    handleCustomerSelect(record.customer?.id);
     setModalOpen(true);
   }
 
@@ -121,24 +150,24 @@ export default function SalesOrderPage() {
     setDetailModalOpen(true);
   }
 
-  // Tra gia tu dong theo Bang gia: customer.price_list_id -> branch.price_list_id (qua kho xuat)
-  // -> product.price. Xem backend/.../category/pricelist/service/PriceListService.lookupPrice.
+  // Tra gia tu dong theo Bang gia loai SALE: customer.price_list_id -> branch.price_list_id (qua
+  // kho xuat). KHONG con fallback ve product.price (da bi xoa cot) - neu khong tim duoc gia hop
+  // le, backend nem loi ro rang va o day hien thi loi cho nguoi dung, khong tu dien gia nao ca.
   // Van cho sua tay unitPrice sau khi dien tu dong (khong disable field), khop hanh vi truoc day.
   function handleProductSelect(productId) {
-    const fallbackPrice = productOptions.find((p) => p.value === productId)?.price;
-    detailForm.setFieldsValue({ unitPrice: fallbackPrice });
+    detailForm.setFieldsValue({ unitPrice: undefined });
 
     const customerId = form.getFieldValue('customerId');
     const warehouseId = form.getFieldValue('warehouseId');
     axiosClient
-      .get('/price-lists/lookup', { params: { productId, customerId, warehouseId } })
+      .get('/price-lists/lookup', { params: { productId, customerId, warehouseId, purpose: 'SALE' } })
       .then(({ data }) => {
         if (data.data != null) {
           detailForm.setFieldsValue({ unitPrice: data.data });
         }
       })
-      .catch(() => {
-        // Giu gia fallback tu product.price neu tra gia loi - khong chan luong nhap don hang.
+      .catch((err) => {
+        message.error(err.response?.data?.message || 'Không tra được giá bán cho sản phẩm này - vui lòng nhập tay hoặc cấu hình bảng giá');
       });
   }
 
@@ -157,6 +186,12 @@ export default function SalesOrderPage() {
     form.validateFields().then((values) => {
       if (detailRows.length === 0) {
         message.error('Đơn hàng phải có ít nhất 1 dòng sản phẩm');
+        return;
+      }
+      if (branchMismatch) {
+        message.error(
+          `Khách hàng này thuộc chi nhánh "${customerRouteInfo.branchName}" - không thuộc chi nhánh "${selectedBranch?.name}" đang chọn ở Header`
+        );
         return;
       }
       const payload = {
@@ -287,10 +322,21 @@ export default function SalesOrderPage() {
             </Col>
             <Col span={8}>
               <Form.Item label="Khách hàng" name="customerId" rules={[{ required: true, message: 'Khách hàng không được để trống' }]}>
-                <Select options={customerOptions} placeholder="Chọn khách hàng" />
+                <Select options={customerOptions} placeholder="Chọn khách hàng" onChange={handleCustomerSelect} showSearch optionFilterProp="label" />
               </Form.Item>
             </Col>
           </Row>
+          {(visitType || branchMismatch) && (
+            <Space style={{ marginBottom: 16 }}>
+              {visitType === 'ON_ROUTE' && <Tag color="green">Đúng tuyến</Tag>}
+              {visitType === 'OFF_ROUTE' && <Tag color="orange">Trái tuyến</Tag>}
+              {branchMismatch && (
+                <Tag color="red">
+                  Khách hàng thuộc chi nhánh "{customerRouteInfo.branchName}" - khác chi nhánh đang chọn "{selectedBranch?.name}"
+                </Tag>
+              )}
+            </Space>
+          )}
         </Form>
 
         <div style={{ marginTop: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

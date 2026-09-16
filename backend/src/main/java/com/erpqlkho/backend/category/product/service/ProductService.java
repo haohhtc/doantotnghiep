@@ -18,7 +18,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -54,8 +53,6 @@ public class ProductService {
         product.setName(dto.getName());
         product.setForeignName(dto.getForeignName());
         product.setCategory(findCategory(dto.getCategoryId()));
-        product.setUnit(dto.getUnit());
-        product.setPrice(dto.getPrice() != null ? dto.getPrice() : BigDecimal.ZERO);
         product.setDescription(dto.getDescription());
         product.setActive(dto.getActive() == null || dto.getActive());
         applyMdm(product, dto);
@@ -75,10 +72,6 @@ public class ProductService {
         product.setName(dto.getName());
         product.setForeignName(dto.getForeignName());
         product.setCategory(findCategory(dto.getCategoryId()));
-        product.setUnit(dto.getUnit());
-        if (dto.getPrice() != null) {
-            product.setPrice(dto.getPrice());
-        }
         product.setDescription(dto.getDescription());
         if (dto.getActive() != null) {
             product.setActive(dto.getActive());
@@ -109,18 +102,28 @@ public class ProductService {
     }
 
     private void applyMdm(Product product, ProductDto dto) {
-        product.setUom(dto.getUomId() != null
-                ? uomRepository.findById(dto.getUomId())
-                        .orElseThrow(() -> ApiException.notFound("Khong tim thay don vi tinh id=" + dto.getUomId()))
-                : null);
         product.setUomGroup(dto.getUomGroupId() != null
                 ? uomGroupRepository.findById(dto.getUomGroupId())
                         .orElseThrow(() -> ApiException.notFound("Khong tim thay nhom don vi tinh id=" + dto.getUomGroupId()))
                 : null);
-        product.setTaxGroup(dto.getTaxGroupId() != null
-                ? taxGroupRepository.findById(dto.getTaxGroupId())
-                        .orElseThrow(() -> ApiException.notFound("Khong tim thay nhom thue id=" + dto.getTaxGroupId()))
-                : null);
+        product.setPurchaseUom(findUom(dto.getPurchaseUomId()));
+        product.setPurchaseTaxGroup(findTaxGroup(dto.getPurchaseTaxGroupId()));
+        product.setSaleUom(findUom(dto.getSaleUomId()));
+        product.setSaleTaxGroup(findTaxGroup(dto.getSaleTaxGroupId()));
+        product.setInventoryUom(findUom(dto.getInventoryUomId()));
+        product.setInventoryTaxGroup(findTaxGroup(dto.getInventoryTaxGroupId()));
+    }
+
+    private com.erpqlkho.backend.category.uom.entity.Uom findUom(Long id) {
+        if (id == null) return null;
+        return uomRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay don vi tinh id=" + id));
+    }
+
+    private com.erpqlkho.backend.category.taxgroup.entity.TaxGroup findTaxGroup(Long id) {
+        if (id == null) return null;
+        return taxGroupRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay nhom thue id=" + id));
     }
 
     // --- Item-Branch Assignment: phan bo san pham theo chi nhanh ---

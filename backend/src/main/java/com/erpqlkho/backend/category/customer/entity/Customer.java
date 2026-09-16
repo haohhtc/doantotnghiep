@@ -1,7 +1,6 @@
 package com.erpqlkho.backend.category.customer.entity;
 
 import com.erpqlkho.backend.category.customerchannel.entity.CustomerChannel;
-import com.erpqlkho.backend.category.customergroup.entity.CustomerGroup;
 import com.erpqlkho.backend.category.district.entity.District;
 import com.erpqlkho.backend.category.pricelist.entity.PriceList;
 import com.erpqlkho.backend.category.province.entity.Province;
@@ -65,12 +64,9 @@ public class Customer extends BaseEntity {
     @JoinColumn(name = "price_list_id")
     private PriceList priceList;
 
-    // Nhom khach hang / Kenh ban hang (nullable) - chi mang tinh mo ta/phan loai, khong tu lien
-    // ket voi price_list.type - xem V15__customer_group_channel.sql.
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "group_id")
-    private CustomerGroup group;
-
+    // Nhom khach hang: chuyen sang M:N (CustomerGroupMember) - xem
+    // V21__employee_route_customer_group_mn.sql. Kenh ban hang van la FK don - chi mang tinh mo
+    // ta/phan loai, khong tu lien ket voi price_list.type - xem V15__customer_group_channel.sql.
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "channel_id")
     private CustomerChannel channel;

@@ -9,7 +9,6 @@ import { hasAnyRole } from '../../utils/auth';
 const { Title } = Typography;
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa kho.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Khop voi warehouse_type that trong DB (xem V2__master_data.sql).
 const WHSE_TYPE_OPTIONS = [
@@ -31,7 +30,9 @@ function whseTypeLabel(value) {
 // Trang nay da noi API that (khong con mock) - xem backend/.../category/warehouse/
 // WarehouseController (GET/POST/PUT/DELETE /api/warehouses) + GET /api/users (danh sach
 // chon nguoi quan ly kho, chi doc).
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function WarehousesPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [warehouses, setWarehouses] = useState([]);
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);

@@ -9,11 +9,12 @@ const { Title } = Typography;
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa danh muc,
 // SALES_STAFF chi duoc xem (GET).
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../category/productcategory/
 // ProductCategoryController (GET/POST/PUT/DELETE /api/product-categories).
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function ProductCategoryPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -113,7 +114,7 @@ export default function ProductCategoryPage() {
 
   return (
     <div>
-      <Title level={3}>Quản lý danh mục sản phẩm</Title>
+      <Title level={3}>Quản lý thuộc tính sản phẩm</Title>
       <TableToolbar
         searchValue={searchText}
         onSearchChange={setSearchText}

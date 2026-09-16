@@ -17,9 +17,10 @@ const ACTIVE_FILTER_OPTIONS = [
 // CustomerController (GET/POST/PUT/DELETE /api/customers, DELETE = ngung hop tac chu khong xoa han).
 // Luu y: bang customer that (V4__sales.sql) khong co contactPerson/parentCode/shipTos -
 // nhung field/tab do da bo khi noi API that, chi giu dung field co trong schema.
+// Nhom khach hang: da chuyen sang M:N (khong con o form nay) - quan ly tai trang /customer-groups
+// (giong pattern Master-Detail cua /product-groups) - xem V21__employee_route_customer_group_mn.sql.
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);
-  const [groups, setGroups] = useState([]);
   const [channels, setChannels] = useState([]);
   const [priceLists, setPriceLists] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +30,6 @@ export default function CustomersPage() {
   const [filterValues, setFilterValues] = useState({});
   const [form] = Form.useForm();
 
-  const groupOptions = groups.map((g) => ({ value: g.id, label: g.name }));
   const channelOptions = channels.map((c) => ({ value: c.id, label: c.name }));
   const priceListOptions = priceLists.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
 
@@ -37,13 +37,11 @@ export default function CustomersPage() {
     setLoading(true);
     Promise.all([
       axiosClient.get('/customers'),
-      axiosClient.get('/customer-groups'),
       axiosClient.get('/customer-channels'),
       axiosClient.get('/price-lists'),
     ])
-      .then(([customersRes, groupsRes, channelsRes, priceListsRes]) => {
+      .then(([customersRes, channelsRes, priceListsRes]) => {
         setCustomers(customersRes.data.data);
-        setGroups(groupsRes.data.data);
         setChannels(channelsRes.data.data);
         setPriceLists(priceListsRes.data.data);
       })
@@ -75,7 +73,6 @@ export default function CustomersPage() {
     setEditingCustomer(record);
     form.setFieldsValue({
       ...record,
-      groupId: record.group?.id,
       channelId: record.channel?.id,
       priceListId: record.priceList?.id,
       regionId: record.region?.id,
@@ -199,19 +196,7 @@ export default function CustomersPage() {
             <Input />
           </Form.Item>
           <Row gutter={16}>
-            <Col span={8}>
-              <Form.Item label="Nhóm khách hàng" name="groupId">
-                <Select
-                  options={groupOptions}
-                  placeholder="Chọn nhóm"
-                  allowClear
-                  showSearch
-                  optionFilterProp="label"
-                  popupMatchSelectWidth={false}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item label="Kênh bán hàng" name="channelId">
                 <Select
                   options={channelOptions}
@@ -223,7 +208,7 @@ export default function CustomersPage() {
                 />
               </Form.Item>
             </Col>
-            <Col span={8}>
+            <Col span={12}>
               <Form.Item label="Bảng giá" name="priceListId">
                 <Select
                   options={priceListOptions}

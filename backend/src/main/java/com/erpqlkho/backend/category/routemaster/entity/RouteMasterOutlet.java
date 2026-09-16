@@ -40,4 +40,22 @@ public class RouteMasterOutlet {
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
+
+    // Thu tu ghe tham + lich ghe tham (thu/tuan trong thang) - xem
+    // V21__employee_route_customer_group_mn.sql, dung cho Nhom 6 "Loai ghe tham" cua Sales Order.
+    @Column(name = "visit_order")
+    private Integer visitOrder;
+
+    private boolean monday;
+    private boolean tuesday;
+    private boolean wednesday;
+    private boolean thursday;
+    private boolean friday;
+    private boolean saturday;
+    private boolean sunday;
+
+    private boolean week1;
+    private boolean week2;
+    private boolean week3;
+    private boolean week4;
 }

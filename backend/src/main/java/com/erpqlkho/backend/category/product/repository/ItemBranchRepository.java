@@ -9,4 +9,5 @@ public interface ItemBranchRepository extends JpaRepository<ItemBranch, Long> {
     List<ItemBranch> findByProductId(Long productId);
     List<ItemBranch> findByBranchId(Long branchId);
     boolean existsByProductIdAndBranchId(Long productId, Long branchId);
+    boolean existsByProductId(Long productId);
 }

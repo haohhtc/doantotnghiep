@@ -34,4 +34,9 @@ public class BranchDto {
 
     // Bang gia mac dinh ap dung cho chi nhanh (nullable) - xem V14__price_list.sql.
     private Long priceListId;
+
+    // Gia tri goi y mac dinh khi tao Route moi (nullable) - xem
+    // V21__employee_route_customer_group_mn.sql.
+    private Long defaultManagerId;
+    private Long defaultSalesmanId;
 }

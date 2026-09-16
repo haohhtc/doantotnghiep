@@ -9,12 +9,13 @@ const { Title, Text } = Typography;
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua nguong va
 // danh dau xu ly, SALES_STAFF chi duoc xem (GET).
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // INV-05: canh bao san pham sap het hang - xem backend/.../inventory/controller/StockAlertController.java.
 // "Ton hien tai" khong nam trong entity StockAlert (chi luu nguong min_quantity) - lay song song
 // tu GET /api/stock roi ghep theo product+warehouse, giong cach tinh "Da dat hang" o trang Bao cao ton kho.
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function StockAlertsPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [alerts, setAlerts] = useState([]);
   const [stockRows, setStockRows] = useState([]);
   const [products, setProducts] = useState([]);

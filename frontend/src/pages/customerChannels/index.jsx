@@ -9,11 +9,12 @@ const { Title } = Typography;
 const { TextArea } = Input;
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa kenh ban hang.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // MDM "Account/Channel Definition" - chi la du lieu mo ta/phan loai hien thi tren form Khach
 // hang, khong tu lien ket voi Price List (xem tonghop.md) - xem backend/.../category/customerchannel/.
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function CustomerChannelsPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');

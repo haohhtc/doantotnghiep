@@ -32,7 +32,7 @@ public class CustomerDto {
     // Bang gia rieng ap dung cho khach hang (nullable) - xem V14__price_list.sql.
     private Long priceListId;
 
-    // Nhom khach hang / Kenh ban hang (nullable) - xem V15__customer_group_channel.sql.
-    private Long groupId;
+    // Kenh ban hang (nullable) - xem V15__customer_group_channel.sql. Nhom khach hang chuyen
+    // sang M:N, quan ly qua /api/customer-groups/{id}/members - khong con o day.
     private Long channelId;
 }

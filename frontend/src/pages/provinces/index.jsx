@@ -8,10 +8,11 @@ import { hasAnyRole } from '../../utils/auth';
 const { Title } = Typography;
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa tinh/thanh pho.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Tinh/Thanh pho - xem backend/.../category/province/controller/ProvinceController.java.
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function ProvincesPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [provinces, setProvinces] = useState([]);
   const [regions, setRegions] = useState([]);
   const [loading, setLoading] = useState(true);

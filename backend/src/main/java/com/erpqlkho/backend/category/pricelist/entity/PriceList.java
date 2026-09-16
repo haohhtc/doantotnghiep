@@ -9,8 +9,8 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 
-// type (STANDARD/CHANNEL/CONTRACT) chi mang tinh mo ta/nhan cho nguoi quan tri, khong tu doi
-// logic tra gia - xem PriceListService.lookupPrice.
+// type: hard-code 2 gia tri PURCHASE (Bang gia mua) / SALE (Bang gia ban) - PriceListService.lookupPrice
+// chi xet dung loai bang gia tuong ung voi muc dich tra gia (mua/ban) - xem V19__product_tabs_price_list_type.sql.
 @Getter
 @Setter
 @Entity
@@ -24,7 +24,7 @@ public class PriceList extends BaseEntity {
     private String name;
 
     @Column(nullable = false, length = 20)
-    private String type = "STANDARD";
+    private String type = "SALE";
 
     @Column(name = "start_date")
     private LocalDate startDate;

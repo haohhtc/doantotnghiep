@@ -15,13 +15,16 @@ const ACTIVE_FILTER_OPTIONS = [
 ];
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa chi nhanh.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Module "Tuyen ban hang" (theo yeu cau TV2) - xem backend/.../category/branch/controller/BranchController.java.
+// canWrite tinh trong component (khong o module scope) - AppRoutes.jsx import tinh moi trang tu
+// dau (ke ca luc chua dang nhap), de ngoai component se bi "dong bang" sai gia tri lan render dau.
 export default function BranchesPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [branches, setBranches] = useState([]);
   const [company, setCompany] = useState(null);
   const [priceLists, setPriceLists] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -32,14 +35,23 @@ export default function BranchesPage() {
   // Chi co dung 1 Cong ty (singleton) - van dung Select de dong nhat UI voi cac form khac.
   const companyOptions = company ? [{ value: company.id, label: company.name }] : [];
   const priceListOptions = priceLists.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
+  // Gia tri goi y mac dinh khi tao Route moi (nullable) - xem V21__employee_route_customer_group_mn.sql.
+  const managerOptions = employees.filter((e) => e.type === 'NV').map((e) => ({ value: e.id, label: `${e.code} - ${e.fullName}` }));
+  const salesmanOptions = employees.filter((e) => e.type === 'NVBH').map((e) => ({ value: e.id, label: `${e.code} - ${e.fullName}` }));
 
   function loadData() {
     setLoading(true);
-    Promise.all([axiosClient.get('/branches'), axiosClient.get('/company'), axiosClient.get('/price-lists')])
-      .then(([branchesRes, companyRes, priceListsRes]) => {
+    Promise.all([
+      axiosClient.get('/branches'),
+      axiosClient.get('/company'),
+      axiosClient.get('/price-lists'),
+      axiosClient.get('/employees'),
+    ])
+      .then(([branchesRes, companyRes, priceListsRes, employeesRes]) => {
         setBranches(branchesRes.data.data);
         setCompany(companyRes.data.data);
         setPriceLists(priceListsRes.data.data);
+        setEmployees(employeesRes.data.data);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách chi nhánh'))
       .finally(() => setLoading(false));
@@ -71,6 +83,8 @@ export default function BranchesPage() {
       ...record,
       companyId: record.company?.id,
       priceListId: record.priceList?.id,
+      defaultManagerId: record.defaultManager?.id,
+      defaultSalesmanId: record.defaultSalesman?.id,
       regionId: record.region?.id,
       provinceId: record.province?.id,
       districtId: record.district?.id,
@@ -181,6 +195,12 @@ export default function BranchesPage() {
           </Form.Item>
           <Form.Item label="Bảng giá" name="priceListId">
             <Select options={priceListOptions} placeholder="Chọn bảng giá áp dụng" allowClear showSearch optionFilterProp="label" />
+          </Form.Item>
+          <Form.Item label="Quản lý mặc định (gợi ý khi tạo Route mới)" name="defaultManagerId">
+            <Select options={managerOptions} placeholder="Chọn quản lý mặc định" allowClear showSearch optionFilterProp="label" />
+          </Form.Item>
+          <Form.Item label="NVBH mặc định (gợi ý khi tạo Route mới)" name="defaultSalesmanId">
+            <Select options={salesmanOptions} placeholder="Chọn NVBH mặc định" allowClear showSearch optionFilterProp="label" />
           </Form.Item>
           <Form.Item label="Địa chỉ" name="address">
             <Input />

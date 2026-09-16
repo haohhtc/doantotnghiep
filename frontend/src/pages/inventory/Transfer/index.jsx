@@ -26,13 +26,14 @@ function statusTag(status) {
 }
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/xac nhan.
-const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
 
 // Buoc 1/2 cua Dieu chuyen kho (giong DMS that - man hinh rieng voi buoc Xac nhan di chuyen).
 // Trang nay chi lam viec "kho nguon xac nhan xuat" (DRAFT -> IN_TRANSIT). Buoc "kho dich xac
 // nhan nhan" (IN_TRANSIT -> CLOSED) nam o trang rieng /inventory/transfer-confirmation.
 // Xem backend/.../inventory/controller/InventoryTransferController.java.
+// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function TransferPage() {
+  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [transfers, setTransfers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
