@@ -36,6 +36,78 @@ Thứ tự dưới đây đi theo đúng luồng nghiệp vụ thật (tạo dan
 
 Chi tiết test từng module cụ thể hơn (kể cả các rule validate phức tạp như Route 2 timeline) xem các mục "Cách test..." bên dưới trong file này.
 
+## 📋 Checklist test chi tiết TOÀN BỘ menu (Danh mục + Hệ thống + các nhóm khác)
+
+Đi đúng theo thứ tự Sidebar hiện tại, từng mục một. Với các danh mục đơn giản (chỉ Thêm/Sửa/Xóa, không có nghiệp vụ đặc biệt) chỉ cần: **Thêm 1 dòng mới → Sửa lại → Xóa** — nếu cả 3 thao tác không báo lỗi và bảng cập nhật đúng là đạt, không cần lặp lại hướng dẫn cho từng mục.
+
+### Nhóm "Danh mục"
+
+**Vùng địa lý** (Vùng → Tỉnh/Thành phố → Quận/Huyện → Phường/Xã): test CRUD cơ bản từng cấp; khi thêm Tỉnh phải chọn được Vùng cha, thêm Quận phải chọn được Tỉnh cha (dropdown lọc theo cấp cha đã chọn) — xác nhận cascading đúng.
+
+**Sales Organization > Vùng bán hàng**: CRUD cơ bản.
+
+**Company Setup**:
+- *Công ty*: chỉ 1 bản ghi duy nhất (singleton) — chỉ Sửa được, không có nút Thêm/Xóa.
+- *Nhà cung cấp*: CRUD cơ bản, chú ý nhãn trạng thái đã đổi thành "Hoạt động" (không còn "Kích hoạt").
+- *Chi nhánh*: Thêm chi nhánh mới → xác nhận **tự động sinh 3 kho** (vào Tồn kho > Kho kiểm tra); form có thêm 2 field "Quản lý mặc định"/"NVBH mặc định" (không bắt buộc).
+
+**Sản phẩm**:
+- *Sản phẩm*: Thêm/Sửa → phải thấy đủ 3 tab **Purchase/Sale/Inventory**, mỗi tab chọn Đơn vị tính + Nhóm thuế riêng (Đơn vị tính lọc theo Nhóm quy đổi đã chọn phía trên) — không còn field "Giá" hay "Đơn vị tính (cũ)".
+- *Thuộc tính* (ProductCategory cũ, đã đổi tên hiển thị): CRUD cơ bản, có thể chọn Thuộc tính cha (phân cấp cha/con).
+- *Nhóm sản phẩm* (mới, M:N): Thêm 1 nhóm → bấm nút "Sản phẩm" trên dòng vừa tạo → thêm/gỡ sản phẩm vào nhóm (Master-Detail).
+- *Đơn vị tính*: có 2 tab con "Đơn vị tính" và "Nhóm quy đổi" — thêm 1 Nhóm quy đổi, thêm quy đổi (VD 1 Thùng = 24 Hộp) bên trong.
+- *Nhóm thuế*: CRUD cơ bản, có field % thuế suất.
+
+**Bảng giá**: Thêm bảng giá, Loại chọn "Bảng giá mua" hoặc "Bảng giá bán" → bấm "Giá sản phẩm" trên dòng vừa tạo → gán giá cho từng sản phẩm+đơn vị tính. Thử xóa 1 dòng giá của sản phẩm đang được phân bổ cho 1 chi nhánh nào đó (Item-Branch Assignment) → phải bị chặn xóa (chỉ cho sửa).
+
+**Khách hàng**:
+- *Khách hàng*: CRUD cơ bản, có chọn Kênh bán hàng + Bảng giá + địa chỉ theo Vùng địa lý.
+- *Nhóm khách hàng* (M:N): giống Nhóm sản phẩm — thêm nhóm → bấm nút quản lý khách hàng trong nhóm.
+- *Kênh bán hàng*: CRUD cơ bản.
+
+**Nhân viên**:
+- *Nhân viên*: 2 tab "Nhân viên bán hàng"/"Nhân viên quản lý" — mỗi tab CRUD riêng, đủ field hồ sơ (SĐT, CCCD, ngày sinh...). Tab NVBH có thêm checkbox "Kiêm giao hàng". Có thể gán tài khoản đăng nhập (không bắt buộc).
+- *Chức vụ*, *Loại nhân viên bán hàng*: CRUD cơ bản.
+
+**Route & MCP > Khung tuyến**: Thêm 1 khung tuyến (chọn Vùng bán hàng, Chi nhánh) → bấm nút **"Nhân sự"** → test kỹ 2 tab timeline độc lập NVBH/Quản lý (thêm phân bổ, đóng phân bổ để đổi người, thử chồng thời gian phải bị chặn) → bấm nút **"Khách hàng"** → thêm khách hàng vào tuyến kèm thứ tự ghé thăm + lịch thứ/tuần, thử thêm 1 khách đã có tuyến khác phải bị chặn.
+
+### Nhóm "Bán hàng (Sales Order)"
+
+- *Đơn hàng bán*: CRUD + Xác nhận (trừ tồn kho) + Hủy đơn. Thử chọn khách hàng đã gán tuyến → xem tag "Đúng tuyến"/"Trái tuyến" + cảnh báo sai chi nhánh. Tick chọn nhiều đơn "Chờ xác nhận" → nút "Xác nhận hàng loạt" xuất hiện, test xác nhận nhiều đơn cùng lúc.
+- *Hóa đơn*: từ 1 đơn đã xác nhận, bấm nút xuất hóa đơn (ở trang Đơn hàng bán) → vào đây xem lại, kiểm tra tiền thuế đúng theo % Nhóm thuế của sản phẩm. Thử xuất hóa đơn 2 lần cho cùng 1 đơn → phải báo lỗi.
+- *Trả hàng*: Thêm phiếu, Duyệt → tồn kho phải **tăng**.
+- *Phiếu soạn hàng / In phiếu giao hàng*: chọn 1 đơn đã xác nhận → In thử (chỉ hiện nội dung phiếu, không có Sidebar/Header khi in).
+- *Kết quả giao hàng*: chỉ xem danh sách đơn đã xác nhận, không có thao tác.
+- Các mục còn lại (*Yêu cầu bán hàng, Đơn giao hàng, Xác nhận giao hàng, Phiếu ghi có, Tạo chứng từ, Phiếu in nhanh, In chứng từ, Yêu cầu trả hàng, Khai thuế TNCN hoa hồng*): chỉ là khung trống (đã gộp chức năng vào các mục trên hoặc chủ động không làm) — vào xem có hiện trang là đạt, không cần thao tác gì thêm.
+
+### Nhóm "Tồn kho"
+
+- *Tồn kho*: chỉ xem, tự lọc theo chi nhánh đang chọn ở Header — đổi chi nhánh xem danh sách có đổi theo không.
+- *Kho*: CRUD, cũng tự lọc theo chi nhánh ở Header.
+- *Nhập hàng*: CRUD + Xác nhận → tồn kho tăng.
+- *Phiếu xuất kho*: CRUD + Xác nhận → tồn kho giảm. Thử xuất số lượng lớn hơn tồn kho hiện có → phải báo lỗi, không cho âm kho.
+- *Chuyển hàng tồn kho* + *Xác nhận di chuyển hàng tồn kho*: tạo phiếu ở trang đầu (kho nguồn xác nhận xuất, tồn kho nguồn giảm ngay) → qua trang thứ 2 xác nhận nhận (tồn kho đích mới tăng).
+- *Kiểm kê kho*: CRUD + Duyệt, kiểm tra chênh lệch ghi nhận đúng vào lịch sử tồn kho.
+
+### Nhóm "Mua hàng (Purchase Order)"
+
+- *Phiếu nhập hàng mua*: trỏ thẳng về trang Nhập hàng ở trên (không phải trang riêng, dữ liệu dùng chung).
+- *Trả hàng NCC*: Thêm phiếu, Duyệt → tồn kho phải **giảm**. Chỉ ADMIN/Quản lý kho mới Thêm/Sửa/Xóa/Duyệt được (nhân viên bán hàng chỉ xem).
+- *Yêu cầu mua hàng*, *Nhật ký tự động đặt hàng*: khung trống, không cần thao tác.
+
+### Nhóm "Hệ thống" (chỉ ADMIN thấy)
+
+- *Người dùng*, *Phân quyền*: CRUD tài khoản/role như bình thường.
+- *Nhật ký đăng nhập*: chỉ xem, kiểm tra có ghi đủ các lần đăng nhập vừa test (cả đúng lẫn sai mật khẩu), không hiện mật khẩu.
+- *Cấu hình đánh số chứng từ*: xem số hiện tại + số tiếp theo của 8 loại chứng từ, thử sửa 1 tiền tố rồi tạo phiếu mới kiểm tra số theo tiền tố mới.
+- *Quản lý thiết bị đăng nhập*: xem danh sách phiên đang đăng nhập, thử **thu hồi phiên hiện tại của chính mình** → xác nhận bị đăng xuất ngay lập tức → đăng nhập lại bình thường (đây là bước quan trọng nhất, vì đụng vào hạ tầng xác thực dùng chung cho mọi request).
+- *Quy trình duyệt*, *Cài đặt hệ thống*: CRUD cấu hình đơn giản, chỉ lưu trữ/hiển thị, chưa thực sự áp dụng vào luồng nghiệp vụ (đúng như thiết kế).
+- *Cấu hình Email*: lưu thử cấu hình SMTP, dùng tab "Gửi thử" → chỉ tạo 1 dòng trong Nhật ký email bên dưới, không có email thật nào được gửi đi.
+
+### Nhóm "Báo cáo"
+
+4 trang (BC bán hàng/kho/mua hàng/danh mục): chỉ có tiêu đề + khung trống — đúng thiết kế dành cho khung PowerBI của Nhi, không phải thiếu sót.
+
 ## Lưu ý quan trọng
 - Có 3 lỗi thật được tìm ra và sửa trong lúc test (không chỉ dựa vào code sạch/build sạch): 1 lỗi `LazyInitializationException` ở API tra tuyến khách hàng, và 2 lỗi liên quan transaction khi đăng nhập (xem chi tiết ở mục Quản trị bên dưới). Cả 3 đã test lại xác nhận hết lỗi.
 - Nếu tắt/mở lại máy hoặc Docker, nhớ đảm bảo container MySQL (`erp-mysql-oltp`) đang chạy trước khi khởi động lại backend — Flyway sẽ tự áp migration còn thiếu, không cần thao tác tay.
