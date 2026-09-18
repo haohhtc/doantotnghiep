@@ -12,6 +12,21 @@
 - Backend + Frontend đang chạy sẵn: backend `http://localhost:8080`, frontend `http://localhost:5173`.
 - Code đã commit đủ vào git (nhánh `feature/backend-frontend`, **5 commit local chưa push** — xem bên dưới), chỉ còn `hinhanh/` (ảnh tham khảo) chưa track, không phải code.
 
+## 🔧 Đã fix: trang Tồn kho báo "No data" (2026-09-18)
+
+Người dùng test thật gặp trang Tồn kho trống ở cả 2 chi nhánh (CN-BD và CN_HN). Root cause (đã verify qua API, không phải bug code):
+- Trang Tồn kho ghép `sản phẩm được gán cho chi nhánh` (Item-Branch Assignment) **×** `kho thuộc chi nhánh đó` — thiếu 1 trong 2 là ra bảng trống dù bảng `stock` thật vẫn có dữ liệu.
+- Dữ liệu test lúc đó: chi nhánh CN-BD có 2 kho nhưng **0 sản phẩm được gán**; chi nhánh CN_HN có 1 sản phẩm gán nhưng **0 kho**.
+
+Đã tự tạo dữ liệu test để fix (không sửa code, chỉ là thiếu bước setup dữ liệu):
+- Gán toàn bộ 14 sản phẩm cho chi nhánh CN-BD.
+- Tạo thêm 1 kho `KHO-CHINH-HN` cho chi nhánh CN_HN + gán 5 sản phẩm cho chi nhánh này.
+- Verify lại: CN-BD giờ hiện đủ 28 dòng (14 SP × 2 kho), CN_HN hiện 6 dòng (6 SP × 1 kho).
+- Test round-trip trực tiếp qua API: tạo đơn hàng bán CP001 x5 → Xác nhận → tồn giảm đúng 40→35; tạo phiếu nhập SP001 x20 → Duyệt → tồn tăng đúng 0→20. Cả 2 luồng trừ/cộng kho đều đúng.
+- Quét lại toàn bộ ~40 API chính (đợt trước dùng nhầm vài path cũ như `/vendors`, `/sales/returns` — đã sửa lại đúng path thật `/suppliers`, `/sales-returns`,... tất cả đều OK, không có bug thật nào mới).
+
+**Ghi nhớ cho lần tạo sản phẩm/chi nhánh mới sau này**: sau khi thêm sản phẩm hoặc chi nhánh mới, phải vào trang **Sản phẩm** (`/products`) → mở sản phẩm → tab **Phân bổ chi nhánh** → gán cho (các) chi nhánh sẽ bán, thì trang Tồn kho mới hiện ra được. Đây không phải bug, là bước nghiệp vụ bắt buộc (giống DMS thật: sản phẩm phải "active" tại chi nhánh mới bán được ở đó).
+
 ## 🧪 Hướng dẫn test toàn hệ thống (đi 1 lượt từ đầu đến cuối)
 
 Thứ tự dưới đây đi theo đúng luồng nghiệp vụ thật (tạo danh mục → nhập/xuất kho → bán hàng → mua hàng → quản trị), mỗi bước chỉ vài phút. Đăng nhập bằng tài khoản ADMIN (`admin`/`admin123`) để thấy đủ mọi menu.
