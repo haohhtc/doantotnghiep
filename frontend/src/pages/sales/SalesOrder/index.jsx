@@ -49,7 +49,7 @@ export default function SalesOrderPage() {
   const [deliveredOrderIds, setDeliveredOrderIds] = useState(new Set());
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [massConfirming, setMassConfirming] = useState(false);
-  const [confirmedByModalOpen, setConfirmedByModalOpen] = useState(false);
+  const [requesterModalOpen, setRequesterModalOpen] = useState(false);
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
@@ -374,8 +374,8 @@ export default function SalesOrderPage() {
           setSelectedOrderIds([]);
         }}
         betweenReloadExport={
-          <Tooltip title="Người xác nhận đơn hàng">
-            <Button icon={<UserOutlined />} onClick={() => setConfirmedByModalOpen(true)} />
+          <Tooltip title="Người yêu cầu / tạo đơn">
+            <Button icon={<UserOutlined />} onClick={() => setRequesterModalOpen(true)} />
           </Tooltip>
         }
         beforeFilter={
@@ -515,10 +515,10 @@ export default function SalesOrderPage() {
       </Modal>
 
       <Modal
-        title="Người xác nhận đơn hàng"
-        open={confirmedByModalOpen}
-        onCancel={() => setConfirmedByModalOpen(false)}
-        footer={<Button onClick={() => setConfirmedByModalOpen(false)}>Đóng</Button>}
+        title="Người yêu cầu / tạo đơn"
+        open={requesterModalOpen}
+        onCancel={() => setRequesterModalOpen(false)}
+        footer={<Button onClick={() => setRequesterModalOpen(false)}>Đóng</Button>}
         width={640}
         destroyOnHidden
       >
@@ -531,9 +531,9 @@ export default function SalesOrderPage() {
             { title: 'Số đơn', dataIndex: 'docNumber', key: 'docNumber' },
             { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },
             {
-              title: 'Người xác nhận',
-              key: 'confirmedBy',
-              render: (_, o) => o.confirmedBy?.fullName || o.confirmedBy?.username || '-',
+              title: 'Người yêu cầu',
+              key: 'createdBy',
+              render: (_, o) => o.createdBy?.fullName || o.createdBy?.username || '-',
             },
           ]}
         />

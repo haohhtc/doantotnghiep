@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Typography, Table, Tag, Space, Button, Popconfirm, message } from 'antd';
-import { CheckOutlined } from '@ant-design/icons';
+import { Typography, Table, Tag, Space, Button, Popconfirm, message, Tooltip, Modal } from 'antd';
+import { CheckOutlined, UserOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 
@@ -11,16 +11,19 @@ const { Title } = Typography;
 // trang "Don giao hang"). Tach rieng man hinh voi "Don giao hang" giong dung pattern Goods Receipt
 // PO Confirmation trong DMS that: nguoi lap lenh va nguoi xac nhan xuat kho la 2 vai khac nhau.
 export default function DeliveryConfirmPage() {
-  const [orders, setOrders] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [confirmingId, setConfirmingId] = useState(null);
+  const [confirmedByModalOpen, setConfirmedByModalOpen] = useState(false);
+
+  const orders = allOrders.filter((o) => o.status === 'DRAFT');
 
   function loadData() {
     setLoading(true);
     axiosClient
       .get('/delivery-orders')
-      .then(({ data }) => setOrders(data.data.filter((o) => o.status === 'DRAFT')))
+      .then(({ data }) => setAllOrders(data.data))
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách đơn giao hàng'))
       .finally(() => setLoading(false));
   }
@@ -86,9 +89,44 @@ export default function DeliveryConfirmPage() {
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số đơn giao hoặc số đơn bán..."
         onReload={loadData}
+        betweenReloadExport={
+          <Tooltip title="Người xác nhận giao hàng">
+            <Button icon={<UserOutlined />} onClick={() => setConfirmedByModalOpen(true)} />
+          </Tooltip>
+        }
       />
 
       <Table rowKey="id" columns={columns} dataSource={filtered} loading={loading} />
+
+      <Modal
+        title="Người xác nhận giao hàng"
+        open={confirmedByModalOpen}
+        onCancel={() => setConfirmedByModalOpen(false)}
+        footer={<Button onClick={() => setConfirmedByModalOpen(false)}>Đóng</Button>}
+        width={640}
+        destroyOnHidden
+      >
+        <Table
+          rowKey="id"
+          size="small"
+          dataSource={allOrders}
+          pagination={{ pageSize: 10 }}
+          columns={[
+            { title: 'Số đơn giao', dataIndex: 'docNumber', key: 'docNumber' },
+            { title: 'Đơn hàng bán', key: 'salesOrder', render: (_, r) => r.salesOrder?.docNumber },
+            {
+              title: 'Trạng thái',
+              key: 'status',
+              render: (_, r) => (r.status === 'CLOSED' ? <Tag color="green">Đã xác nhận</Tag> : <Tag color="gold">Chờ xác nhận</Tag>),
+            },
+            {
+              title: 'Người xác nhận',
+              key: 'confirmedBy',
+              render: (_, r) => r.confirmedBy?.fullName || r.confirmedBy?.username || '-',
+            },
+          ]}
+        />
+      </Modal>
     </div>
   );
 }

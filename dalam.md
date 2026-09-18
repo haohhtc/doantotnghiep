@@ -6,6 +6,14 @@
 
 `delivery_order.sales_order_id` đang là **UNIQUE** — 1 Đơn hàng bán chỉ tạo được tối đa **1 Đơn giao hàng**. Sửa số lượng ở bước "Đơn giao hàng" chỉ cho phép "giao thiếu rồi thôi" (giao 1 lần, ít hơn số đặt), **không hỗ trợ** tạo thêm Đơn giao hàng thứ 2 cho phần còn thiếu của cùng đơn (giao nhiều đợt/multiple shipments). Đã hỏi người dùng có cần sửa không — **người dùng xác nhận không cần**, giữ nguyên giới hạn này. Nếu giám khảo hỏi "giao nhiều đợt thì sao": trả lời rằng phạm vi đồ án chỉ hỗ trợ 1 đơn giao hàng/1 đơn hàng bán, muốn giao thiếu thì sửa số lượng ngay trên đơn giao hàng đó trước khi xác nhận.
 
+## 🔀 Chuyển icon "Người xác nhận" đúng chỗ: Đơn hàng bán hiện "Người yêu cầu", Xác nhận giao hàng hiện "Người xác nhận" (2026-09-18)
+
+Icon người (giữa Làm mới/Xuất file) trước đây ở trang **Đơn hàng bán** hiện cột "Người xác nhận" (đọc `confirmedBy` của Đơn hàng bán - tức người bấm Duyệt đơn). Theo yêu cầu, đổi lại đúng ngữ nghĩa:
+- **Đơn hàng bán**: icon đó giờ đổi thành **"Người yêu cầu / tạo đơn"** — đọc `createdBy` (ai đã tạo/yêu cầu đơn đó), không còn liên quan gì đến việc duyệt/xác nhận nữa.
+- **Xác nhận giao hàng** (`/sales/delivery-confirm`): thêm icon người mới (cùng vị trí, giữa Làm mới/Xuất file) — mở Modal liệt kê **toàn bộ** Đơn giao hàng (cả đang chờ lẫn đã xác nhận) kèm cột "Người xác nhận" (đọc `confirmedBy` của Đơn giao hàng - dữ liệu này backend đã có sẵn từ V33, không cần sửa gì backend, chỉ thêm UI). Bảng chính của trang vẫn chỉ hiện các đơn giao hàng đang chờ như cũ (worklist), Modal mới là chỗ xem lại lịch sử ai đã xác nhận.
+
+**Đã test qua API**: `sales-orders[].createdBy` và `delivery-orders[].confirmedBy` đều có dữ liệu đúng (VD đơn "test1" người dùng tự tạo qua UI cũng lên đúng `confirmedBy=admin`). Build frontend sạch, không cần đổi gì backend.
+
 ## 🔁 Dựng lại "Yêu cầu bán hàng" (Sales Request) thành module thật, đứng trước Đơn hàng bán (2026-09-18)
 
 Sau khi tách Đơn giao hàng/Xác nhận giao hàng, tiếp tục dựng lại "Yêu cầu bán hàng" (đã xóa lúc đầu) thành module thật riêng, đúng chuỗi DMS gốc đầy đủ: **Yêu cầu bán hàng (SR) → Đơn hàng bán (SO) → Đơn giao hàng (DO) → Xác nhận giao hàng → Hóa đơn**.
