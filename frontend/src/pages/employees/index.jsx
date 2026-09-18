@@ -257,7 +257,7 @@ export default function EmployeesPage() {
             {activeTab === 'NVBH' && (
               <Col span={12} style={{ display: 'flex', alignItems: 'center' }}>
                 <Form.Item name="deliveryMan" valuePropName="checked" style={{ marginTop: 28 }}>
-                  <Checkbox>Kiêm giao hàng (Delivery Man)</Checkbox>
+                  <Checkbox>Kiêm giao hàng</Checkbox>
                 </Form.Item>
               </Col>
             )}

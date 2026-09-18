@@ -48,7 +48,7 @@ export default function DeliveryResultsPage() {
 
   return (
     <div>
-      <Title level={3}>Delivery Results</Title>
+      <Title level={3}>Kết quả giao hàng</Title>
       <TableToolbar
         searchValue={searchText}
         onSearchChange={setSearchText}

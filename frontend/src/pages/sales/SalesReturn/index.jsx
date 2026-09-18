@@ -200,7 +200,7 @@ export default function SalesReturnPage() {
 
   return (
     <div>
-      <Title level={3}>Phiếu trả hàng (Returns)</Title>
+      <Title level={3}>Phiếu trả hàng</Title>
       <TableToolbar
         searchValue={searchText}
         onSearchChange={setSearchText}

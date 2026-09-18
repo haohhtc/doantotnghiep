@@ -210,7 +210,7 @@ export default function PurchaseGoodsReturnPage() {
 
   return (
     <div>
-      <Title level={3}>Trả hàng nhà cung cấp (Goods Return)</Title>
+      <Title level={3}>Trả hàng nhà cung cấp</Title>
       <TableToolbar
         searchValue={searchText}
         onSearchChange={setSearchText}

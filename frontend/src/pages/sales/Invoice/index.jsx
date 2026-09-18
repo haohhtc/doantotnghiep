@@ -55,7 +55,7 @@ export default function InvoicePage() {
 
   return (
     <div>
-      <Title level={3}>Hóa đơn (Invoices)</Title>
+      <Title level={3}>Hóa đơn</Title>
       <TableToolbar
         searchValue={searchText}
         onSearchChange={setSearchText}

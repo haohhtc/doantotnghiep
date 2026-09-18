@@ -62,7 +62,7 @@ export default function PickingListPage() {
           #print-area .no-print { display: none; }
         }
       `}</style>
-      <Title level={3}>Picking List / Delivery Note Printing</Title>
+      <Title level={3}>Phiếu soạn hàng / In phiếu giao hàng</Title>
       <TableToolbar
         searchValue={searchText}
         onSearchChange={setSearchText}

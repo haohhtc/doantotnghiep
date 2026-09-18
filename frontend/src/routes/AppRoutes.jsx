@@ -79,23 +79,23 @@ export default function AppRoutes() {
 
             <Route path="/goods-receipts" element={<GoodsReceiptPage />} />
             <Route path="/purchase/goods-return" element={<PurchaseGoodsReturnPage />} />
-            <Route path="/purchase/purchase-request" element={<PlaceholderPage title="Purchase Request" />} />
-            <Route path="/purchase/auto-rpo" element={<PlaceholderPage title="Auto RPO log / SKU Target Setup" />} />
+            <Route path="/purchase/purchase-request" element={<PlaceholderPage title="Yêu cầu mua hàng" />} />
+            <Route path="/purchase/auto-rpo" element={<PlaceholderPage title="Nhật ký tự động đặt hàng / Thiết lập chỉ tiêu SP" />} />
 
             <Route path="/sales-orders" element={<SalesOrderPage />} />
             <Route path="/sales/returns" element={<SalesReturnPage />} />
             <Route path="/sales/invoices" element={<InvoicePage />} />
             <Route path="/sales/picking-list" element={<PickingListPage />} />
             <Route path="/sales/delivery-results" element={<DeliveryResultsPage />} />
-            <Route path="/sales/sales-request" element={<PlaceholderPage title="Sales Request" />} />
-            <Route path="/sales/delivery-orders" element={<PlaceholderPage title="Delivery Orders" />} />
-            <Route path="/sales/delivery-confirm" element={<PlaceholderPage title="Delivery Confirm" />} />
-            <Route path="/sales/credit-memos" element={<PlaceholderPage title="Credit Memos (đã gộp vào Returns)" />} />
-            <Route path="/sales/document-generation" element={<PlaceholderPage title="Document Generation" />} />
-            <Route path="/sales/printed-note" element={<PlaceholderPage title="Printed Note (Express)" />} />
-            <Route path="/sales/document-printing" element={<PlaceholderPage title="Document Printing" />} />
-            <Route path="/sales/return-request" element={<PlaceholderPage title="Return Request (đã gộp vào Returns)" />} />
-            <Route path="/sales/upload-vat-pit" element={<PlaceholderPage title="Upload VAT & PIT of Incentive" />} />
+            <Route path="/sales/sales-request" element={<PlaceholderPage title="Yêu cầu bán hàng" />} />
+            <Route path="/sales/delivery-orders" element={<PlaceholderPage title="Đơn giao hàng" />} />
+            <Route path="/sales/delivery-confirm" element={<PlaceholderPage title="Xác nhận giao hàng" />} />
+            <Route path="/sales/credit-memos" element={<PlaceholderPage title="Phiếu ghi có (đã gộp vào Trả hàng)" />} />
+            <Route path="/sales/document-generation" element={<PlaceholderPage title="Tạo chứng từ" />} />
+            <Route path="/sales/printed-note" element={<PlaceholderPage title="Phiếu in nhanh" />} />
+            <Route path="/sales/document-printing" element={<PlaceholderPage title="In chứng từ" />} />
+            <Route path="/sales/return-request" element={<PlaceholderPage title="Yêu cầu trả hàng (đã gộp vào Trả hàng)" />} />
+            <Route path="/sales/upload-vat-pit" element={<PlaceholderPage title="Khai thuế TNCN hoa hồng" />} />
             <Route path="/inventory/inventories" element={<InventoriesPage />} />
             <Route path="/inventory/goods-issue" element={<GoodsIssuePage />} />
             <Route path="/inventory/transfer" element={<TransferPage />} />
