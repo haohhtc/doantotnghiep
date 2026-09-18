@@ -87,7 +87,6 @@ export default function AppRoutes() {
             <Route path="/sales/invoices" element={<InvoicePage />} />
             <Route path="/sales/picking-list" element={<PickingListPage />} />
             <Route path="/sales/delivery-results" element={<DeliveryResultsPage />} />
-            <Route path="/sales/sales-request" element={<PlaceholderPage title="Yêu cầu bán hàng" />} />
             <Route path="/sales/delivery-orders" element={<PlaceholderPage title="Đơn giao hàng" />} />
             <Route path="/sales/delivery-confirm" element={<PlaceholderPage title="Xác nhận giao hàng" />} />
             <Route path="/sales/credit-memos" element={<PlaceholderPage title="Phiếu ghi có (đã gộp vào Trả hàng)" />} />

@@ -91,7 +91,6 @@ function buildMenuItems(role) {
     {
       key: 'sales-order', icon: <ShoppingCartOutlined />, label: 'Bán hàng (Sales Order)',
       children: [
-        { key: '/sales/sales-request', label: <Link to="/sales/sales-request">Yêu cầu bán hàng</Link> },
         { key: '/sales-orders', label: <Link to="/sales-orders">Đơn hàng bán</Link> },
         { key: '/sales/delivery-orders', label: <Link to="/sales/delivery-orders">Đơn giao hàng</Link> },
         { key: '/sales/delivery-confirm', label: <Link to="/sales/delivery-confirm">Xác nhận giao hàng</Link> },
@@ -186,7 +185,6 @@ const BREADCRUMB_MAP = {
   '/wards': ['Danh mục', 'Vùng địa lý', 'Phường/Xã'],
   '/goods-receipts': ['Tồn kho', 'Nhập hàng'],
   '/sales-orders': ['Bán hàng', 'Đơn hàng bán'],
-  '/sales/sales-request': ['Bán hàng', 'Yêu cầu bán hàng'],
   '/sales/delivery-orders': ['Bán hàng', 'Đơn giao hàng'],
   '/sales/delivery-confirm': ['Bán hàng', 'Xác nhận giao hàng'],
   '/sales/invoices': ['Bán hàng', 'Hóa đơn'],
@@ -248,7 +246,6 @@ const MENU_ANCESTOR_KEYS = {
   '/districts': ['danh-muc', 'vung-dia-ly'],
   '/wards': ['danh-muc', 'vung-dia-ly'],
   '/sales-orders': ['sales-order'],
-  '/sales/sales-request': ['sales-order'],
   '/sales/delivery-orders': ['sales-order'],
   '/sales/delivery-confirm': ['sales-order'],
   '/sales/invoices': ['sales-order'],
