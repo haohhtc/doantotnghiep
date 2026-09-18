@@ -27,6 +27,18 @@ Người dùng test thật gặp trang Tồn kho trống ở cả 2 chi nhánh (
 
 **Ghi nhớ cho lần tạo sản phẩm/chi nhánh mới sau này**: sau khi thêm sản phẩm hoặc chi nhánh mới, phải vào trang **Sản phẩm** (`/products`) → mở sản phẩm → tab **Phân bổ chi nhánh** → gán cho (các) chi nhánh sẽ bán, thì trang Tồn kho mới hiện ra được. Đây không phải bug, là bước nghiệp vụ bắt buộc (giống DMS thật: sản phẩm phải "active" tại chi nhánh mới bán được ở đó).
 
+## 🗑️ Đã xóa hẳn sản phẩm Coca Cola (SP001) khỏi DB (2026-09-18)
+
+Theo yêu cầu: công ty chỉ dùng hàng Orion, xóa hẳn Coca Cola (không phải chỉ gỡ khỏi chi nhánh). Sản phẩm này lúc đó đang bị tham chiếu bởi khá nhiều chứng từ thật đã phát sinh trong lúc test (không chỉ dữ liệu tôi mới tạo), nên xóa dây chuyền qua SQL trực tiếp (không sửa code):
+- Xóa các dòng liên quan ở 9 bảng: `stock_transaction`, `stock`, `item_branch`, `invoice_item`, `purchase_return_item`, `sales_return_item`, `goods_receipt_detail`, `sales_order_detail`, `price_list_item`.
+- Với chứng từ chỉ có Coca Cola là dòng duy nhất → xóa luôn cả chứng từ đó (1 phiếu nhập, 1 hóa đơn, 1 phiếu trả hàng bán, 1 phiếu trả hàng NCC, 3 đơn hàng bán rỗng).
+- Với chứng từ có thêm sản phẩm khác (1 đơn hàng bán, 3 bảng giá) → chỉ xóa dòng Coca Cola, giữ nguyên phần còn lại.
+- Cuối cùng xóa dòng `product` Coca Cola. Toàn bộ chạy trong 1 transaction SQL (`START TRANSACTION` → `COMMIT`).
+
+**Test lại sau khi xóa** (yêu cầu tường minh của người dùng): quét lại đủ ~40 API chính — tất cả OK, số lượng bản ghi mỗi bảng đổi đúng như tính toán (vd `/products` 14→13, `/sales-orders` 8→5, `/invoices` 3→2...). Test round-trip thêm 1 lần nữa với sản phẩm Orion (CP001): tạo đơn hàng → Xác nhận → tồn kho giảm đúng 35→33. Không phát sinh lỗi nào sau khi xóa.
+
+Danh sách 13 sản phẩm còn lại đều là hàng Orion, **trừ 2 dòng rác test cũ** không thuộc Orion: `TEST02` (tên bị lỗi encoding) và `sssss` (id=18, rõ ràng là dữ liệu test/rác) — chưa xóa vì người dùng chỉ yêu cầu xóa Coca Cola, để lại chờ quyết định riêng.
+
 ## 🧪 Hướng dẫn test toàn hệ thống (đi 1 lượt từ đầu đến cuối)
 
 Thứ tự dưới đây đi theo đúng luồng nghiệp vụ thật (tạo danh mục → nhập/xuất kho → bán hàng → mua hàng → quản trị), mỗi bước chỉ vài phút. Đăng nhập bằng tài khoản ADMIN (`admin`/`admin123`) để thấy đủ mọi menu.
