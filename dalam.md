@@ -2,6 +2,10 @@
 
 Đối chiếu theo file `NGHIEP-VU-DMS-THAM-CHIEU.html` (5 nhóm module trong phạm vi đồ án: MDM, Inventory, Sales Order, Purchase Order, Quản trị).
 
+## ⚠️ Giới hạn đã biết: Đơn giao hàng chỉ hỗ trợ 1-1 với Đơn hàng bán (không giao nhiều đợt)
+
+`delivery_order.sales_order_id` đang là **UNIQUE** — 1 Đơn hàng bán chỉ tạo được tối đa **1 Đơn giao hàng**. Sửa số lượng ở bước "Đơn giao hàng" chỉ cho phép "giao thiếu rồi thôi" (giao 1 lần, ít hơn số đặt), **không hỗ trợ** tạo thêm Đơn giao hàng thứ 2 cho phần còn thiếu của cùng đơn (giao nhiều đợt/multiple shipments). Đã hỏi người dùng có cần sửa không — **người dùng xác nhận không cần**, giữ nguyên giới hạn này. Nếu giám khảo hỏi "giao nhiều đợt thì sao": trả lời rằng phạm vi đồ án chỉ hỗ trợ 1 đơn giao hàng/1 đơn hàng bán, muốn giao thiếu thì sửa số lượng ngay trên đơn giao hàng đó trước khi xác nhận.
+
 ## 🔁 Dựng lại "Yêu cầu bán hàng" (Sales Request) thành module thật, đứng trước Đơn hàng bán (2026-09-18)
 
 Sau khi tách Đơn giao hàng/Xác nhận giao hàng, tiếp tục dựng lại "Yêu cầu bán hàng" (đã xóa lúc đầu) thành module thật riêng, đúng chuỗi DMS gốc đầy đủ: **Yêu cầu bán hàng (SR) → Đơn hàng bán (SO) → Đơn giao hàng (DO) → Xác nhận giao hàng → Hóa đơn**.
