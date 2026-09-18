@@ -1,7 +1,6 @@
 package com.erpqlkho.backend.sales.entity;
 
 import com.erpqlkho.backend.category.customer.entity.Customer;
-import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.common.base.BaseEntity;
 import com.erpqlkho.backend.user.entity.User;
 import jakarta.persistence.CascadeType;
@@ -16,16 +15,19 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+// Yeu cau ban hang (SR) - buoc ghi tam truoc Don hang ban (SO), dung theo dung chuoi DMS goc
+// SR -> SO -> DO -> Xac nhan DO. Chua co kho xuat (chua chot luc ghi tam), chua anh huong ton
+// kho. Chuyen thanh SO qua SalesRequestService.convert() (DRAFT -> CONVERTED, tao 1 SalesOrder
+// moi trang thai PENDING) - xem V34.
 @Getter
 @Setter
 @Entity
-@Table(name = "sales_order")
-public class SalesOrder extends BaseEntity {
+@Table(name = "sales_request")
+public class SalesRequest extends BaseEntity {
 
     @Column(name = "doc_number", nullable = false, unique = true, length = 50)
     private String docNumber;
@@ -37,33 +39,18 @@ public class SalesOrder extends BaseEntity {
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "warehouse_id", nullable = false)
-    private Warehouse warehouse;
+    @Column(length = 500)
+    private String remarks;
 
-    // PENDING: cho xac nhan | CONFIRMED: da xuat kho | CANCELLED: da huy
+    // DRAFT: dang ghi tam, cho chuyen thanh don | CONVERTED: da chuyen thanh Don hang ban
     @Column(nullable = false, length = 20)
-    private String status = "PENDING";
-
-    @Column(name = "total_amount", nullable = false, precision = 18, scale = 2)
-    private BigDecimal totalAmount = BigDecimal.ZERO;
+    private String status = "DRAFT";
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
 
-    // Nguoi bam nut Xac nhan (khac nguoi tao don) - null khi con PENDING/CANCELLED.
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "confirmed_by")
-    private User confirmedBy;
-
-    // Truy vet Yeu cau ban hang goc (nullable) - don co the tao truc tiep khong qua Yeu cau
-    // ban hang - xem V34 + SalesRequestService.convert().
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "sales_request_id")
-    private SalesRequest salesRequest;
-
-    @OneToMany(mappedBy = "salesOrder", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "salesRequest", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @OrderBy("id ASC")
-    private List<SalesOrderDetail> details = new ArrayList<>();
+    private List<SalesRequestItem> items = new ArrayList<>();
 }

@@ -2,6 +2,20 @@
 
 Đối chiếu theo file `NGHIEP-VU-DMS-THAM-CHIEU.html` (5 nhóm module trong phạm vi đồ án: MDM, Inventory, Sales Order, Purchase Order, Quản trị).
 
+## 🔁 Dựng lại "Yêu cầu bán hàng" (Sales Request) thành module thật, đứng trước Đơn hàng bán (2026-09-18)
+
+Sau khi tách Đơn giao hàng/Xác nhận giao hàng, tiếp tục dựng lại "Yêu cầu bán hàng" (đã xóa lúc đầu) thành module thật riêng, đúng chuỗi DMS gốc đầy đủ: **Yêu cầu bán hàng (SR) → Đơn hàng bán (SO) → Đơn giao hàng (DO) → Xác nhận giao hàng → Hóa đơn**.
+
+**Khác biệt với Đơn hàng bán**: SR chưa có kho xuất (chưa chốt lúc ghi tạm), chưa đụng gì đến tồn kho. Có nút "Chuyển thành đơn hàng" — lúc bấm mới chọn kho xuất, tạo ra 1 Đơn hàng bán mới (PENDING), SR chuyển trạng thái CONVERTED (không sửa/xóa được nữa). Từ đó luồng tiếp tục y hệt như tạo đơn trực tiếp (Xác nhận → Đơn giao hàng → Xác nhận giao hàng → Hóa đơn).
+
+**Backend**: migration `V34__sales_request.sql` (bảng `sales_request`, `sales_request_item`, cột `sales_order.sales_request_id` để truy vết, seed numbering config `SALES_REQUEST`/`SR`). Entity/DTO/Repository/Service/Controller mới `SalesRequest*`.
+
+**Frontend**: trang mới `pages/sales/SalesRequest` (CRUD khi còn nháp + nút Chuyển thành đơn hàng chọn kho). Route `/sales/sales-request` và mục Sidebar "Yêu cầu bán hàng" (đứng đầu nhóm Bán hàng, trước Đơn hàng bán) được đưa lại — trước đó đã bị xóa hẳn.
+
+**Đã test qua API (chuỗi đầy đủ)**: tạo Yêu cầu bán hàng (SR0001, CP002 x6) → Chuyển thành đơn hàng (chọn kho) → sinh đơn SO0012 trạng thái PENDING, SR chuyển CONVERTED (không xóa được nữa) → Xác nhận đơn (tồn kho không đổi, 59→59) → tạo Đơn giao hàng → Xác nhận giao hàng (tồn kho giảm đúng 6, 59→53) → Xuất hóa đơn (đúng số lượng 6, tổng 120.000đ). Build backend + frontend sạch, quét lại 27 API không lỗi.
+
+**Cách test trên UI**: Sidebar > Bán hàng > **Yêu cầu bán hàng** (mục đầu tiên) → Thêm yêu cầu, chọn khách hàng + ít nhất 1 dòng sản phẩm (không cần chọn kho) → Lưu → bấm "Chuyển thành đơn hàng" → chọn kho xuất → OK → vào **Đơn hàng bán** kiểm tra đã có đơn mới trạng thái "Chờ xác nhận", đi tiếp luồng Xác nhận → Đơn giao hàng → Xác nhận giao hàng → Xuất hóa đơn như bình thường.
+
 ## ✅ Trạng thái tổng thể (đã rà soát lại toàn bộ)
 
 **Tất cả các module ghi trong `tonghop.md` đều đã code xong** (8/8 mục, toàn bộ đánh dấu `[x]`). Vừa kiểm tra lại toàn hệ thống lần cuối (2026-09-18):

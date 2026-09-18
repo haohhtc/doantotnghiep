@@ -23,6 +23,7 @@ import DistrictsPage from '../pages/districts';
 import WardsPage from '../pages/wards';
 import GoodsReceiptPage from '../pages/inbound/GoodsReceipt';
 import PurchaseGoodsReturnPage from '../pages/purchase/GoodsReturn';
+import SalesRequestPage from '../pages/sales/SalesRequest';
 import SalesOrderPage from '../pages/sales/SalesOrder';
 import SalesReturnPage from '../pages/sales/SalesReturn';
 import InvoicePage from '../pages/sales/Invoice';
@@ -84,6 +85,7 @@ export default function AppRoutes() {
             <Route path="/purchase/purchase-request" element={<PlaceholderPage title="Yêu cầu mua hàng" />} />
             <Route path="/purchase/auto-rpo" element={<PlaceholderPage title="Nhật ký tự động đặt hàng / Thiết lập chỉ tiêu SP" />} />
 
+            <Route path="/sales/sales-request" element={<SalesRequestPage />} />
             <Route path="/sales-orders" element={<SalesOrderPage />} />
             <Route path="/sales/returns" element={<SalesReturnPage />} />
             <Route path="/sales/invoices" element={<InvoicePage />} />
