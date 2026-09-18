@@ -1,10 +1,12 @@
 package com.erpqlkho.backend.sales.service;
 
 import com.erpqlkho.backend.common.exception.ApiException;
+import com.erpqlkho.backend.sales.entity.DeliveryOrder;
+import com.erpqlkho.backend.sales.entity.DeliveryOrderItem;
 import com.erpqlkho.backend.sales.entity.Invoice;
 import com.erpqlkho.backend.sales.entity.InvoiceItem;
 import com.erpqlkho.backend.sales.entity.SalesOrder;
-import com.erpqlkho.backend.sales.entity.SalesOrderDetail;
+import com.erpqlkho.backend.sales.repository.DeliveryOrderRepository;
 import com.erpqlkho.backend.sales.repository.InvoiceRepository;
 import com.erpqlkho.backend.sales.repository.SalesOrderRepository;
 import com.erpqlkho.backend.system.service.NumberingConfigService;
@@ -21,15 +23,16 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-// Xuat hoa don tu 1 Sales Order da CONFIRMED - chot cung thue (product.saleTaxGroup.ratePercent
-// tai thoi diem xuat) vao invoice_item, KHONG dung gi den SalesOrderService/sales_order (xem
-// tonghop.md). Sales Order chi hien uoc tinh thue o Frontend, khong luu gi xuong DB.
+// Xuat hoa don SAU KHI Don giao hang da Xac nhan (xem V33) - chot theo dung SO LUONG GIAO THUC TE
+// (co the khac so luong dat), don gia lay tu SalesOrderDetail goc. Chot cung thue
+// (product.saleTaxGroup.ratePercent tai thoi diem xuat) vao invoice_item.
 @Service
 @RequiredArgsConstructor
 public class InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final SalesOrderRepository salesOrderRepository;
+    private final DeliveryOrderRepository deliveryOrderRepository;
     private final UserRepository userRepository;
     private final NumberingConfigService numberingConfigService;
 
@@ -47,8 +50,12 @@ public class InvoiceService {
         SalesOrder order = salesOrderRepository.findById(salesOrderId)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay don hang id=" + salesOrderId));
 
-        if (!"CONFIRMED".equals(order.getStatus())) {
-            throw ApiException.conflict("Chi xuat duoc hoa don tu don hang da xac nhan (CONFIRMED)");
+        // Chi xuat hoa don SAU KHI da giao hang xong (Don giao hang da Xac nhan) - dung chuoi
+        // DMS goc SO -> DO -> IN, va chot dung so luong GIAO THUC TE (co the khac so luong dat).
+        DeliveryOrder deliveryOrder = deliveryOrderRepository.findBySalesOrderId(salesOrderId)
+                .orElseThrow(() -> ApiException.conflict("Don hang nay chua co Don giao hang - phai tao va Xac nhan giao hang truoc khi xuat hoa don"));
+        if (!"CLOSED".equals(deliveryOrder.getStatus())) {
+            throw ApiException.conflict("Don giao hang cua don hang nay chua duoc Xac nhan - phai giao hang xong moi xuat duoc hoa don");
         }
         if (invoiceRepository.existsBySalesOrderId(salesOrderId)) {
             throw ApiException.conflict("Don hang nay da duoc xuat hoa don roi");
@@ -64,11 +71,12 @@ public class InvoiceService {
         BigDecimal subtotal = BigDecimal.ZERO;
         BigDecimal totalTax = BigDecimal.ZERO;
         List<InvoiceItem> items = new ArrayList<>();
-        for (SalesOrderDetail detail : order.getDetails()) {
+        for (DeliveryOrderItem detail : deliveryOrder.getItems()) {
+            BigDecimal unitPrice = unitPriceOf(order, detail.getProduct().getId());
             BigDecimal rate = detail.getProduct().getSaleTaxGroup() != null
                     ? detail.getProduct().getSaleTaxGroup().getRatePercent()
                     : BigDecimal.ZERO;
-            BigDecimal lineSubtotal = detail.getQuantity().multiply(detail.getUnitPrice())
+            BigDecimal lineSubtotal = detail.getQuantity().multiply(unitPrice)
                     .setScale(2, RoundingMode.HALF_UP);
             BigDecimal lineTax = lineSubtotal.multiply(rate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             BigDecimal lineTotal = lineSubtotal.add(lineTax);
@@ -77,7 +85,7 @@ public class InvoiceService {
             item.setInvoice(invoice);
             item.setProduct(detail.getProduct());
             item.setQuantity(detail.getQuantity());
-            item.setUnitPrice(detail.getUnitPrice());
+            item.setUnitPrice(unitPrice);
             item.setTaxRate(rate);
             item.setLineTaxAmount(lineTax);
             item.setLineTotal(lineTotal);
@@ -92,6 +100,16 @@ public class InvoiceService {
         invoice.setTotalAmount(subtotal.add(totalTax));
 
         return invoiceRepository.save(invoice);
+    }
+
+    // Don gia chot hoa don van lay theo gia da thoa thuan luc dat hang (SalesOrderDetail) - Don
+    // giao hang chi thay doi SO LUONG giao thuc te, khong doi don gia.
+    private BigDecimal unitPriceOf(SalesOrder order, Long productId) {
+        return order.getDetails().stream()
+                .filter(d -> d.getProduct().getId().equals(productId))
+                .findFirst()
+                .map(d -> d.getUnitPrice())
+                .orElseThrow(() -> ApiException.conflict("San pham trong Don giao hang khong khop voi Don hang ban goc"));
     }
 
     private String resolveInvoiceNumber() {

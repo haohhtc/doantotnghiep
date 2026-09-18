@@ -50,18 +50,37 @@ Yêu cầu: đơn hàng bán trước đây chỉ lưu `created_by` (ai tạo đ
 
 **Cách test trên UI**: vào Đơn hàng bán → tạo 1 đơn mới → bấm Xác nhận → bấm icon người (giữa Làm mới và Xuất file trên toolbar) → Modal hiện ra phải thấy đúng tên tài khoản đang đăng nhập ở cột "Người xác nhận" cho đơn vừa xác nhận, các đơn còn PENDING hiện "-".
 
-## 📝 Quyết định thiết kế: giữ gộp "Đơn giao hàng" + "Xác nhận giao hàng" vào Đơn hàng bán (2026-09-18)
+## 📝 [ĐÃ SỬA LẠI - xem mục bên dưới] Quyết định thiết kế (2026-09-18, không còn hiệu lực)
+
+> **Cập nhật ngay sau đó cùng ngày**: sau khi cân nhắc lại, đã quyết định **tách lại thật** thay vì giữ gộp — xem mục "🔀 Tách lại Đơn giao hàng + Xác nhận giao hàng thành module thật" bên dưới. Giữ đoạn dưới đây lại chỉ để lưu vết quá trình quyết định (đã KHÔNG áp dụng).
 
 Có ý kiến phản biện (từ Nhi, dựa theo nghiệp vụ DMS thật): nếu gộp "Xác nhận giao hàng" thẳng vào nút "Xác nhận" của Đơn hàng bán thì mất khả năng xử lý các tình huống giao hàng thực tế — giao thiếu số lượng, hàng hư/vỡ trong quá trình vận chuyển, khách hàng từ chối nhận hàng. Đây là rủi ro thật khi bảo vệ đồ án nếu giám khảo hỏi sâu vào nghiệp vụ.
 
-**Đã cân nhắc 2 hướng và chọn hướng giữ nguyên thiết kế gộp**, lý do:
-- Bấm "Xác nhận" trên Đơn hàng bán coi như đã giao đủ 100%, trừ kho ngay theo đúng số lượng đặt.
-- Khi phát sinh ngoại lệ sau đó (khách không nhận / hàng hư phải đem về) → dùng module **Trả hàng** (Sales Return) đã có sẵn: tạo phiếu trả hàng cho đơn đó → Duyệt → tồn kho tự cộng lại đúng số lượng trả về. Đây chính là cơ chế xử lý "hàng đem về" trong hệ thống, chỉ khác là nó nằm ở menu Trả hàng riêng thay vì ngay trong bước xác nhận.
-- Lý do chọn hướng này thay vì tách lại thành 2 bước thật (Xác nhận đơn → Giao hàng ghi số lượng thực giao): tốn nhiều công sức sửa lại toàn bộ luồng (đơn hàng, hóa đơn, tồn kho, các trang đã test xong), trong khi Trả hàng đã code + test đầy đủ, đáp ứng đúng nhu cầu nghiệp vụ (hàng ra rồi quay về thì phải qua Trả hàng, không có đường nào khác kể cả DMS thật).
+Ban đầu chọn hướng giữ gộp, dùng module Trả hàng xử lý ngoại lệ để đỡ tốn công. Sau đó xem lại và quyết định tách hẳn cho đúng bản chất nghiệp vụ, xem chi tiết bên dưới.
 
-**Nếu giám khảo hỏi "giao thiếu/hàng hư thì xử lý sao"**: trả lời rằng hệ thống xử lý qua module Trả hàng — Xác nhận đơn = ghi nhận đã xuất kho giao đi, nếu sau đó có vấn đề (khách từ chối, hàng hư) thì lập phiếu Trả hàng để đưa hàng về kho và cộng lại tồn kho, đúng bản chất nghiệp vụ trả hàng sau giao.
+## 🔀 Tách lại "Đơn giao hàng" + "Xác nhận giao hàng" thành module thật, độc lập với Đơn hàng bán (2026-09-18)
 
-Không có thay đổi code nào cho quyết định này — giữ nguyên "Đơn giao hàng" và "Xác nhận giao hàng" là 2 mục mock trong Sidebar (không xóa, không sửa), vì chức năng của chúng đã nằm trong Đơn hàng bán + Phiếu soạn hàng + Kết quả giao hàng + Trả hàng.
+Đảo ngược quyết định gộp ở trên theo yêu cầu — tách lại đúng theo chuỗi chứng từ gốc của DMS (đã ghi rõ trong `NGHIEP-VU-DMS-THAM-CHIEU.html` dòng 268: `Sales Request → Sale Orders → Delivery Orders → Invoices`, và chính file này cũng ghi nhận việc gộp trước đó là "đồ án rút gọn" có chủ đích chứ không phải lỗi).
+
+**Thiết kế mới — 3 bước thật, tách bạch, dùng chung logic `StockService` như mọi module khác:**
+1. **Đơn hàng bán** — bấm "Xác nhận": **chỉ duyệt đơn** (PENDING → CONFIRMED), **không trừ kho nữa**. Tag trạng thái đổi "Đã xuất kho" → "Đã duyệt".
+2. **Đơn giao hàng** (`/sales/delivery-orders`, bảng mới `delivery_order` + `delivery_order_item`) — tạo từ 1 đơn hàng bán đã duyệt (mỗi đơn tối đa 1 Đơn giao hàng), số lượng mặc định copy từ số lượng đặt nhưng **cho sửa lại trước khi xác nhận** để phản ánh số lượng giao thực tế (đúng tình huống "giao thiếu" Nhi nêu). Sửa/xóa được khi còn ở trạng thái "Chờ giao" (DRAFT).
+3. **Xác nhận giao hàng** (`/sales/delivery-confirm`) — màn hình riêng dạng worklist, chỉ hiện các Đơn giao hàng đang chờ, bấm "Xác nhận giao hàng" mới thực sự trừ tồn kho (`StockService.decrease`, referenceType `DELIVERY_ORDER`) đúng theo số lượng đã khai báo ở bước 2. Tách riêng màn hình này với "Đơn giao hàng" đúng theo đúng pattern 2-màn-hình-khác-vai mà chính DMS gốc dùng cho "Goods Receipt PO Confirmation" (người tạo lệnh và người xác nhận xuất kho là 2 vai khác nhau).
+4. **Kết quả giao hàng** (`/sales/delivery-results`) — đổi nguồn dữ liệu từ Đơn hàng bán (CONFIRMED) sang Đơn giao hàng (CLOSED = đã xác nhận giao) — giờ đúng nghĩa "đã giao xong", kèm cột "Người xác nhận".
+5. **Hóa đơn** — chặn xuất hóa đơn nếu đơn hàng **chưa có Đơn giao hàng đã xác nhận**; số lượng chốt trên hóa đơn lấy theo **số lượng giao thực tế** (Đơn giao hàng), không lấy theo số lượng đặt — nếu giao thiếu thì hóa đơn cũng chỉ tính đúng phần đã giao.
+
+**Backend**: migration `V33__delivery_order.sql` (bảng `delivery_order`, `delivery_order_item`, seed numbering config `DELIVERY_ORDER`/`DO`). Entity/DTO/Repository/Service/Controller mới `DeliveryOrder*` (package `sales`). `SalesOrderService.confirm()` bỏ hết phần trừ kho. `InvoiceService.createFromSalesOrder()` đổi sang đọc `DeliveryOrder` (yêu cầu status CLOSED) và build `invoice_item` từ `DeliveryOrderItem` (số lượng thực giao) + đơn giá vẫn lấy từ `SalesOrderDetail` gốc.
+
+**Frontend**: 2 trang mới `pages/sales/DeliveryOrder` (CRUD Đơn giao hàng, chọn Đơn hàng bán đã duyệt, sửa số lượng giao) và `pages/sales/DeliveryConfirm` (worklist xác nhận). `AppRoutes.jsx` thay 2 `PlaceholderPage` mock bằng 2 trang thật này. `SalesOrder/index.jsx` đổi tag trạng thái, nội dung Popconfirm, và điều kiện hiện nút "Xuất hóa đơn" (giờ theo Đơn giao hàng đã xác nhận thay vì theo trạng thái đơn hàng). `DeliveryResults/index.jsx` đổi nguồn dữ liệu như trên.
+
+**Đã test thật (API, sau khi restart backend áp dụng V33)**:
+- Tạo đơn hàng bán CP001 x4 → Xác nhận → tồn kho **không đổi** (32 → 32, đúng thiết kế mới).
+- Thử xuất hóa đơn khi chưa có Đơn giao hàng → bị chặn đúng như kỳ vọng (409, thông báo rõ ràng).
+- Tạo Đơn giao hàng từ đơn đó (tự copy số lượng đặt = 4) → sửa lại còn 3 (mô phỏng giao thiếu) → Xác nhận giao hàng → tồn kho giảm đúng 3 (32 → 29), không phải 4.
+- Xuất hóa đơn sau khi đã xác nhận giao → thành công, số lượng trên hóa đơn đúng là 3 (số giao thực tế), tổng tiền đúng 45.000đ (3 × 15.000đ). Xuất hóa đơn lần 2 cho cùng đơn → bị chặn đúng như cũ.
+- Build backend + frontend sạch, quét lại 26 API chính không lỗi.
+
+**Cách test trên UI**: Đơn hàng bán → tạo đơn mới → Xác nhận (tag chuyển "Đã duyệt", tồn kho chưa đổi) → vào **Đơn giao hàng** → Tạo đơn giao hàng, chọn đúng đơn vừa duyệt, sửa thử 1 dòng số lượng ít hơn số đặt (mô phỏng giao thiếu) → Lưu → vào **Xác nhận giao hàng** → thấy đơn vừa tạo ở trạng thái "Chờ xác nhận" → bấm Xác nhận giao hàng → vào **Tồn kho** kiểm tra đã giảm đúng số lượng vừa khai (không phải số đặt ban đầu) → quay lại Đơn hàng bán bấm "Xuất hóa đơn" → kiểm tra số lượng trên hóa đơn đúng bằng số đã giao.
 
 ## 🧪 Hướng dẫn test toàn hệ thống (đi 1 lượt từ đầu đến cuối)
 

@@ -5,8 +5,9 @@ import axiosClient from '../../../api/axiosClient';
 
 const { Title } = Typography;
 
-// Delivery Results - khong co bang/API moi, loc lai danh sach don status=CONFIRMED tu
-// GET /api/sales-orders san co - xem tonghop.md.
+// Ket qua giao hang - doc danh sach Don giao hang da Xac nhan (status=CLOSED) tu
+// GET /api/delivery-orders - day la nhung don da THUC SU xuat kho (khac voi Don hang ban chi moi
+// duyet - xem V33 + DeliveryOrderService).
 export default function DeliveryResultsPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,9 +16,9 @@ export default function DeliveryResultsPage() {
   function loadData() {
     setLoading(true);
     axiosClient
-      .get('/sales-orders')
-      .then(({ data }) => setOrders(data.data.filter((o) => o.status === 'CONFIRMED')))
-      .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách đơn hàng'))
+      .get('/delivery-orders')
+      .then(({ data }) => setOrders(data.data.filter((o) => o.status === 'CLOSED')))
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách đơn giao hàng'))
       .finally(() => setLoading(false));
   }
 
@@ -28,21 +29,20 @@ export default function DeliveryResultsPage() {
   const filtered = orders.filter((o) => {
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
-    return o.docNumber.toLowerCase().includes(keyword) || (o.customer?.name || '').toLowerCase().includes(keyword);
+    return o.docNumber.toLowerCase().includes(keyword) || (o.salesOrder?.customer?.name || '').toLowerCase().includes(keyword);
   });
 
   const columns = [
-    { title: 'Số đơn', dataIndex: 'docNumber', key: 'docNumber' },
-    { title: 'Ngày đặt hàng', dataIndex: 'docDate', key: 'docDate' },
-    { title: 'Khách hàng', key: 'customer', render: (_, o) => o.customer?.name },
+    { title: 'Số đơn giao', dataIndex: 'docNumber', key: 'docNumber' },
+    { title: 'Đơn hàng bán', key: 'salesOrder', render: (_, o) => o.salesOrder?.docNumber },
+    { title: 'Khách hàng', key: 'customer', render: (_, o) => o.salesOrder?.customer?.name },
     { title: 'Kho xuất', key: 'warehouse', render: (_, o) => o.warehouse?.name },
-    { title: 'Ngày xác nhận (giao hàng)', dataIndex: 'updatedAt', key: 'updatedAt', render: (v) => (v ? v.slice(0, 10) : '-') },
+    { title: 'Người xác nhận', key: 'confirmedBy', render: (_, o) => o.confirmedBy?.fullName || o.confirmedBy?.username || '-' },
+    { title: 'Ngày xác nhận giao hàng', dataIndex: 'updatedAt', key: 'updatedAt', render: (v) => (v ? v.slice(0, 10) : '-') },
     {
-      title: 'Tổng tiền',
-      dataIndex: 'totalAmount',
-      key: 'totalAmount',
-      align: 'right',
-      render: (v) => Number(v).toLocaleString('vi-VN') + ' đ',
+      title: 'Số lượng SP',
+      key: 'items',
+      render: (_, o) => o.items.map((it) => `${it.product.code} x${Number(it.quantity)}`).join(', '),
     },
   ];
 

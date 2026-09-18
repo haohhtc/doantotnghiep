@@ -7,7 +7,6 @@ import com.erpqlkho.backend.category.product.repository.ProductRepository;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.category.warehouse.repository.WarehouseRepository;
 import com.erpqlkho.backend.common.exception.ApiException;
-import com.erpqlkho.backend.inventory.service.StockService;
 import com.erpqlkho.backend.sales.dto.SalesOrderDto;
 import com.erpqlkho.backend.sales.entity.SalesOrder;
 import com.erpqlkho.backend.sales.entity.SalesOrderDetail;
@@ -24,7 +23,8 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-// SALE-01..05: tao/quan ly don hang ban, xac nhan se xuat kho (SALE-05) - chan neu thieu ton kho.
+// SALE-01..05: tao/quan ly don hang ban, xac nhan (SALE-05) chi duyet don - KHONG tru kho (xem
+// V33: kho chi tru khi Xac nhan Don giao hang tao tu don nay, o DeliveryOrderService).
 @Service
 @RequiredArgsConstructor
 public class SalesOrderService {
@@ -34,7 +34,6 @@ public class SalesOrderService {
     private final WarehouseRepository warehouseRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
-    private final StockService stockService;
     private final NumberingConfigService numberingConfigService;
 
     public List<SalesOrder> findAll() {
@@ -72,20 +71,13 @@ public class SalesOrderService {
         salesOrderRepository.delete(order);
     }
 
-    // SALE-05: xac nhan don hang - kiem tra du ton kho cho TAT CA dong truoc, sau do moi tru
-    // (tranh tru duoc 1 nua roi moi bao loi).
+    // SALE-05: xac nhan don hang - CHI DUYET don (khong tru kho nua, xem V33). Kho chi thuc su
+    // tru khi Xac nhan Don giao hang duoc tao tu don nay (DeliveryOrderService.confirm()) - dung
+    // chuoi DMS goc SO (duyet) -> DO (lenh giao) -> Xac nhan DO (tru kho).
     @Transactional
     public SalesOrder confirm(Long id) {
         SalesOrder order = findById(id);
         requirePending(order);
-
-        for (SalesOrderDetail detail : order.getDetails()) {
-            stockService.assertSufficientStock(detail.getProduct(), order.getWarehouse(), detail.getQuantity());
-        }
-        for (SalesOrderDetail detail : order.getDetails()) {
-            stockService.decrease(detail.getProduct(), order.getWarehouse(), detail.getQuantity(),
-                    "SALES_ORDER", order.getId());
-        }
 
         order.setStatus("CONFIRMED");
         order.setConfirmedBy(currentUser());

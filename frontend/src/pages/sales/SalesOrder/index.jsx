@@ -10,7 +10,7 @@ import { useBranch } from '../../../contexts/BranchContext';
 const { Title, Text } = Typography;
 
 function statusTag(status) {
-  if (status === 'CONFIRMED') return <Tag color="green">Đã xuất kho</Tag>;
+  if (status === 'CONFIRMED') return <Tag color="green">Đã duyệt</Tag>;
   if (status === 'CANCELLED') return <Tag color="red">Đã hủy</Tag>;
   return <Tag color="gold">Chờ xác nhận</Tag>;
 }
@@ -27,7 +27,9 @@ function computeVisitType(routeInfo, dateStr) {
 }
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../sales/controller/SalesOrderController.java.
-// SALE-05: xac nhan se tu dong xuat kho, backend tu chan neu khong du ton kho (HTTP 409).
+// SALE-05: xac nhan (CONFIRMED) CHI duyet don, KHONG tru kho nua - phai qua trang "Don giao hang"
+// (/sales/delivery-orders) roi "Xac nhan giao hang" (/sales/delivery-confirm) moi thuc su xuat
+// kho, dung chuoi DMS goc SO -> DO -> Xac nhan DO (xem V33 + DeliveryOrderService).
 // Nhom 6 (tonghop.md): validate Khach hang phai thuoc dung Chi nhanh dang chon o Header (suy ra
 // tu tuyen cua khach, GET /api/customers/{id}/route-info) + tu dong tinh "Loai ghe tham".
 export default function SalesOrderPage() {
@@ -44,6 +46,7 @@ export default function SalesOrderPage() {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [customerRouteInfo, setCustomerRouteInfo] = useState(null);
   const [invoicedOrderIds, setInvoicedOrderIds] = useState(new Set());
+  const [deliveredOrderIds, setDeliveredOrderIds] = useState(new Set());
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [massConfirming, setMassConfirming] = useState(false);
   const [confirmedByModalOpen, setConfirmedByModalOpen] = useState(false);
@@ -77,13 +80,17 @@ export default function SalesOrderPage() {
       axiosClient.get('/warehouses'),
       axiosClient.get('/products'),
       axiosClient.get('/invoices'),
+      axiosClient.get('/delivery-orders'),
     ])
-      .then(([ordersRes, customersRes, warehousesRes, productsRes, invoicesRes]) => {
+      .then(([ordersRes, customersRes, warehousesRes, productsRes, invoicesRes, deliveryOrdersRes]) => {
         setOrders(ordersRes.data.data);
         setCustomers(customersRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setProducts(productsRes.data.data);
         setInvoicedOrderIds(new Set(invoicesRes.data.data.map((i) => i.salesOrder.id)));
+        setDeliveredOrderIds(
+          new Set(deliveryOrdersRes.data.data.filter((d) => d.status === 'CLOSED').map((d) => d.salesOrder.id))
+        );
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu đơn hàng'))
       .finally(() => setLoading(false));
@@ -135,7 +142,7 @@ export default function SalesOrderPage() {
     axiosClient
       .post(`/sales-orders/${record.id}/confirm`)
       .then(() => {
-        message.success('Đã xác nhận đơn hàng - xuất kho');
+        message.success('Đã xác nhận đơn hàng - tiếp theo vào "Đơn giao hàng" để tạo lệnh giao');
         loadData();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xác nhận thất bại'));
@@ -161,9 +168,9 @@ export default function SalesOrderPage() {
       .catch((err) => message.error(err.response?.data?.message || 'Xuất hóa đơn thất bại'));
   }
 
-  // Mass Process Delivery: xac nhan hang loat cac don PENDING da chon - goi lap lai dung API
-  // confirm da test cho tung don, bao loi rieng cho don nao that bai (VD thieu ton kho) ma khong
-  // chan cac don con lai - xem tonghop.md.
+  // Mass Process Delivery: duyet hang loat cac don PENDING da chon (chi doi trang thai, khong
+  // dung kho nua - xem V33) - goi lap lai API confirm cho tung don, bao loi rieng don nao that
+  // bai ma khong chan cac don con lai.
   function handleMassConfirm() {
     setMassConfirming(true);
     const ids = [...selectedOrderIds];
@@ -287,7 +294,7 @@ export default function SalesOrderPage() {
       key: 'actions',
       render: (_, record) => {
         const isPending = record.status === 'PENDING';
-        const isConfirmed = record.status === 'CONFIRMED';
+        const isDelivered = deliveredOrderIds.has(record.id);
         const hasInvoice = invoicedOrderIds.has(record.id);
         return (
           <Space>
@@ -296,7 +303,7 @@ export default function SalesOrderPage() {
               <>
                 <Popconfirm
                   title="Xác nhận đơn hàng này?"
-                  description="Sau khi xác nhận sẽ xuất kho và không thể sửa/hủy."
+                  description="Sau khi xác nhận sẽ duyệt đơn (không thể sửa/hủy) - chưa xuất kho ngay, cần tạo Đơn giao hàng và Xác nhận giao hàng mới xuất kho."
                   onConfirm={() => handleConfirmOrder(record)}
                 >
                   <Button icon={<CheckOutlined />} type="primary" ghost />
@@ -306,7 +313,7 @@ export default function SalesOrderPage() {
                 </Popconfirm>
               </>
             )}
-            {isConfirmed && !hasInvoice && (
+            {isDelivered && !hasInvoice && (
               <Popconfirm title="Xuất hóa đơn cho đơn hàng này?" onConfirm={() => handleCreateInvoice(record)}>
                 <Button icon={<FileTextOutlined />} title="Xuất hóa đơn" />
               </Popconfirm>
@@ -375,7 +382,7 @@ export default function SalesOrderPage() {
           selectedOrderIds.length > 0 && (
             <Popconfirm
               title={`Xác nhận hàng loạt ${selectedOrderIds.length} đơn hàng đã chọn?`}
-              description="Đơn nào thiếu tồn kho sẽ báo lỗi riêng, không chặn các đơn còn lại."
+              description="Chỉ duyệt đơn, chưa xuất kho - đơn nào lỗi sẽ báo riêng, không chặn các đơn còn lại."
               onConfirm={handleMassConfirm}
             >
               <Button type="primary" icon={<ThunderboltOutlined />} loading={massConfirming}>

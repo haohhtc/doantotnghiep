@@ -27,6 +27,8 @@ import SalesOrderPage from '../pages/sales/SalesOrder';
 import SalesReturnPage from '../pages/sales/SalesReturn';
 import InvoicePage from '../pages/sales/Invoice';
 import PickingListPage from '../pages/sales/PickingList';
+import DeliveryOrderPage from '../pages/sales/DeliveryOrder';
+import DeliveryConfirmPage from '../pages/sales/DeliveryConfirm';
 import DeliveryResultsPage from '../pages/sales/DeliveryResults';
 import InventoriesPage from '../pages/inventory/Inventories';
 import GoodsIssuePage from '../pages/inventory/GoodsIssue';
@@ -87,8 +89,8 @@ export default function AppRoutes() {
             <Route path="/sales/invoices" element={<InvoicePage />} />
             <Route path="/sales/picking-list" element={<PickingListPage />} />
             <Route path="/sales/delivery-results" element={<DeliveryResultsPage />} />
-            <Route path="/sales/delivery-orders" element={<PlaceholderPage title="Đơn giao hàng" />} />
-            <Route path="/sales/delivery-confirm" element={<PlaceholderPage title="Xác nhận giao hàng" />} />
+            <Route path="/sales/delivery-orders" element={<DeliveryOrderPage />} />
+            <Route path="/sales/delivery-confirm" element={<DeliveryConfirmPage />} />
             <Route path="/sales/credit-memos" element={<PlaceholderPage title="Phiếu ghi có (đã gộp vào Trả hàng)" />} />
             <Route path="/sales/document-generation" element={<PlaceholderPage title="Tạo chứng từ" />} />
             <Route path="/sales/printed-note" element={<PlaceholderPage title="Phiếu in nhanh" />} />
