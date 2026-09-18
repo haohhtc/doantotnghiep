@@ -2,6 +2,44 @@
 
 Đối chiếu theo file `NGHIEP-VU-DMS-THAM-CHIEU.html` (5 nhóm module trong phạm vi đồ án: MDM, Inventory, Sales Order, Purchase Order, Quản trị).
 
+## ✅ Trạng thái tổng thể (đã rà soát lại toàn bộ)
+
+**Tất cả các module ghi trong `tonghop.md` đều đã code xong** (8/8 mục, toàn bộ đánh dấu `[x]`). Vừa kiểm tra lại toàn hệ thống lần cuối (2026-09-18):
+- Build backend (Maven) sạch, không lỗi.
+- Build frontend (Vite) sạch, không lỗi.
+- Database đã chạy đủ 31 migration (V1→V31), Hibernate `ddl-auto: validate` pass (nghĩa là toàn bộ entity Java khớp đúng với schema thật trong DB).
+- Quét qua **~40 API chính** của mọi module (Danh mục, Tồn kho, Bán hàng, Mua hàng, Hệ thống) bằng lệnh gọi API thật sau khi đăng nhập — tất cả trả về đúng, không lỗi 500.
+- Backend + Frontend đang chạy sẵn: backend `http://localhost:8080`, frontend `http://localhost:5173`.
+- Code đã commit đủ vào git (nhánh `feature/backend-frontend`, **5 commit local chưa push** — xem bên dưới), chỉ còn `hinhanh/` (ảnh tham khảo) chưa track, không phải code.
+
+## 🧪 Hướng dẫn test toàn hệ thống (đi 1 lượt từ đầu đến cuối)
+
+Thứ tự dưới đây đi theo đúng luồng nghiệp vụ thật (tạo danh mục → nhập/xuất kho → bán hàng → mua hàng → quản trị), mỗi bước chỉ vài phút. Đăng nhập bằng tài khoản ADMIN (`admin`/`admin123`) để thấy đủ mọi menu.
+
+**Bước 0 — Đăng nhập**: mở `http://localhost:5173`, đăng nhập → phải thấy đủ nút Thêm/Sửa/Xóa ngay lần đầu (không cần F5) ở mọi trang danh mục.
+
+**Bước 1 — Chọn chi nhánh**: góc trái Header có badge chi nhánh (Branch Selector) → bấm vào, thử tìm/chọn 1 chi nhánh khác. Vào Danh mục > Company Setup > Chi nhánh → thử **Thêm chi nhánh mới** → vào Tồn kho > Kho, lọc theo chi nhánh vừa tạo → phải thấy tự sinh đúng 3 kho (kho chính/kho xe tải/kho hàng lỗi).
+
+**Bước 2 — Danh mục sản phẩm**: vào Sản phẩm → thêm/sửa 1 sản phẩm, kiểm tra đủ 3 tab Purchase/Sale/Inventory (mỗi tab 1 đơn vị tính + 1 nhóm thuế). Vào Bảng giá → thêm 1 bảng giá loại "Bán", gán giá cho sản phẩm đó.
+
+**Bước 3 — Nhập hàng (Purchase Order)**: vào Tồn kho > Nhập hàng → tạo phiếu nhập, chọn nhà cung cấp + kho + sản phẩm → Xác nhận → tồn kho phải tăng đúng số lượng. Thử vào Purchase Order > Trả hàng NCC → tạo phiếu trả 1 phần hàng vừa nhập → Duyệt → tồn kho phải giảm lại đúng số lượng trả.
+
+**Bước 4 — Bán hàng (Sales Order)**: vào Sales Order > Sale Orders → tạo đơn hàng, chọn khách hàng (đã gán tuyến) + kho + sản phẩm → hệ thống tự báo "Đúng tuyến/Trái tuyến" và tự tra giá bán → Xác nhận đơn → tồn kho phải giảm đúng số lượng đã bán. Thử tạo thêm vài đơn rồi dùng **"Xác nhận hàng loạt"** để duyệt nhiều đơn cùng lúc.
+
+**Bước 5 — Sau bán hàng**: từ 1 đơn đã xác nhận → bấm **"Xuất hóa đơn"** (kiểm tra tiền thuế tính đúng) → vào Sales Order > Invoices xem lại. Vào Sales Order > Returns → tạo phiếu trả hàng của khách → Duyệt → tồn kho phải tăng lại. Vào Picking List → in thử 1 đơn.
+
+**Bước 6 — Kiểm kê & điều chuyển kho**: vào Tồn kho > Kiểm kê kho, và Tồn kho > Chuyển hàng tồn kho (thử đủ 2 bước: kho nguồn xác nhận xuất → kho đích xác nhận nhận).
+
+**Bước 7 — Quản trị (chỉ ADMIN thấy)**: vào Hệ thống > Nhật ký đăng nhập (xem lại các lần đăng nhập vừa test). Vào Quản lý thiết bị đăng nhập → thử thu hồi phiên hiện tại của mình → xác nhận bị đăng xuất ngay → đăng nhập lại bình thường (không bị khóa vĩnh viễn). Vào Cấu hình đánh số chứng từ xem số phiếu tự sinh cho từng loại.
+
+**Bước 8 — Báo cáo**: vào Báo cáo → 4 trang chỉ có khung trống (đúng thiết kế, để dành cho bạn Nhi gắn PowerBI, không phải lỗi thiếu dữ liệu).
+
+Chi tiết test từng module cụ thể hơn (kể cả các rule validate phức tạp như Route 2 timeline) xem các mục "Cách test..." bên dưới trong file này.
+
+## Lưu ý quan trọng
+- Có 3 lỗi thật được tìm ra và sửa trong lúc test (không chỉ dựa vào code sạch/build sạch): 1 lỗi `LazyInitializationException` ở API tra tuyến khách hàng, và 2 lỗi liên quan transaction khi đăng nhập (xem chi tiết ở mục Quản trị bên dưới). Cả 3 đã test lại xác nhận hết lỗi.
+- Nếu tắt/mở lại máy hoặc Docker, nhớ đảm bảo container MySQL (`erp-mysql-oltp`) đang chạy trước khi khởi động lại backend — Flyway sẽ tự áp migration còn thiếu, không cần thao tác tay.
+
 ## MDM (Danh mục)
 
 | Nhóm (theo DMS) | Đã làm | Ghi chú |
