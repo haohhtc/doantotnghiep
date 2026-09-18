@@ -50,6 +50,19 @@ Yêu cầu: đơn hàng bán trước đây chỉ lưu `created_by` (ai tạo đ
 
 **Cách test trên UI**: vào Đơn hàng bán → tạo 1 đơn mới → bấm Xác nhận → bấm icon người (giữa Làm mới và Xuất file trên toolbar) → Modal hiện ra phải thấy đúng tên tài khoản đang đăng nhập ở cột "Người xác nhận" cho đơn vừa xác nhận, các đơn còn PENDING hiện "-".
 
+## 📝 Quyết định thiết kế: giữ gộp "Đơn giao hàng" + "Xác nhận giao hàng" vào Đơn hàng bán (2026-09-18)
+
+Có ý kiến phản biện (từ Nhi, dựa theo nghiệp vụ DMS thật): nếu gộp "Xác nhận giao hàng" thẳng vào nút "Xác nhận" của Đơn hàng bán thì mất khả năng xử lý các tình huống giao hàng thực tế — giao thiếu số lượng, hàng hư/vỡ trong quá trình vận chuyển, khách hàng từ chối nhận hàng. Đây là rủi ro thật khi bảo vệ đồ án nếu giám khảo hỏi sâu vào nghiệp vụ.
+
+**Đã cân nhắc 2 hướng và chọn hướng giữ nguyên thiết kế gộp**, lý do:
+- Bấm "Xác nhận" trên Đơn hàng bán coi như đã giao đủ 100%, trừ kho ngay theo đúng số lượng đặt.
+- Khi phát sinh ngoại lệ sau đó (khách không nhận / hàng hư phải đem về) → dùng module **Trả hàng** (Sales Return) đã có sẵn: tạo phiếu trả hàng cho đơn đó → Duyệt → tồn kho tự cộng lại đúng số lượng trả về. Đây chính là cơ chế xử lý "hàng đem về" trong hệ thống, chỉ khác là nó nằm ở menu Trả hàng riêng thay vì ngay trong bước xác nhận.
+- Lý do chọn hướng này thay vì tách lại thành 2 bước thật (Xác nhận đơn → Giao hàng ghi số lượng thực giao): tốn nhiều công sức sửa lại toàn bộ luồng (đơn hàng, hóa đơn, tồn kho, các trang đã test xong), trong khi Trả hàng đã code + test đầy đủ, đáp ứng đúng nhu cầu nghiệp vụ (hàng ra rồi quay về thì phải qua Trả hàng, không có đường nào khác kể cả DMS thật).
+
+**Nếu giám khảo hỏi "giao thiếu/hàng hư thì xử lý sao"**: trả lời rằng hệ thống xử lý qua module Trả hàng — Xác nhận đơn = ghi nhận đã xuất kho giao đi, nếu sau đó có vấn đề (khách từ chối, hàng hư) thì lập phiếu Trả hàng để đưa hàng về kho và cộng lại tồn kho, đúng bản chất nghiệp vụ trả hàng sau giao.
+
+Không có thay đổi code nào cho quyết định này — giữ nguyên "Đơn giao hàng" và "Xác nhận giao hàng" là 2 mục mock trong Sidebar (không xóa, không sửa), vì chức năng của chúng đã nằm trong Đơn hàng bán + Phiếu soạn hàng + Kết quả giao hàng + Trả hàng.
+
 ## 🧪 Hướng dẫn test toàn hệ thống (đi 1 lượt từ đầu đến cuối)
 
 Thứ tự dưới đây đi theo đúng luồng nghiệp vụ thật (tạo danh mục → nhập/xuất kho → bán hàng → mua hàng → quản trị), mỗi bước chỉ vài phút. Đăng nhập bằng tài khoản ADMIN (`admin`/`admin123`) để thấy đủ mọi menu.
