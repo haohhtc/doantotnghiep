@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, StopOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, StopOutlined, FileTextOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { useBranch } from '../../../contexts/BranchContext';
@@ -43,6 +43,9 @@ export default function SalesOrderPage() {
   const [detailRows, setDetailRows] = useState([]);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [customerRouteInfo, setCustomerRouteInfo] = useState(null);
+  const [invoicedOrderIds, setInvoicedOrderIds] = useState(new Set());
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [massConfirming, setMassConfirming] = useState(false);
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
@@ -72,12 +75,14 @@ export default function SalesOrderPage() {
       axiosClient.get('/customers'),
       axiosClient.get('/warehouses'),
       axiosClient.get('/products'),
+      axiosClient.get('/invoices'),
     ])
-      .then(([ordersRes, customersRes, warehousesRes, productsRes]) => {
+      .then(([ordersRes, customersRes, warehousesRes, productsRes, invoicesRes]) => {
         setOrders(ordersRes.data.data);
         setCustomers(customersRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setProducts(productsRes.data.data);
+        setInvoicedOrderIds(new Set(invoicesRes.data.data.map((i) => i.salesOrder.id)));
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu đơn hàng'))
       .finally(() => setLoading(false));
@@ -143,6 +148,44 @@ export default function SalesOrderPage() {
         loadData();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Hủy thất bại'));
+  }
+
+  function handleCreateInvoice(record) {
+    axiosClient
+      .post('/invoices', null, { params: { salesOrderId: record.id } })
+      .then(() => {
+        message.success('Đã xuất hóa đơn');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xuất hóa đơn thất bại'));
+  }
+
+  // Mass Process Delivery: xac nhan hang loat cac don PENDING da chon - goi lap lai dung API
+  // confirm da test cho tung don, bao loi rieng cho don nao that bai (VD thieu ton kho) ma khong
+  // chan cac don con lai - xem tonghop.md.
+  function handleMassConfirm() {
+    setMassConfirming(true);
+    const ids = [...selectedOrderIds];
+    let successCount = 0;
+    const failed = [];
+    Promise.allSettled(ids.map((id) => axiosClient.post(`/sales-orders/${id}/confirm`)))
+      .then((results) => {
+        results.forEach((r, idx) => {
+          if (r.status === 'fulfilled') {
+            successCount += 1;
+          } else {
+            const order = orders.find((o) => o.id === ids[idx]);
+            failed.push(`${order?.docNumber || ids[idx]}: ${r.reason?.response?.data?.message || 'Lỗi không xác định'}`);
+          }
+        });
+        if (successCount > 0) message.success(`Đã xác nhận thành công ${successCount}/${ids.length} đơn hàng`);
+        if (failed.length > 0) {
+          Modal.error({ title: 'Một số đơn hàng xác nhận thất bại', content: <div>{failed.map((f) => <div key={f}>{f}</div>)}</div> });
+        }
+        setSelectedOrderIds([]);
+        loadData();
+      })
+      .finally(() => setMassConfirming(false));
   }
 
   function handleAddDetailRow() {
@@ -211,8 +254,20 @@ export default function SalesOrderPage() {
     });
   }
 
+  // Uoc tinh thue o Frontend (Nhom "Invoices" - tonghop.md muc 5): chi de xem truoc, KHONG luu gi
+  // xuong DB - so lieu thue chinh thuc chi chot va luu that trong invoice_item luc "Xuat hoa don".
+  function taxRateOf(productId) {
+    const product = products.find((p) => p.id === productId);
+    return product?.saleTaxGroup ? Number(product.saleTaxGroup.ratePercent) : 0;
+  }
+
   const totalQty = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0), 0);
-  const totalAmount = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0) * Number(d.unitPrice || 0), 0);
+  const subtotalAmount = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0) * Number(d.unitPrice || 0), 0);
+  const estimatedTax = detailRows.reduce(
+    (sum, d) => sum + (Number(d.quantity || 0) * Number(d.unitPrice || 0) * taxRateOf(d.productId)) / 100,
+    0
+  );
+  const totalAmount = subtotalAmount + estimatedTax;
 
   const columns = [
     { title: 'Số đơn', dataIndex: 'docNumber', key: 'docNumber' },
@@ -231,6 +286,8 @@ export default function SalesOrderPage() {
       key: 'actions',
       render: (_, record) => {
         const isPending = record.status === 'PENDING';
+        const isConfirmed = record.status === 'CONFIRMED';
+        const hasInvoice = invoicedOrderIds.has(record.id);
         return (
           <Space>
             <Button icon={<EditOutlined />} disabled={!isPending} onClick={() => openEditModal(record)} />
@@ -248,6 +305,11 @@ export default function SalesOrderPage() {
                 </Popconfirm>
               </>
             )}
+            {isConfirmed && !hasInvoice && (
+              <Popconfirm title="Xuất hóa đơn cho đơn hàng này?" onConfirm={() => handleCreateInvoice(record)}>
+                <Button icon={<FileTextOutlined />} title="Xuất hóa đơn" />
+              </Popconfirm>
+            )}
             <Popconfirm title="Xóa đơn hàng này?" disabled={!isPending} onConfirm={() => handleDelete(record)}>
               <Button icon={<DeleteOutlined />} danger disabled={!isPending} />
             </Popconfirm>
@@ -257,6 +319,14 @@ export default function SalesOrderPage() {
     },
   ];
 
+  // Mass Process Delivery: chi cho chon cac don PENDING (khong the xac nhan hang loat don da
+  // xong/da huy) - xem tonghop.md.
+  const rowSelection = {
+    selectedRowKeys: selectedOrderIds,
+    onChange: setSelectedOrderIds,
+    getCheckboxProps: (record) => ({ disabled: record.status !== 'PENDING' }),
+  };
+
   const detailColumns = [
     { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
     { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity' },
@@ -265,6 +335,11 @@ export default function SalesOrderPage() {
       title: 'Thành tiền',
       key: 'amount',
       render: (_, d) => (d.quantity * d.unitPrice).toLocaleString('vi-VN') + ' đ',
+    },
+    {
+      title: 'Thuế (ước tính)',
+      key: 'tax',
+      render: (_, d) => `${taxRateOf(d.productId)}%`,
     },
     {
       title: '',
@@ -288,10 +363,24 @@ export default function SalesOrderPage() {
         onReload={() => {
           loadData();
           setSearchText('');
+          setSelectedOrderIds([]);
         }}
+        beforeFilter={
+          selectedOrderIds.length > 0 && (
+            <Popconfirm
+              title={`Xác nhận hàng loạt ${selectedOrderIds.length} đơn hàng đã chọn?`}
+              description="Đơn nào thiếu tồn kho sẽ báo lỗi riêng, không chặn các đơn còn lại."
+              onConfirm={handleMassConfirm}
+            >
+              <Button type="primary" icon={<ThunderboltOutlined />} loading={massConfirming}>
+                Xác nhận hàng loạt ({selectedOrderIds.length})
+              </Button>
+            </Popconfirm>
+          )
+        }
       />
 
-      <Table rowKey="id" columns={columns} dataSource={filteredOrders} loading={loading} />
+      <Table rowKey="id" rowSelection={rowSelection} columns={columns} dataSource={filteredOrders} loading={loading} />
 
       <Modal
         title={editingOrder ? `Sửa đơn hàng ${editingOrder.docNumber}` : 'Thêm đơn hàng'}
@@ -357,10 +446,15 @@ export default function SalesOrderPage() {
           <Text>
             Tổng số lượng: <Text strong>{totalQty.toLocaleString('vi-VN')}</Text>
           </Text>
+          <Text>Tiền hàng: <Text strong>{subtotalAmount.toLocaleString('vi-VN')} đ</Text></Text>
+          <Text>Thuế ước tính: <Text strong>{estimatedTax.toLocaleString('vi-VN')} đ</Text></Text>
           <Text>
-            Tổng tiền: <Text strong>{totalAmount.toLocaleString('vi-VN')} đ</Text>
+            Tổng cộng ước tính: <Text strong>{totalAmount.toLocaleString('vi-VN')} đ</Text>
           </Text>
         </div>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          * Số liệu thuế chỉ là ước tính hiển thị trước, chốt chính thức khi bấm "Xuất hóa đơn" sau khi đơn đã xác nhận.
+        </Text>
       </Modal>
 
       <Modal

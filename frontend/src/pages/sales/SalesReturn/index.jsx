@@ -1,0 +1,305 @@
+import { useEffect, useState } from 'react';
+import {
+  Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
+} from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
+import TableToolbar from '../../../components/TableToolbar';
+import axiosClient from '../../../api/axiosClient';
+
+const { Title, Text } = Typography;
+const { TextArea } = Input;
+
+function statusTag(status) {
+  if (status === 'CLOSED') return <Tag color="green">Đã duyệt</Tag>;
+  return <Tag color="gold">Nháp</Tag>;
+}
+
+// Phieu tra hang cua khach (gop Returns + Return Request thanh 1 buoc) - xem
+// backend/.../sales/controller/SalesReturnController.java. Duyet (DRAFT -> CLOSED) se cong lai
+// ton kho qua StockService, KHONG tru cong no (project chua co khai niem cong no khach hang).
+// Quyen mo giong Sales Order (moi role deu thao tac duoc, khong rieng ADMIN+WAREHOUSE_MANAGER).
+export default function SalesReturnPage() {
+  const [returns, setReturns] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [salesOrders, setSalesOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingReturn, setEditingReturn] = useState(null);
+  const [detailRows, setDetailRows] = useState([]);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [form] = Form.useForm();
+  const [detailForm] = Form.useForm();
+
+  const customerOptions = customers.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
+  const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
+  const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
+  const salesOrderOptions = salesOrders.map((o) => ({ value: o.id, label: o.docNumber }));
+
+  function optionLabel(options, id) {
+    return options.find((o) => o.value === id)?.label || '';
+  }
+
+  function loadData() {
+    setLoading(true);
+    Promise.all([
+      axiosClient.get('/sales-returns'),
+      axiosClient.get('/customers'),
+      axiosClient.get('/warehouses'),
+      axiosClient.get('/products'),
+      axiosClient.get('/sales-orders'),
+    ])
+      .then(([retRes, customersRes, warehousesRes, productsRes, ordersRes]) => {
+        setReturns(retRes.data.data);
+        setCustomers(customersRes.data.data);
+        setWarehouses(warehousesRes.data.data);
+        setProducts(productsRes.data.data);
+        setSalesOrders(ordersRes.data.data);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu phiếu trả hàng'))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const filteredReturns = returns.filter((r) => {
+    const keyword = searchText.trim().toLowerCase();
+    if (!keyword) return true;
+    return r.docNumber.toLowerCase().includes(keyword) || (r.customer?.name || '').toLowerCase().includes(keyword);
+  });
+
+  function openCreateModal() {
+    setEditingReturn(null);
+    form.resetFields();
+    form.setFieldsValue({ docDate: new Date().toISOString().slice(0, 10) });
+    setDetailRows([]);
+    setModalOpen(true);
+  }
+
+  function openEditModal(record) {
+    setEditingReturn(record);
+    form.setFieldsValue({
+      docNumber: record.docNumber,
+      docDate: record.docDate,
+      customerId: record.customer?.id,
+      warehouseId: record.warehouse?.id,
+      salesOrderId: record.salesOrder?.id,
+      reason: record.reason,
+      remarks: record.remarks,
+    });
+    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, quantity: d.quantity, note: d.note })));
+    setModalOpen(true);
+  }
+
+  function handleDelete(record) {
+    axiosClient
+      .delete(`/sales-returns/${record.id}`)
+      .then(() => {
+        message.success('Đã xóa phiếu trả hàng');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
+  }
+
+  function handleConfirmReturn(record) {
+    axiosClient
+      .post(`/sales-returns/${record.id}/confirm`)
+      .then(() => {
+        message.success('Đã duyệt phiếu trả hàng - đã cộng vào tồn kho');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Duyệt thất bại'));
+  }
+
+  function handleAddDetailRow() {
+    detailForm.resetFields();
+    setDetailModalOpen(true);
+  }
+
+  function handleSubmitDetailRow() {
+    detailForm.validateFields().then((values) => {
+      setDetailRows((prev) => [...prev, { id: Date.now(), ...values }]);
+      setDetailModalOpen(false);
+    });
+  }
+
+  function handleRemoveDetailRow(id) {
+    setDetailRows((prev) => prev.filter((d) => d.id !== id));
+  }
+
+  function handleSubmit() {
+    form.validateFields().then((values) => {
+      if (detailRows.length === 0) {
+        message.error('Phiếu trả hàng phải có ít nhất 1 dòng sản phẩm');
+        return;
+      }
+      const payload = {
+        ...values,
+        items: detailRows.map((d) => ({ productId: d.productId, quantity: d.quantity, note: d.note })),
+      };
+      const request = editingReturn
+        ? axiosClient.put(`/sales-returns/${editingReturn.id}`, payload)
+        : axiosClient.post('/sales-returns', payload);
+      request
+        .then(() => {
+          message.success(editingReturn ? 'Cập nhật thành công' : 'Tạo phiếu trả hàng thành công');
+          setModalOpen(false);
+          loadData();
+        })
+        .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
+    });
+  }
+
+  const columns = [
+    { title: 'Số phiếu', dataIndex: 'docNumber', key: 'docNumber' },
+    { title: 'Ngày chứng từ', dataIndex: 'docDate', key: 'docDate' },
+    { title: 'Khách hàng', key: 'customer', render: (_, r) => r.customer?.name },
+    { title: 'Kho', key: 'warehouse', render: (_, r) => r.warehouse?.name },
+    { title: 'Đơn hàng gốc', key: 'salesOrder', render: (_, r) => r.salesOrder?.docNumber || '-' },
+    { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          <Button icon={<EditOutlined />} disabled={record.status === 'CLOSED'} onClick={() => openEditModal(record)} />
+          {record.status === 'DRAFT' && (
+            <Popconfirm
+              title="Duyệt phiếu trả hàng này?"
+              description="Sau khi duyệt sẽ cộng vào tồn kho và không thể sửa/xóa."
+              onConfirm={() => handleConfirmReturn(record)}
+            >
+              <Button icon={<CheckOutlined />} type="primary" ghost />
+            </Popconfirm>
+          )}
+          <Popconfirm title="Xóa phiếu trả hàng này?" disabled={record.status === 'CLOSED'} onConfirm={() => handleDelete(record)}>
+            <Button icon={<DeleteOutlined />} danger disabled={record.status === 'CLOSED'} />
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  const detailColumns = [
+    { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
+    { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity' },
+    { title: 'Ghi chú', dataIndex: 'note', key: 'note' },
+    {
+      title: '',
+      key: 'actions',
+      width: 60,
+      render: (_, record) => (
+        <Button size="small" icon={<DeleteOutlined />} danger onClick={() => handleRemoveDetailRow(record.id)} />
+      ),
+    },
+  ];
+
+  return (
+    <div>
+      <Title level={3}>Phiếu trả hàng (Returns)</Title>
+      <TableToolbar
+        searchValue={searchText}
+        onSearchChange={setSearchText}
+        searchPlaceholder="Tìm theo số phiếu hoặc khách hàng..."
+        onAdd={openCreateModal}
+        addTooltip="Thêm phiếu trả hàng"
+        onReload={() => {
+          loadData();
+          setSearchText('');
+        }}
+      />
+
+      <Table rowKey="id" columns={columns} dataSource={filteredReturns} loading={loading} />
+
+      <Modal
+        title={editingReturn ? `Sửa phiếu trả hàng ${editingReturn.docNumber}` : 'Thêm phiếu trả hàng'}
+        open={modalOpen}
+        onOk={handleSubmit}
+        onCancel={() => setModalOpen(false)}
+        okText="Lưu"
+        cancelText="Hủy"
+        width={800}
+        destroyOnHidden
+      >
+        <Form form={form} layout="vertical">
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item label="Số phiếu" name="docNumber" extra={editingReturn ? undefined : 'Để trống để tự sinh số'}>
+                <Input disabled={!!editingReturn} placeholder="Tự sinh nếu để trống" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Ngày chứng từ" name="docDate" rules={[{ required: true, message: 'Ngày chứng từ không được để trống' }]}>
+                <Input type="date" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Kho nhận trả" name="warehouseId" rules={[{ required: true, message: 'Kho không được để trống' }]}>
+                <Select options={warehouseOptions} placeholder="Chọn kho" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Khách hàng" name="customerId" rules={[{ required: true, message: 'Khách hàng không được để trống' }]}>
+                <Select options={customerOptions} placeholder="Chọn khách hàng" showSearch optionFilterProp="label" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Đơn hàng gốc" name="salesOrderId">
+                <Select options={salesOrderOptions} placeholder="Chọn đơn hàng gốc (nếu có)" allowClear showSearch optionFilterProp="label" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Lý do trả" name="reason">
+                <Input placeholder="VD: Hàng lỗi, giao nhầm..." />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label="Ghi chú" name="remarks">
+            <TextArea rows={1} />
+          </Form.Item>
+        </Form>
+
+        <div style={{ marginTop: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text strong>Chi tiết hàng trả</Text>
+          <Button size="small" icon={<PlusOutlined />} onClick={handleAddDetailRow}>
+            Thêm dòng
+          </Button>
+        </div>
+        <Table
+          rowKey="id"
+          size="small"
+          columns={detailColumns}
+          dataSource={detailRows}
+          pagination={false}
+          locale={{ emptyText: 'Không có dữ liệu' }}
+        />
+      </Modal>
+
+      <Modal
+        title="Thêm dòng hàng trả"
+        open={detailModalOpen}
+        onOk={handleSubmitDetailRow}
+        onCancel={() => setDetailModalOpen(false)}
+        okText="Thêm"
+        cancelText="Hủy"
+        destroyOnHidden
+      >
+        <Form form={detailForm} layout="vertical">
+          <Form.Item label="Sản phẩm" name="productId" rules={[{ required: true, message: 'Sản phẩm không được để trống' }]}>
+            <Select options={productOptions} placeholder="Chọn sản phẩm" showSearch optionFilterProp="label" />
+          </Form.Item>
+          <Form.Item label="Số lượng" name="quantity" rules={[{ required: true, message: 'Số lượng không được để trống' }]}>
+            <InputNumber min={0} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item label="Ghi chú" name="note">
+            <Input />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
+  );
+}

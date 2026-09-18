@@ -22,7 +22,12 @@ import ProvincesPage from '../pages/provinces';
 import DistrictsPage from '../pages/districts';
 import WardsPage from '../pages/wards';
 import GoodsReceiptPage from '../pages/inbound/GoodsReceipt';
+import PurchaseGoodsReturnPage from '../pages/purchase/GoodsReturn';
 import SalesOrderPage from '../pages/sales/SalesOrder';
+import SalesReturnPage from '../pages/sales/SalesReturn';
+import InvoicePage from '../pages/sales/Invoice';
+import PickingListPage from '../pages/sales/PickingList';
+import DeliveryResultsPage from '../pages/sales/DeliveryResults';
 import InventoriesPage from '../pages/inventory/Inventories';
 import GoodsIssuePage from '../pages/inventory/GoodsIssue';
 import TransferPage from '../pages/inventory/Transfer';
@@ -67,7 +72,24 @@ export default function AppRoutes() {
             <Route path="/wards" element={<WardsPage />} />
 
             <Route path="/goods-receipts" element={<GoodsReceiptPage />} />
+            <Route path="/purchase/goods-return" element={<PurchaseGoodsReturnPage />} />
+            <Route path="/purchase/purchase-request" element={<PlaceholderPage title="Purchase Request" />} />
+            <Route path="/purchase/auto-rpo" element={<PlaceholderPage title="Auto RPO log / SKU Target Setup" />} />
+
             <Route path="/sales-orders" element={<SalesOrderPage />} />
+            <Route path="/sales/returns" element={<SalesReturnPage />} />
+            <Route path="/sales/invoices" element={<InvoicePage />} />
+            <Route path="/sales/picking-list" element={<PickingListPage />} />
+            <Route path="/sales/delivery-results" element={<DeliveryResultsPage />} />
+            <Route path="/sales/sales-request" element={<PlaceholderPage title="Sales Request" />} />
+            <Route path="/sales/delivery-orders" element={<PlaceholderPage title="Delivery Orders" />} />
+            <Route path="/sales/delivery-confirm" element={<PlaceholderPage title="Delivery Confirm" />} />
+            <Route path="/sales/credit-memos" element={<PlaceholderPage title="Credit Memos (đã gộp vào Returns)" />} />
+            <Route path="/sales/document-generation" element={<PlaceholderPage title="Document Generation" />} />
+            <Route path="/sales/printed-note" element={<PlaceholderPage title="Printed Note (Express)" />} />
+            <Route path="/sales/document-printing" element={<PlaceholderPage title="Document Printing" />} />
+            <Route path="/sales/return-request" element={<PlaceholderPage title="Return Request (đã gộp vào Returns)" />} />
+            <Route path="/sales/upload-vat-pit" element={<PlaceholderPage title="Upload VAT & PIT of Incentive" />} />
             <Route path="/inventory/inventories" element={<InventoriesPage />} />
             <Route path="/inventory/goods-issue" element={<GoodsIssuePage />} />
             <Route path="/inventory/transfer" element={<TransferPage />} />
