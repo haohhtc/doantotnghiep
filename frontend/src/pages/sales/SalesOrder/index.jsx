@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
-  Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
+  Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message, Tooltip,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, StopOutlined, FileTextOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, StopOutlined, FileTextOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { useBranch } from '../../../contexts/BranchContext';
@@ -46,6 +46,7 @@ export default function SalesOrderPage() {
   const [invoicedOrderIds, setInvoicedOrderIds] = useState(new Set());
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [massConfirming, setMassConfirming] = useState(false);
+  const [confirmedByModalOpen, setConfirmedByModalOpen] = useState(false);
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
@@ -365,6 +366,11 @@ export default function SalesOrderPage() {
           setSearchText('');
           setSelectedOrderIds([]);
         }}
+        betweenReloadExport={
+          <Tooltip title="Người xác nhận đơn hàng">
+            <Button icon={<UserOutlined />} onClick={() => setConfirmedByModalOpen(true)} />
+          </Tooltip>
+        }
         beforeFilter={
           selectedOrderIds.length > 0 && (
             <Popconfirm
@@ -499,6 +505,31 @@ export default function SalesOrderPage() {
             </Col>
           </Row>
         </Form>
+      </Modal>
+
+      <Modal
+        title="Người xác nhận đơn hàng"
+        open={confirmedByModalOpen}
+        onCancel={() => setConfirmedByModalOpen(false)}
+        footer={<Button onClick={() => setConfirmedByModalOpen(false)}>Đóng</Button>}
+        width={640}
+        destroyOnHidden
+      >
+        <Table
+          rowKey="id"
+          size="small"
+          dataSource={orders}
+          pagination={{ pageSize: 10 }}
+          columns={[
+            { title: 'Số đơn', dataIndex: 'docNumber', key: 'docNumber' },
+            { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },
+            {
+              title: 'Người xác nhận',
+              key: 'confirmedBy',
+              render: (_, o) => o.confirmedBy?.fullName || o.confirmedBy?.username || '-',
+            },
+          ]}
+        />
       </Modal>
     </div>
   );

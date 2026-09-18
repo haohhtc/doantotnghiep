@@ -52,6 +52,11 @@ public class SalesOrder extends BaseEntity {
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
 
+    // Nguoi bam nut Xac nhan (khac nguoi tao don) - null khi con PENDING/CANCELLED.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "confirmed_by")
+    private User confirmedBy;
+
     @OneToMany(mappedBy = "salesOrder", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @OrderBy("id ASC")
     private List<SalesOrderDetail> details = new ArrayList<>();

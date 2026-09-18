@@ -39,6 +39,17 @@ Theo yêu cầu: công ty chỉ dùng hàng Orion, xóa hẳn Coca Cola (không 
 
 Danh sách 13 sản phẩm còn lại đều là hàng Orion, **trừ 2 dòng rác test cũ** không thuộc Orion: `TEST02` (tên bị lỗi encoding) và `sssss` (id=18, rõ ràng là dữ liệu test/rác) — chưa xóa vì người dùng chỉ yêu cầu xóa Coca Cola, để lại chờ quyết định riêng.
 
+## 🆕 Thêm tính năng: lưu "Người xác nhận đơn hàng" (2026-09-18)
+
+Yêu cầu: đơn hàng bán trước đây chỉ lưu `created_by` (ai tạo đơn), không lưu ai bấm Xác nhận (xuất kho). Đã thêm:
+
+- **Backend**: migration `V32__sales_order_confirmed_by.sql` thêm cột `sales_order.confirmed_by` (FK → `user`, nullable). Entity `SalesOrder` thêm field `confirmedBy`. `SalesOrderService.confirm()` set `order.setConfirmedBy(currentUser())` ngay khi xác nhận — null khi đơn còn PENDING/CANCELLED.
+- **Frontend**: `TableToolbar` thêm slot mới `betweenReloadExport` (nằm giữa nút Làm mới và Xuất file). Trang **Đơn hàng bán** dùng slot này để thêm 1 icon người (👤) — bấm vào mở Modal liệt kê toàn bộ đơn hàng kèm cột "Người xác nhận" (tên người bấm Xác nhận, "-" nếu chưa xác nhận).
+
+**Đã test**: build backend + frontend sạch, restart backend (migration V32 áp dụng thành công, DB lên v32). Tạo đơn mới → xác nhận → gọi lại API thấy `confirmedBy` đúng là user đang đăng nhập (`admin`/`Test Admin`), trước khi xác nhận field này là `null`. Quét lại đủ 40 API chính, không có lỗi nào.
+
+**Cách test trên UI**: vào Đơn hàng bán → tạo 1 đơn mới → bấm Xác nhận → bấm icon người (giữa Làm mới và Xuất file trên toolbar) → Modal hiện ra phải thấy đúng tên tài khoản đang đăng nhập ở cột "Người xác nhận" cho đơn vừa xác nhận, các đơn còn PENDING hiện "-".
+
 ## 🧪 Hướng dẫn test toàn hệ thống (đi 1 lượt từ đầu đến cuối)
 
 Thứ tự dưới đây đi theo đúng luồng nghiệp vụ thật (tạo danh mục → nhập/xuất kho → bán hàng → mua hàng → quản trị), mỗi bước chỉ vài phút. Đăng nhập bằng tài khoản ADMIN (`admin`/`admin123`) để thấy đủ mọi menu.

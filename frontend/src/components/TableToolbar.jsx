@@ -13,6 +13,7 @@ export default function TableToolbar({
   onAdd,
   addTooltip = 'Thêm mới',
   onReload,
+  betweenReloadExport,
   filters,
   filterValues,
   onFilterChange,
@@ -71,6 +72,7 @@ export default function TableToolbar({
         <Tooltip title="Làm mới">
           <Button icon={<ReloadOutlined />} onClick={onReload} />
         </Tooltip>
+        {betweenReloadExport}
         <Tooltip title="Xuất file">
           <Button icon={<ExportOutlined />} onClick={() => message.info('Chưa hỗ trợ xuất file - đây là dữ liệu mẫu')} />
         </Tooltip>

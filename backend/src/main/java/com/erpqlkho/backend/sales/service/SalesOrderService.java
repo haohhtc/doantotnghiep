@@ -88,6 +88,7 @@ public class SalesOrderService {
         }
 
         order.setStatus("CONFIRMED");
+        order.setConfirmedBy(currentUser());
         return salesOrderRepository.save(order);
     }
 
