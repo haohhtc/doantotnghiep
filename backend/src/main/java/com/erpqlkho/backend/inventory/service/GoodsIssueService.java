@@ -9,6 +9,7 @@ import com.erpqlkho.backend.inventory.dto.GoodsIssueDto;
 import com.erpqlkho.backend.inventory.entity.GoodsIssue;
 import com.erpqlkho.backend.inventory.entity.GoodsIssueItem;
 import com.erpqlkho.backend.inventory.repository.GoodsIssueRepository;
+import com.erpqlkho.backend.system.service.NumberingConfigService;
 import com.erpqlkho.backend.user.entity.User;
 import com.erpqlkho.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class GoodsIssueService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final StockService stockService;
+    private final NumberingConfigService numberingConfigService;
 
     public List<GoodsIssue> findAll() {
         return goodsIssueRepository.findAll();
@@ -115,7 +117,7 @@ public class GoodsIssueService {
             }
             return docNumber;
         }
-        return "PX" + String.format("%04d", goodsIssueRepository.count() + 1);
+        return numberingConfigService.nextNumber("GOODS_ISSUE");
     }
 
     private Warehouse findWarehouse(Long id) {

@@ -35,6 +35,12 @@ import TransferConfirmationPage from '../pages/inventory/TransferConfirmation';
 import StockCountingPage from '../pages/inventory/StockCounting';
 import UsersPage from '../pages/system/Users';
 import RolesPage from '../pages/system/Roles';
+import LoginLogsPage from '../pages/system/LoginLogs';
+import NumberingConfigsPage from '../pages/system/NumberingConfigs';
+import LoginDevicesPage from '../pages/system/LoginDevices';
+import ApprovalProcessPage from '../pages/system/ApprovalProcess';
+import SettingsPage from '../pages/system/Settings';
+import EmailConfigPage from '../pages/system/EmailConfig';
 import EmployeePositionsPage from '../pages/employeePositions';
 import EmployeesPage from '../pages/employees';
 import SalesmanTypesPage from '../pages/salesmanTypes';
@@ -110,6 +116,12 @@ export default function AppRoutes() {
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
               <Route path="/users" element={<UsersPage />} />
               <Route path="/roles" element={<RolesPage />} />
+              <Route path="/system/login-logs" element={<LoginLogsPage />} />
+              <Route path="/system/numbering-configs" element={<NumberingConfigsPage />} />
+              <Route path="/system/login-devices" element={<LoginDevicesPage />} />
+              <Route path="/system/approval-process" element={<ApprovalProcessPage />} />
+              <Route path="/system/settings" element={<SettingsPage />} />
+              <Route path="/system/email-config" element={<EmailConfigPage />} />
             </Route>
           </Route>
         </Route>

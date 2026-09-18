@@ -53,6 +53,13 @@ public class SecurityConfig {
                         // Phan quyen: chi ADMIN duoc quan tri.
                         .requestMatchers("/api/roles/**").hasRole("ADMIN")
 
+                        // Quan tri he thong (6 muc con thieu - V25-V30): chi ADMIN duoc xem/thao tac,
+                        // khop dung quyen hien tai cua /users, /roles - xem tonghop.md.
+                        .requestMatchers(
+                                "/api/login-logs/**", "/api/numbering-configs/**", "/api/system/sessions/**",
+                                "/api/approval-configs/**", "/api/settings/**", "/api/email-config/**", "/api/email-logs/**")
+                        .hasRole("ADMIN")
+
                         // Nguoi dung: xem (GET) mo them cho WAREHOUSE_MANAGER vi trang Kho can doc
                         // /api/users de lay dropdown "Nguoi quan ly kho" khi them/sua kho. Tao/sua/xoa/khoa
                         // tai khoan van CHI ADMIN duoc lam.

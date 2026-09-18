@@ -183,7 +183,7 @@ Nguồn: file `NGHIEP-VU-DMS-THAM-CHIEU.html` (dòng 200-201, mục Sales Order 
 - Trang mới tại `/sales/delivery-results` — không cần API/bảng mới, lọc lại danh sách đơn `status = CONFIRMED` từ API `/sales-orders` sẵn có, hiển thị thêm ngày xác nhận.
 
 ### Trạng thái
-- [ ] Chưa bắt đầu implement.
+- [x] Đã implement xong (Migration V22 Returns + V23 Invoices + Backend + Frontend, Sidebar 15 mục), đã test qua API thật (Sales Return cộng đúng tồn kho, Invoice tính thuế chính xác 10%, chặn xuất hóa đơn trùng 409, Mass Process Delivery báo lỗi riêng từng đơn). Build sạch. Lưu ý: migration đánh số thực tế là **V22 (Returns)** và **V23 (Invoices)**, không phải V19/V20 như ghi ban đầu — V19-V21 đã dùng cho module "Nhi đặt hàng lớn" làm trước.
 
 ## Module: Purchase Order — Goods Return (V21)
 
@@ -211,7 +211,7 @@ Nguồn: file `NGHIEP-VU-DMS-THAM-CHIEU.html` (dòng 203-204, mục Purchase Ord
 - Trang danh sách + form tạo mới Phiếu trả hàng NCC tại `/purchase/goods-return`, chạy 100% data thật, theo đúng UI pattern Goods Issue đã có.
 
 ### Trạng thái
-- [ ] Chưa bắt đầu implement.
+- [x] Đã implement xong (Migration thực tế là **V24**, không phải V21), đã test qua API thật (tạo/duyệt phiếu trả hàng NCC trừ đúng tồn kho, dùng đúng quyền ADMIN+WAREHOUSE_MANAGER khác với Sales Return). Build sạch.
 
 ## Module: Quản trị — 6 mục còn thiếu (V22-V27)
 
@@ -262,7 +262,10 @@ Users/Roles/Organization units đã xong từ trước. Cả 6 mục dưới đ�
 - Submenu "Hệ thống" (có sẵn) thêm 6 mục con mới bên cạnh "Người dùng"/"Phân quyền": Nhật ký đăng nhập, Cấu hình đánh số chứng từ, Quản lý thiết bị đăng nhập, Quy trình duyệt, Cài đặt hệ thống, Cấu hình Email — tất cả chỉ ADMIN thấy được (đúng quyền hiện tại của nhóm này).
 
 ### Trạng thái
-- [ ] Chưa bắt đầu implement.
+- [x] Đã implement xong cả 6 mục (Migration thực tế **V25-V31**, không phải V22-V27 — thêm V31 phát sinh giữa chừng để sửa 1 lỗi tìm được lúc test, xem bên dưới). Đã test kỹ theo đúng cảnh báo rủi ro đã ghi (Login Device Management + Numbering Configs): rà soát hồi quy toàn bộ API cũ sau khi sửa `JwtAuthFilter`, không phát sinh lỗi. Build sạch.
+- **Lỗi thật tìm được và đã sửa lúc test** (đúng tinh thần "test thật trước khi báo xong"):
+  1. `AuthService.login()` đang `@Transactional(readOnly = true)` — sau khi thêm ghi `login_log`/`active_session` vào đây thì bị lỗi 500 "Transaction silently rolled back" vì MySQL chặn ghi trên JDBC connection readOnly. Đã bỏ `readOnly = true`.
+  2. `active_session.token_hash` ban đầu đặt `UNIQUE` — JWT chỉ chính xác tới giây nên 2 lần đăng nhập trong cùng 1 giây sinh token giống hệt nhau, vi phạm UNIQUE, lỗi lan sang cả transaction đăng nhập chính dù đã bọc try-catch (đặc thù Hibernate: exception khi flush INSERT làm hỏng transaction bao ngoài kể cả khi Java catch được). Đã thêm Migration **V31** bỏ UNIQUE này + tách việc ghi log/session sang `Propagation.REQUIRES_NEW` (transaction riêng) để lỗi ghi log không bao giờ ảnh hưởng luồng đăng nhập thật.
 
 ## Module: Nhi đặt hàng lớn — Header/Branch Context, Kho theo Branch, Product 3-tab, Price List mua/bán, Employee tách bảng, Route 2 timeline, Report rỗng
 
@@ -312,5 +315,5 @@ Nguồn: yêu cầu trực tiếp (không từ file DMS) + ảnh tham khảo OMS
 - Mỗi trang chỉ có tiêu đề + 1 vùng nội dung trống (kiểu khung dashboard, để trống hẳn phần bên phải/nội dung chính) — không có API/dữ liệu gì, chỉ tạo khung UI cho Nhi gắn PowerBI vào sau.
 
 ### Trạng thái
-- [x] Đã implement xong toàn bộ 7 Nhóm (Migration V19-V21 + Backend + Frontend), đã test qua Flyway migrate thật (V19→V20→V21 chạy sạch trên DB dev, Hibernate `ddl-auto: validate` pass), build backend + frontend sạch. Chi tiết đầy đủ + hướng dẫn test xem file `dalam.md`. Chưa up git (đang chờ xác nhận).
+- [x] Đã implement xong toàn bộ 7 Nhóm (Migration V19-V21 + Backend + Frontend), đã test qua Flyway migrate thật (V19→V20→V21 chạy sạch trên DB dev, Hibernate `ddl-auto: validate` pass) + test qua API thật sau khi code xong (phát hiện và sửa 1 lỗi LazyInitializationException ở `route-info`), build backend + frontend sạch. Chi tiết đầy đủ + hướng dẫn test xem file `dalam.md`. Đã commit local (3 commit), **chưa push lên remote** (đang chờ xác nhận).
 - Quyết định phát sinh trong lúc làm (đã hỏi xác nhận người dùng): 2 bảng `route_salesman_assignment`/`route_manager_assignment` mới **thay thế hẳn** module "Giao tuyến vận hành" (RouteSetting) cũ — không giữ song song.

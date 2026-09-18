@@ -12,6 +12,7 @@ import com.erpqlkho.backend.inbound.entity.GoodsReceipt;
 import com.erpqlkho.backend.inbound.entity.GoodsReceiptDetail;
 import com.erpqlkho.backend.inbound.repository.GoodsReceiptRepository;
 import com.erpqlkho.backend.inventory.service.StockService;
+import com.erpqlkho.backend.system.service.NumberingConfigService;
 import com.erpqlkho.backend.user.entity.User;
 import com.erpqlkho.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class GoodsReceiptService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final StockService stockService;
+    private final NumberingConfigService numberingConfigService;
 
     public List<GoodsReceipt> findAll() {
         return goodsReceiptRepository.findAll();
@@ -118,7 +120,7 @@ public class GoodsReceiptService {
             }
             return docNumber;
         }
-        return "PN" + String.format("%04d", goodsReceiptRepository.count() + 1);
+        return numberingConfigService.nextNumber("GOODS_RECEIPT");
     }
 
     private Supplier findSupplier(Long id) {

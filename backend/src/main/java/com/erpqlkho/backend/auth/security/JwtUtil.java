@@ -8,7 +8,10 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
+import java.util.HexFormat;
 
 @Component
 public class JwtUtil {
@@ -52,5 +55,17 @@ public class JwtUtil {
         return Jwts.parser().verifyWith(key()).build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    // Bam token (SHA-256) de luu vao active_session - KHONG bao gio luu token goc (V30, Login
+    // Device Management) - xem tonghop.md.
+    public static String hashToken(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 khong kha dung", e);
+        }
     }
 }

@@ -9,6 +9,7 @@ import com.erpqlkho.backend.inventory.dto.StockTakeDto;
 import com.erpqlkho.backend.inventory.entity.StockTake;
 import com.erpqlkho.backend.inventory.entity.StockTakeDetail;
 import com.erpqlkho.backend.inventory.repository.StockTakeRepository;
+import com.erpqlkho.backend.system.service.NumberingConfigService;
 import com.erpqlkho.backend.user.entity.User;
 import com.erpqlkho.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class StockTakeService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final StockService stockService;
+    private final NumberingConfigService numberingConfigService;
 
     public List<StockTake> findAll() {
         return stockTakeRepository.findAll();
@@ -115,7 +117,7 @@ public class StockTakeService {
             }
             return code;
         }
-        return "KK" + String.format("%04d", stockTakeRepository.count() + 1);
+        return numberingConfigService.nextNumber("STOCK_TAKE");
     }
 
     private Warehouse findWarehouse(Long id) {

@@ -12,6 +12,7 @@ import com.erpqlkho.backend.sales.dto.SalesOrderDto;
 import com.erpqlkho.backend.sales.entity.SalesOrder;
 import com.erpqlkho.backend.sales.entity.SalesOrderDetail;
 import com.erpqlkho.backend.sales.repository.SalesOrderRepository;
+import com.erpqlkho.backend.system.service.NumberingConfigService;
 import com.erpqlkho.backend.user.entity.User;
 import com.erpqlkho.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ public class SalesOrderService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final StockService stockService;
+    private final NumberingConfigService numberingConfigService;
 
     public List<SalesOrder> findAll() {
         return salesOrderRepository.findAll();
@@ -133,7 +135,7 @@ public class SalesOrderService {
             }
             return docNumber;
         }
-        return "SO" + String.format("%04d", salesOrderRepository.count() + 1);
+        return numberingConfigService.nextNumber("SALES_ORDER");
     }
 
     private Customer findCustomer(Long id) {

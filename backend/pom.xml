@@ -82,6 +82,13 @@
             <version>2.6.0</version>
         </dependency>
 
+        <!-- Email Config (V28) - KHONG gui email that trong project nay, chi khai bao dependency
+             cho du kien ha tang - xem tonghop.md muc "Quan tri". -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- Boilerplate reduction -->
         <dependency>
             <groupId>org.projectlombok</groupId>

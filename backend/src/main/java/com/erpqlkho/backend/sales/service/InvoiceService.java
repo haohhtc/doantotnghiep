@@ -7,6 +7,7 @@ import com.erpqlkho.backend.sales.entity.SalesOrder;
 import com.erpqlkho.backend.sales.entity.SalesOrderDetail;
 import com.erpqlkho.backend.sales.repository.InvoiceRepository;
 import com.erpqlkho.backend.sales.repository.SalesOrderRepository;
+import com.erpqlkho.backend.system.service.NumberingConfigService;
 import com.erpqlkho.backend.user.entity.User;
 import com.erpqlkho.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +31,7 @@ public class InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final SalesOrderRepository salesOrderRepository;
     private final UserRepository userRepository;
+    private final NumberingConfigService numberingConfigService;
 
     public List<Invoice> findAll() {
         return invoiceRepository.findAll();
@@ -93,7 +95,7 @@ public class InvoiceService {
     }
 
     private String resolveInvoiceNumber() {
-        return "HD" + String.format("%04d", invoiceRepository.count() + 1);
+        return numberingConfigService.nextNumber("INVOICE");
     }
 
     private User currentUser() {

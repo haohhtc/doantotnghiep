@@ -29,15 +29,15 @@
 
 ## Sales Order (Bán hàng)
 
-✅ Đã gộp chuỗi Sales Request → Sale Order → Delivery Order thành 1 bảng `sales_order`, xác nhận đơn = xuất kho luôn. Tự động tra giá qua Price List khi chọn sản phẩm.
+✅ Đã gộp chuỗi Sales Request → Sale Order → Delivery Order thành 1 bảng `sales_order`, xác nhận đơn = xuất kho luôn. Tự động tra giá qua Price List khi chọn sản phẩm. Sidebar tái cấu trúc đủ 15 mục giống OMS thật. Đã thêm mới: **Returns** (trả hàng, cộng lại tồn kho), **Invoices** (xuất hóa đơn, chốt thuế), **Picking List/Delivery Note** (in phiếu), **Mass Process Delivery** (xác nhận hàng loạt), **Delivery Results**.
 
 ## Purchase Order (Mua hàng)
 
-✅ Đã gộp vào Goods Receipt (không tách phiếu yêu cầu mua hàng riêng).
+✅ Đã gộp Purchase Request + Goods Receipt PO vào Goods Receipt. Đã thêm mới: **Goods Return** (trả hàng NCC, trừ lại tồn kho, quyền riêng ADMIN+WAREHOUSE_MANAGER).
 
 ## Quản trị
 
-✅ Users (kèm Chi nhánh/Chức vụ/Loại NVBH), Roles/Permissions.
+✅ Users (kèm Chi nhánh/Chức vụ/Loại NVBH), Roles/Permissions. Đã thêm mới 6 mục: **Security Logs** (nhật ký đăng nhập), **Numbering Configs** (nơi duy nhất sinh số phiếu cho mọi loại chứng từ), **Login Device Management** (xem/thu hồi phiên đăng nhập), **Approval Process** (cấu hình tham khảo), **Settings**, **Email Config** (giả lập, không gửi thật).
 
 ## Hạ tầng chung
 
@@ -86,11 +86,13 @@ Toàn bộ 7 nhóm trong file `tonghop.md` mục "Nhi đặt hàng lớn" — Mi
 
 ## Chưa làm / ngoài phạm vi
 
-- Sales Order: Returns, Invoices, Picking List/Delivery Note, Mass Process Delivery, Delivery Results — đã phân tích/lên kế hoạch chi tiết trong `tonghop.md`, **chưa code**.
-- Purchase Order: Goods Return (trả hàng NCC) — đã lên kế hoạch trong `tonghop.md`, **chưa code**.
-- Quản trị: Security Logs, Numbering Configs, Login Device Management, Approval Process, Settings, Email Config (6 mục) — đã lên kế hoạch trong `tonghop.md`, **chưa code**.
+Toàn bộ các module trong `tonghop.md` đã code xong (tính đến bản cập nhật này). Phần chủ động bỏ (không nằm trong phạm vi đồ án):
+
 - POSM Inventory — thuộc Trade Marketing, chủ động bỏ.
-- Batch Management, Promotions — chủ động bỏ theo bảng đối chiếu trong file DMS reference (không nằm trong phạm vi đồ án).
+- Batch Management, Promotions — chủ động bỏ theo bảng đối chiếu trong file DMS reference.
+- Sales Order: Sales Request/Delivery Orders/Delivery Confirm/Document Generation/Printed Note (Express)/Document Printing/Van Sales Daily Payment/Upload VAT & PIT of Incentive — chỉ dựng khung Sidebar (PlaceholderPage) cho đủ hình thức 15 mục, không có logic thật (lý do chi tiết xem `tonghop.md`).
+- Purchase Order: Auto RPO log/SKU Target Setup — chủ động bỏ (cần hạ tầng lập lịch riêng, "SKU Target Setup" trùng bản chất với Stock Alerts đã có).
+- Quản trị: Numbering Configs chỉ áp dụng cho các module tự sinh số phiếu tự động hiện có, chưa mở rộng cho các module khác nếu phát sinh sau này. Approval Process/Email Config chỉ là cấu hình/giả lập, chưa thực sự chặn logic hay gửi email thật (đúng như quyết định đã chốt để giảm rủi ro).
 
 ## Cách test Goods Issue (Phiếu xuất kho) và Inventory Transfer (Điều chuyển kho)
 
@@ -137,3 +139,29 @@ Toàn bộ 7 nhóm trong file `tonghop.md` mục "Nhi đặt hàng lớn" — Mi
 **10. Module Báo cáo (Nhóm 7)**: Sidebar > "Báo cáo" → 4 trang, mỗi trang chỉ có tiêu đề + khung trống (đúng như thiết kế, chưa có dữ liệu — dành cho Nhi gắn PowerBI).
 
 **11. Kiểm tra hồi quy** (đảm bảo không phá vỡ tính năng cũ): Sales Order tạo/xác nhận đơn bình thường (dùng bảng giá bán) vẫn chạy đúng như trước; trang Khách hàng vẫn Thêm/Sửa được (không còn field Nhóm khách hàng, đã chuyển sang M:N); trang Chi nhánh Thêm/Sửa vẫn hoạt động bình thường kèm 2 field mới Quản lý/NVBH mặc định (không bắt buộc).
+
+## Cách test đợt "Sales Order Returns/Invoices" + "Purchase Order Goods Return" + "Quản trị 6 mục"
+
+**Trước khi test**: chạy lại backend 1 lần để Flyway tự áp V22→V31 (đã tự test migrate sạch, không cần thao tác tay với DB).
+
+**1. Sales Order — Returns**: Sidebar > Sales Order > "Returns" → Thêm phiếu trả hàng, chọn khách hàng + kho nhận trả + ít nhất 1 dòng sản phẩm → Lưu → bấm nút dấu tích để Duyệt → vào trang Tồn kho kiểm tra số lượng sản phẩm đã **tăng** đúng bằng số lượng trả.
+
+**2. Sales Order — Invoices**: mở 1 đơn hàng đã **CONFIRMED** (đã xuất kho) trên trang Sales Order → thấy nút hình tờ giấy (Xuất hóa đơn) ở cột Thao tác (chỉ hiện khi đơn CONFIRMED và chưa có hóa đơn) → bấm, xác nhận → vào Sidebar > Sales Order > "Invoices" xem lại, kiểm tra tiền thuế = tiền hàng × % thuế của sản phẩm (sản phẩm có Nhóm thuế 10% thì thuế phải đúng 10%). Thử bấm "Xuất hóa đơn" lần 2 cho cùng đơn đó → phải báo lỗi (không cho xuất trùng).
+
+**3. Sales Order — Mass Process Delivery**: trang Sales Order, tick chọn nhiều đơn đang "Chờ xác nhận" (checkbox đầu dòng — đơn đã xong/đã hủy không tick được) → nút "Xác nhận hàng loạt (N)" hiện ra phía trên bảng → bấm → xác nhận → các đơn đủ tồn kho sẽ chuyển "Đã xuất kho", đơn nào thiếu tồn kho sẽ báo lỗi riêng (xem popup) mà không chặn các đơn còn lại.
+
+**4. Sales Order — Picking List & Delivery Results**: "Picking List/Delivery Note Printing" → chọn 1 đơn CONFIRMED, bấm "In phiếu" → xem trước phiếu giao hàng, bấm "In" sẽ mở hộp thoại in của trình duyệt (chỉ có nội dung phiếu, không có Sidebar/Header). "Delivery Results" → chỉ hiển thị danh sách đơn đã CONFIRMED kèm ngày xác nhận.
+
+**5. Purchase Order — Goods Return**: Sidebar > Purchase Order > "Trả hàng NCC" → Thêm phiếu, chọn NCC + kho xuất trả + sản phẩm → Lưu → Duyệt → vào Tồn kho kiểm tra số lượng đã **giảm** đúng bằng số lượng trả.
+
+**6. Quản trị — Security Logs**: đăng xuất rồi đăng nhập lại (cả trường hợp đúng và sai mật khẩu) → vào Sidebar > Hệ thống > "Nhật ký đăng nhập" → phải thấy đủ các lần vừa thử, đúng cột Thành công/Thất bại, không có cột mật khẩu.
+
+**7. Quản trị — Numbering Configs**: vào "Cấu hình đánh số chứng từ" → xem danh sách 8 loại chứng từ với số hiện tại + số tiếp theo dự kiến → sửa thử 1 tiền tố (VD đổi "SO" thành "DH") → Lưu → tạo 1 đơn hàng mới → số phiếu phải theo tiền tố mới, không trùng với các phiếu cũ.
+
+**8. Quản trị — Login Device Management (quan trọng nhất, ảnh hưởng đăng nhập)**: vào "Quản lý thiết bị đăng nhập" → thấy danh sách phiên đang đăng nhập (thiết bị/IP/thời gian) → bấm "Đăng xuất" trên phiên hiện tại của chính bạn → **ngay lập tức các thao tác tiếp theo trong app sẽ báo lỗi hết hạn phiên** (đây là hành vi đúng — đã bị thu hồi) → đăng nhập lại bình thường → mọi chức năng khác hoạt động lại như cũ (không bị khóa vĩnh viễn).
+
+**9. Quản trị — Approval Process/Settings/Email Config**: 3 trang CRUD đơn giản, thêm/sửa/xóa 1 dòng thử để xác nhận hoạt động. Riêng Email Config: vào tab "Gửi thử", điền người nhận rồi bấm "Gửi thử" → chỉ xuất hiện 1 dòng trong bảng "Nhật ký email" bên dưới (không có email thật nào được gửi đi, đúng như thiết kế).
+
+**10. Kiểm tra hồi quy tổng thể** (bắt buộc sau khi sửa `JwtAuthFilter` — điểm rủi ro cao nhất session này): sau khi test xong mục 8, đăng nhập lại và thử qua 1 lượt các trang chính đã làm từ trước (Chi nhánh, Sản phẩm, Kho, Sales Order, Goods Receipt...) để chắc chắn không trang nào bị chặn nhầm.
+
+**Lỗi thật đã tìm và sửa trong lúc test** (không chỉ dựa vào code sạch): API đăng nhập từng bị lỗi 500 "Transaction silently rolled back" sau khi thêm ghi log — nguyên nhân do transaction đang ở chế độ chỉ-đọc, đã sửa; và một lỗi hiếm khi đăng nhập liên tiếp trong cùng 1 giây (do JWT trùng token) — đã sửa bằng migration bổ sung. Cả hai đã test lại xác nhận hết lỗi.

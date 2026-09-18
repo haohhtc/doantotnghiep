@@ -9,6 +9,7 @@ import com.erpqlkho.backend.inventory.dto.InventoryTransferDto;
 import com.erpqlkho.backend.inventory.entity.InventoryTransfer;
 import com.erpqlkho.backend.inventory.entity.InventoryTransferItem;
 import com.erpqlkho.backend.inventory.repository.InventoryTransferRepository;
+import com.erpqlkho.backend.system.service.NumberingConfigService;
 import com.erpqlkho.backend.user.entity.User;
 import com.erpqlkho.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class InventoryTransferService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final StockService stockService;
+    private final NumberingConfigService numberingConfigService;
 
     public List<InventoryTransfer> findAll() {
         return inventoryTransferRepository.findAll();
@@ -140,7 +142,7 @@ public class InventoryTransferService {
             }
             return docNumber;
         }
-        return "DC" + String.format("%04d", inventoryTransferRepository.count() + 1);
+        return numberingConfigService.nextNumber("INVENTORY_TRANSFER");
     }
 
     private Warehouse findWarehouse(Long id) {
