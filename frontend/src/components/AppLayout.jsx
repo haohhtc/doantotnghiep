@@ -300,6 +300,12 @@ export default function AppLayout() {
     if (ancestors) {
       setOpenKeys((prev) => Array.from(new Set([...prev, ...ancestors])));
     }
+
+    // React Router chuyen trang bang client-side navigation khong tu cuon ve dau trang (khac
+    // hanh vi trinh duyet thuong) - Sidebar hien co rat nhieu muc (nhom Ban hang toi 15 muc) nen
+    // nguoi dung thuong phai cuon xuong sau de bam duoc muc con, sau khi bam se bi ket qua trang
+    // moi hien ra ngay vi tri da cuon do thay vi tu dau. Tu cuon window ve dau moi lan doi route.
+    window.scrollTo({ top: 0 });
   }, [location.pathname]);
 
   const breadcrumbItems = (BREADCRUMB_MAP[location.pathname] || []).map((label) => ({ title: label }));
