@@ -22,8 +22,8 @@ export default function UnitsPage() {
       <Title level={3}>Đơn vị tính</Title>
       <Tabs
         items={[
-          { key: 'uom', label: 'Đơn vị tính', children: <UomTab /> },
-          { key: 'uom-group', label: 'Nhóm quy đổi', children: <UomGroupTab /> },
+          { key: 'uom', label: 'Đơn vị tính', children: <UomTab canWrite={canWrite} /> },
+          { key: 'uom-group', label: 'Nhóm quy đổi', children: <UomGroupTab canWrite={canWrite} /> },
         ]}
       />
     </div>
@@ -31,7 +31,7 @@ export default function UnitsPage() {
 }
 
 // --- Tab 1: Don vi tinh co so ---
-function UomTab() {
+function UomTab({ canWrite }) {
   const [uoms, setUoms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -155,7 +155,7 @@ function UomTab() {
 }
 
 // --- Tab 2: Nhom quy doi (UomGroup + UomConversion) ---
-function UomGroupTab() {
+function UomGroupTab({ canWrite }) {
   const [groups, setGroups] = useState([]);
   const [uoms, setUoms] = useState([]);
   const [loading, setLoading] = useState(true);
