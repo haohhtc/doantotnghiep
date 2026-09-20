@@ -505,9 +505,10 @@ export default function SalesOrderPage() {
               <Form.Item
                 label="Đơn giá"
                 name="unitPrice"
-                rules={[{ required: true, message: 'Đơn giá không được để trống' }]}
+                rules={[{ required: true, message: 'Chọn sản phẩm để tự lấy đơn giá theo bảng giá' }]}
+                extra="Tự lấy theo bảng giá của khách hàng - không sửa tay được"
               >
-                <InputNumber min={0} step={1000} style={{ width: '100%' }} formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
+                <InputNumber disabled min={0} step={1000} style={{ width: '100%' }} formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
               </Form.Item>
             </Col>
           </Row>
