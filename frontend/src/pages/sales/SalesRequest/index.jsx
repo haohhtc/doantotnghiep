@@ -105,6 +105,24 @@ export default function SalesRequestPage() {
     setDetailModalOpen(true);
   }
 
+  // Tra gia tu dong theo Bang gia loai SALE cua khach hang - giong het pattern o trang Don hang
+  // ban (SalesOrder/index.jsx). SR chua co kho xuat nen KHONG truyen warehouseId - chi xet duoc
+  // nhanh customer.price_list_id, du dung vi day la nhanh uu tien dau trong PriceListService.
+  function handleProductSelect(productId) {
+    detailForm.setFieldsValue({ unitPrice: undefined });
+    const customerId = form.getFieldValue('customerId');
+    axiosClient
+      .get('/price-lists/lookup', { params: { productId, customerId, purpose: 'SALE' } })
+      .then(({ data }) => {
+        if (data.data != null) {
+          detailForm.setFieldsValue({ unitPrice: data.data });
+        }
+      })
+      .catch((err) => {
+        message.error(err.response?.data?.message || 'Không tra được giá bán cho sản phẩm này - vui lòng cấu hình bảng giá');
+      });
+  }
+
   function handleSubmitDetailRow() {
     detailForm.validateFields().then((values) => {
       setDetailRows((prev) => [...prev, { id: Date.now(), ...values }]);
@@ -283,7 +301,7 @@ export default function SalesRequestPage() {
       >
         <Form form={detailForm} layout="vertical">
           <Form.Item label="Sản phẩm" name="productId" rules={[{ required: true, message: 'Sản phẩm không được để trống' }]}>
-            <Select options={productOptions} placeholder="Chọn sản phẩm" showSearch optionFilterProp="label" />
+            <Select options={productOptions} placeholder="Chọn sản phẩm" showSearch optionFilterProp="label" onChange={handleProductSelect} />
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
@@ -292,8 +310,13 @@ export default function SalesRequestPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Đơn giá" name="unitPrice" rules={[{ required: true, message: 'Đơn giá không được để trống' }]}>
-                <InputNumber min={0} step={1000} style={{ width: '100%' }} formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
+              <Form.Item
+                label="Đơn giá"
+                name="unitPrice"
+                rules={[{ required: true, message: 'Chọn sản phẩm để tự lấy đơn giá theo bảng giá' }]}
+                extra="Tự lấy theo bảng giá của khách hàng - không sửa tay được"
+              >
+                <InputNumber disabled min={0} step={1000} style={{ width: '100%' }} formatter={(v) => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} />
               </Form.Item>
             </Col>
           </Row>
