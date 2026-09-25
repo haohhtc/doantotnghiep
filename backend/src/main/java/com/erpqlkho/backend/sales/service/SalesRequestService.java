@@ -42,6 +42,7 @@ public class SalesRequestService {
     private final UserRepository userRepository;
     private final NumberingConfigService numberingConfigService;
     private final UomConversionService uomConversionService;
+    private final AvailabilityService availabilityService;
 
     public List<SalesRequest> findAll() {
         return salesRequestRepository.findAll();
@@ -111,6 +112,8 @@ public class SalesRequestService {
             total = total.add(amount);
             details.add(detail);
         }
+        // Luc nay moi co kho xuat -> kiem tra vuot "San sang ban" tai day (Yeu cau ban hang chua co kho).
+        availabilityService.assertAvailable(warehouse, details, null);
         order.getDetails().addAll(details);
         order.setTotalAmount(total);
 

@@ -38,6 +38,7 @@ public class SalesOrderService {
     private final UserRepository userRepository;
     private final NumberingConfigService numberingConfigService;
     private final UomConversionService uomConversionService;
+    private final AvailabilityService availabilityService;
 
     public List<SalesOrder> findAll() {
         return salesOrderRepository.findAll();
@@ -55,6 +56,7 @@ public class SalesOrderService {
         order.setStatus("PENDING");
         order.setCreatedBy(currentUser());
         applyDto(order, dto);
+        availabilityService.assertAvailable(order.getWarehouse(), order.getDetails(), null);
 
         return salesOrderRepository.save(order);
     }
@@ -64,6 +66,7 @@ public class SalesOrderService {
         SalesOrder order = findById(id);
         requirePending(order);
         applyDto(order, dto);
+        availabilityService.assertAvailable(order.getWarehouse(), order.getDetails(), order.getId());
         return salesOrderRepository.save(order);
     }
 
@@ -81,6 +84,7 @@ public class SalesOrderService {
     public SalesOrder confirm(Long id) {
         SalesOrder order = findById(id);
         requirePending(order);
+        availabilityService.assertAvailable(order.getWarehouse(), order.getDetails(), order.getId());
 
         order.setStatus("CONFIRMED");
         order.setConfirmedBy(currentUser());
