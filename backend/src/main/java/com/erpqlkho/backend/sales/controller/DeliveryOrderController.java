@@ -46,7 +46,7 @@ public class DeliveryOrderController {
 
     @PostMapping("/{id}/confirm")
     public ApiResponse<DeliveryOrder> confirm(@PathVariable Long id) {
-        return ApiResponse.ok("Da xac nhan giao hang - da xuat kho", deliveryOrderService.confirm(id));
+        return ApiResponse.ok("Da xac nhan giao hang - hang da chuyen sang Kho xe tai", deliveryOrderService.confirm(id));
     }
 
     @DeleteMapping("/{id}")

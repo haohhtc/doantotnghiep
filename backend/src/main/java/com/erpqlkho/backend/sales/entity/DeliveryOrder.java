@@ -45,6 +45,11 @@ public class DeliveryOrder extends BaseEntity {
     @JoinColumn(name = "warehouse_id", nullable = false)
     private Warehouse warehouse;
 
+    // Kho Van da nhan hang khi Xac nhan giao (V38). null = don giao cu, da tru thang ton Main.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "van_warehouse_id")
+    private Warehouse vanWarehouse;
+
     @Column(length = 500)
     private String remarks;
 

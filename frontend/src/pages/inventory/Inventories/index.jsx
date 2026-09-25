@@ -35,16 +35,22 @@ export default function InventoriesPage() {
       axiosClient.get('/stock'),
       axiosClient.get('/sales-orders'),
       axiosClient.get('/delivery-orders'),
+      axiosClient.get('/invoices'),
     ])
-      .then(([productsRes, warehousesRes, stockRes, ordersRes, deliveryRes]) => {
+      .then(([productsRes, warehousesRes, stockRes, ordersRes, deliveryRes, invoicesRes]) => {
         setBranchProducts(productsRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setStockRows(stockRes.data.data);
-        // "Da dat hang" = don PENDING + CONFIRMED ma Don giao hang CHUA Xac nhan (CLOSED) - hang van
-        // nam trong kho nhung da bi giu cho don. Xac nhan giao hang xong ton thuc te da giam nen het tinh.
+        // "Da dat hang" = don PENDING + CONFIRMED con giu cho: kho Main/khac -> den khi Don giao hang duoc
+        // Xac nhan (hang da sang Kho Van); kho Van (ban thang tu xe) -> den khi xuat Hoa don. Cung cong thuc
+        // voi AvailabilityService o backend.
         const deliveredOrderIds = new Set(deliveryRes.data.data.filter((d) => d.status === 'CLOSED').map((d) => d.salesOrder.id));
+        const invoicedOrderIds = new Set(invoicesRes.data.data.map((i) => i.salesOrder.id));
         setPendingOrders(
-          ordersRes.data.data.filter((o) => (o.status === 'PENDING' || o.status === 'CONFIRMED') && !deliveredOrderIds.has(o.id))
+          ordersRes.data.data.filter((o) => {
+            if (o.status !== 'PENDING' && o.status !== 'CONFIRMED') return false;
+            return o.warehouse?.warehouseType === 'VAN' ? !invoicedOrderIds.has(o.id) : !deliveredOrderIds.has(o.id);
+          })
         );
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu tồn kho'))

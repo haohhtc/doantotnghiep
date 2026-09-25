@@ -3,6 +3,7 @@ package com.erpqlkho.backend.sales.service;
 import com.erpqlkho.backend.category.product.entity.Product;
 import com.erpqlkho.backend.category.uom.entity.Uom;
 import com.erpqlkho.backend.category.uomgroup.service.UomConversionService;
+import com.erpqlkho.backend.inventory.service.StockService;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.sales.entity.DeliveryOrder;
 import com.erpqlkho.backend.sales.entity.DeliveryOrderItem;
@@ -39,6 +40,7 @@ public class InvoiceService {
     private final UserRepository userRepository;
     private final NumberingConfigService numberingConfigService;
     private final UomConversionService uomConversionService;
+    private final StockService stockService;
 
     public List<Invoice> findAll() {
         return invoiceRepository.findAll();
@@ -104,7 +106,17 @@ public class InvoiceService {
         invoice.setTaxAmount(totalTax);
         invoice.setTotalAmount(subtotal.add(totalTax));
 
-        return invoiceRepository.save(invoice);
+        Invoice saved = invoiceRepository.save(invoice);
+
+        // Xuat hoa don = hang roi Kho Van cho khach: tru ton thuc te o Kho Van (V38). Don giao cu
+        // (van_warehouse_id null) da tru thang ton luc xac nhan giao nen khong tru them.
+        if (deliveryOrder.getVanWarehouse() != null) {
+            for (DeliveryOrderItem item : deliveryOrder.getItems()) {
+                stockService.decrease(item.getProduct(), deliveryOrder.getVanWarehouse(), item.getBaseQuantity(),
+                        "INVOICE", saved.getId());
+            }
+        }
+        return saved;
     }
 
     // Don gia chot hoa don lay theo gia da thoa thuan luc dat hang (SalesOrderDetail); Don giao hang chi

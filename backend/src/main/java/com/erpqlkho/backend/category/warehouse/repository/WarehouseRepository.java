@@ -8,4 +8,5 @@ import java.util.List;
 public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
     boolean existsByCode(String code);
     List<Warehouse> findByBranchId(Long branchId);
+    java.util.Optional<Warehouse> findFirstByBranchIdAndWarehouseType(Long branchId, String warehouseType);
 }

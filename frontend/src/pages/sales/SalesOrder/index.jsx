@@ -362,7 +362,7 @@ export default function SalesOrderPage() {
               </>
             )}
             {isDelivered && !hasInvoice && (
-              <Popconfirm title="Xuất hóa đơn cho đơn hàng này?" onConfirm={() => handleCreateInvoice(record)}>
+              <Popconfirm title="Xuất hóa đơn cho đơn hàng này?" description="Sẽ trừ tồn thực tế ở Kho xe tải theo số lượng đã giao." onConfirm={() => handleCreateInvoice(record)}>
                 <Button icon={<FileTextOutlined />} title="Xuất hóa đơn" />
               </Popconfirm>
             )}

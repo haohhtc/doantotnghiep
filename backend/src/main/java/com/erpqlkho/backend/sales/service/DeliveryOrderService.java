@@ -141,25 +141,42 @@ public class DeliveryOrderService {
         deliveryOrderRepository.delete(order);
     }
 
-    // Xac nhan giao hang - tru ton kho that theo dung so luong giao thuc te cua tung dong, chan
-    // neu khong du ton (giong SalesOrderService.confirm() cu, chi khac la doc so luong tu DO chu
-    // khong phai tu SalesOrderDetail nua).
+    // Xac nhan giao hang - chuyen hang Main -> Van theo dung so luong giao thuc te cua tung dong (base_quantity),
+    // chan neu Kho Main khong du ton thuc te.
     @Transactional
     public DeliveryOrder confirm(Long id) {
         DeliveryOrder order = findById(id);
         requireDraft(order);
 
-        for (DeliveryOrderItem item : order.getItems()) {
-            stockService.assertSufficientStock(item.getProduct(), order.getWarehouse(), item.getBaseQuantity());
+        // Mo hinh 2 tang (V38): hang chuyen tu kho xuat (Main) sang Kho Van cua CUNG chi nhanh - Main giam
+        // ton thuc te (cung luc "Da dat hang" cua don het tinh vi Don giao hang da CLOSED), Van tang. Ton
+        // thuc te chi giam han o Kho Van khi xuat Hoa don. Don xuat thang tu Kho Van thi hang da nam san
+        // o do, khong chuyen kho.
+        Warehouse source = order.getWarehouse();
+        Warehouse van = resolveVanWarehouse(source);
+        if (!"VAN".equals(source.getWarehouseType())) {
+            for (DeliveryOrderItem item : order.getItems()) {
+                stockService.assertSufficientStock(item.getProduct(), source, item.getBaseQuantity());
+            }
+            for (DeliveryOrderItem item : order.getItems()) {
+                stockService.decrease(item.getProduct(), source, item.getBaseQuantity(), "DELIVERY_ORDER", order.getId());
+                stockService.increase(item.getProduct(), van, item.getBaseQuantity(), "DELIVERY_ORDER", order.getId());
+            }
         }
-        for (DeliveryOrderItem item : order.getItems()) {
-            stockService.decrease(item.getProduct(), order.getWarehouse(), item.getBaseQuantity(),
-                    "DELIVERY_ORDER", order.getId());
-        }
+        order.setVanWarehouse(van);
 
         order.setStatus("CLOSED");
         order.setConfirmedBy(currentUser());
         return deliveryOrderRepository.save(order);
+    }
+
+    private Warehouse resolveVanWarehouse(Warehouse source) {
+        if ("VAN".equals(source.getWarehouseType())) return source;
+        if (source.getBranch() == null) {
+            throw ApiException.conflict("Kho " + source.getCode() + " chua thuoc chi nhanh nao nen khong xac dinh duoc Kho xe tai nhan hang");
+        }
+        return warehouseRepository.findFirstByBranchIdAndWarehouseType(source.getBranch().getId(), "VAN")
+                .orElseThrow(() -> ApiException.conflict("Chi nhanh " + source.getBranch().getCode() + " chua co Kho xe tai (Van) de nhan hang giao"));
     }
 
     private void requireDraft(DeliveryOrder order) {

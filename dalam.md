@@ -17,6 +17,23 @@
 
 **Đã test qua API**: Pre-order thiếu ngày giao / kho Van bị chặn; Đơn mẫu đi hết chuỗi đến hóa đơn 0đ; Trả hàng bắt buộc NVBH; ĐVT sai nhóm bị chặn; Đơn 2 Hộp → base 24, xác nhận giao trừ đúng 24 (90→66); Yêu cầu bán hàng 1 Thùng → chuyển đơn giữ ĐVT; sửa Đơn giao từ 1 Thùng xuống 5 Hộp → trừ 30; Trả hàng 1 Thùng CS001 → cộng 240 vào kho Van. Frontend build sạch (chưa test được bằng trình duyệt thật trong phiên này — cần bạn thao tác thử trên UI).
 
+## 🚚 Mô hình kho 2 tầng Main → Van (V38, 2026-09-25)
+
+**Quy tắc (mỗi chi nhánh 1 Kho Van):**
+| Bước | Kho Main | Kho Van |
+|---|---|---|
+| Đặt đơn / Duyệt đơn | Tồn thực tế **giữ nguyên**; "Đã đặt hàng" tăng, "Sẵn sàng bán" giảm | – |
+| **Xác nhận giao hàng** (DO) | Tồn thực tế **giảm**; "Đã đặt hàng" giảm theo (đơn hết giữ chỗ) nên "Sẵn sàng bán" không đổi | Tồn thực tế **tăng** |
+| **Xuất hóa đơn** | không đổi | Tồn thực tế **giảm** (hàng giao tận tay khách) |
+
+- Kho Van của DO là kho loại VAN thuộc **cùng chi nhánh** với kho xuất; lưu ở `delivery_order.van_warehouse_id`. Mỗi chi nhánh phải có Kho Van — V38 tự tạo cho chi nhánh chưa có (CN_HN → `CN_HNVWH01`).
+- **Đơn xuất thẳng từ Kho Van** (bán tại xe): xác nhận giao không chuyển kho (hàng đã nằm sẵn ở Van), "Đã đặt hàng" của Van chỉ hết khi xuất hóa đơn.
+- **Đơn giao cũ** (xác nhận theo mô hình 1 tầng, `van_warehouse_id` NULL, kể cả `DO-CU-*`): hóa đơn **không trừ thêm tồn** để không trừ 2 lần.
+- Công thức "Đã đặt hàng"/"Sẵn sàng bán" (backend `AvailabilityService` + trang Tồn kho) cập nhật đúng quy tắc trên.
+- Đơn giao hàng chặn nếu Kho Main không đủ tồn thực tế; hóa đơn chặn nếu Kho Van không đủ tồn (Kho Van là kho chung của chi nhánh, hàng của đơn nào cũng dùng chung).
+
+**Đã test qua API (21/21 đạt)**: đặt/duyệt/tạo đơn giao không đổi tồn; xác nhận giao 5 Hộp → Main −30, Van +30, Sẵn sàng bán không đổi; xuất hóa đơn → Van −30 (về lại như đầu), xuất lần 2 bị chặn; giao thiếu 2/5 Hộp → chuyển đúng 12 gói; chi nhánh Hà Nội dùng đúng Kho Van HN; đơn xuất từ Kho Van không chuyển kho và giữ chỗ đến khi xuất hóa đơn; hóa đơn của đơn giao cũ không đổi tồn.
+
 ## 🛡️ Dọn dữ liệu cũ, nâng tồn kho demo, chặn đặt vượt "Sẵn sàng bán" (2026-09-25)
 
 1. **Dọn dữ liệu cũ (V37)**: 6 đơn test cũ (SO0001, SO0003, "34", SO0008, SO0009, SO0010) được duyệt từ thời "Xác nhận = trừ kho" nên đang bị tính "Đã đặt hàng" lần 2. Migration nhận diện chính xác bằng dấu vết giao dịch kho kiểu cũ (`OUT` tham chiếu `SALES_ORDER`) và tạo cho mỗi đơn 1 Đơn giao hàng đã xác nhận (`DO-CU-<id>`), **không đụng tồn kho** (kho đã trừ đúng từ trước).

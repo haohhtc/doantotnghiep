@@ -43,7 +43,7 @@ export default function DeliveryConfirmPage() {
     axiosClient
       .post(`/delivery-orders/${record.id}/confirm`)
       .then(() => {
-        message.success('Đã xác nhận giao hàng - đã xuất kho');
+        message.success('Đã xác nhận giao hàng - hàng đã chuyển sang Kho xe tải');
         loadData();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xác nhận thất bại'))
@@ -69,7 +69,7 @@ export default function DeliveryConfirmPage() {
         <Space>
           <Popconfirm
             title="Xác nhận đã giao hàng này?"
-            description="Sau khi xác nhận sẽ xuất kho đúng số lượng khai báo và không thể sửa/hủy."
+            description="Hàng chuyển từ Kho chính sang Kho xe tải của chi nhánh (Kho chính giảm, Kho xe tải tăng) đúng số lượng khai báo, không thể sửa/hủy. Tồn thực tế chỉ giảm hẳn khi xuất hóa đơn."
             onConfirm={() => handleConfirm(record)}
           >
             <Button icon={<CheckOutlined />} type="primary" ghost loading={confirmingId === record.id}>
