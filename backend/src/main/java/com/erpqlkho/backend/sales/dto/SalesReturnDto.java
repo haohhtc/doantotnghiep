@@ -20,13 +20,11 @@ public class SalesReturnDto {
     @NotNull(message = "Ngay chung tu khong duoc de trong")
     private LocalDate docDate;
 
-    @NotNull(message = "Khach hang khong duoc de trong")
-    private Long customerId;
+    @NotNull(message = "Nhan vien ban hang khong duoc de trong")
+    private Long salesmanId;
 
     @NotNull(message = "Kho khong duoc de trong")
     private Long warehouseId;
-
-    private Long salesOrderId;
 
     private String reason;
     private String remarks;
@@ -43,6 +41,9 @@ public class SalesReturnDto {
 
         @NotNull(message = "So luong khong duoc de trong")
         private BigDecimal quantity;
+
+        // Don vi tinh cua dong (Goi/Hop/Thung) - de trong = don vi co so (he so 1)
+        private Long uomId;
 
         private String note;
     }

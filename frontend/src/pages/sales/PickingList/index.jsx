@@ -107,7 +107,7 @@ export default function PickingListPage() {
                 {printOrder.details.map((d) => (
                   <tr key={d.id}>
                     <td>{d.product.code} - {d.product.name}</td>
-                    <td style={{ textAlign: 'right' }}>{Number(d.quantity).toLocaleString('vi-VN')}</td>
+                    <td style={{ textAlign: 'right' }}>{Number(d.quantity).toLocaleString('vi-VN')} {d.uom?.name || ''}</td>
                     <td style={{ textAlign: 'right' }}>{Number(d.unitPrice).toLocaleString('vi-VN')} đ</td>
                     <td style={{ textAlign: 'right' }}>{Number(d.amount).toLocaleString('vi-VN')} đ</td>
                   </tr>

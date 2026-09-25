@@ -1,6 +1,7 @@
 package com.erpqlkho.backend.sales.entity;
 
 import com.erpqlkho.backend.category.customer.entity.Customer;
+import com.erpqlkho.backend.category.employee.entity.Employee;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.common.base.BaseEntity;
 import com.erpqlkho.backend.user.entity.User;
@@ -35,9 +36,15 @@ public class SalesReturn extends BaseEntity {
     @Column(name = "doc_date", nullable = false)
     private LocalDate docDate;
 
+    // Khong con dung tu V35 (tra hang gan theo Nhan vien ban hang) - giu cot cho phieu cu.
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "customer_id", nullable = false)
+    @JoinColumn(name = "customer_id")
     private Customer customer;
+
+    // Nhan vien ban hang (NVBH) mang hang ve - thay cho Khach hang + Don hang goc.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "salesman_id")
+    private Employee salesman;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "warehouse_id", nullable = false)

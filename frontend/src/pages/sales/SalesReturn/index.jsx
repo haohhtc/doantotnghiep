@@ -5,6 +5,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { fetchUomOptions, defaultUomId } from '../../../utils/uom';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -20,23 +21,22 @@ function statusTag(status) {
 // Quyen mo giong Sales Order (moi role deu thao tac duoc, khong rieng ADMIN+WAREHOUSE_MANAGER).
 export default function SalesReturnPage() {
   const [returns, setReturns] = useState([]);
-  const [customers, setCustomers] = useState([]);
+  const [salesmen, setSalesmen] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
-  const [salesOrders, setSalesOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingReturn, setEditingReturn] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [uomOptions, setUomOptions] = useState([]);
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
-  const customerOptions = customers.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
+  const salesmanOptions = salesmen.filter((e) => e.type === 'NVBH').map((e) => ({ value: e.id, label: `${e.code} - ${e.fullName}` }));
   const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
-  const salesOrderOptions = salesOrders.map((o) => ({ value: o.id, label: o.docNumber }));
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';
@@ -46,17 +46,15 @@ export default function SalesReturnPage() {
     setLoading(true);
     Promise.all([
       axiosClient.get('/sales-returns'),
-      axiosClient.get('/customers'),
+      axiosClient.get('/employees'),
       axiosClient.get('/warehouses'),
       axiosClient.get('/products'),
-      axiosClient.get('/sales-orders'),
     ])
-      .then(([retRes, customersRes, warehousesRes, productsRes, ordersRes]) => {
+      .then(([retRes, employeesRes, warehousesRes, productsRes]) => {
         setReturns(retRes.data.data);
-        setCustomers(customersRes.data.data);
+        setSalesmen(employeesRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setProducts(productsRes.data.data);
-        setSalesOrders(ordersRes.data.data);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu phiếu trả hàng'))
       .finally(() => setLoading(false));
@@ -69,7 +67,7 @@ export default function SalesReturnPage() {
   const filteredReturns = returns.filter((r) => {
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
-    return r.docNumber.toLowerCase().includes(keyword) || (r.customer?.name || '').toLowerCase().includes(keyword);
+    return r.docNumber.toLowerCase().includes(keyword) || (r.salesman?.fullName || '').toLowerCase().includes(keyword);
   });
 
   function openCreateModal() {
@@ -85,13 +83,12 @@ export default function SalesReturnPage() {
     form.setFieldsValue({
       docNumber: record.docNumber,
       docDate: record.docDate,
-      customerId: record.customer?.id,
+      salesmanId: record.salesman?.id,
       warehouseId: record.warehouse?.id,
-      salesOrderId: record.salesOrder?.id,
       reason: record.reason,
       remarks: record.remarks,
     });
-    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, quantity: d.quantity, note: d.note })));
+    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, uomId: d.uom?.id, uomName: d.uom?.name, quantity: d.quantity, note: d.note })));
     setModalOpen(true);
   }
 
@@ -115,14 +112,23 @@ export default function SalesReturnPage() {
       .catch((err) => message.error(err.response?.data?.message || 'Duyệt thất bại'));
   }
 
+  async function handleProductSelect(productId) {
+    const product = products.find((p) => p.id === productId);
+    const options = await fetchUomOptions(product);
+    setUomOptions(options);
+    detailForm.setFieldsValue({ uomId: defaultUomId(product, options) });
+  }
+
   function handleAddDetailRow() {
     detailForm.resetFields();
+    setUomOptions([]);
     setDetailModalOpen(true);
   }
 
   function handleSubmitDetailRow() {
     detailForm.validateFields().then((values) => {
-      setDetailRows((prev) => [...prev, { id: Date.now(), ...values }]);
+      const uomName = uomOptions.find((o) => o.value === values.uomId)?.label;
+      setDetailRows((prev) => [...prev, { id: Date.now(), ...values, uomName }]);
       setDetailModalOpen(false);
     });
   }
@@ -139,7 +145,7 @@ export default function SalesReturnPage() {
       }
       const payload = {
         ...values,
-        items: detailRows.map((d) => ({ productId: d.productId, quantity: d.quantity, note: d.note })),
+        items: detailRows.map((d) => ({ productId: d.productId, uomId: d.uomId, quantity: d.quantity, note: d.note })),
       };
       const request = editingReturn
         ? axiosClient.put(`/sales-returns/${editingReturn.id}`, payload)
@@ -157,9 +163,8 @@ export default function SalesReturnPage() {
   const columns = [
     { title: 'Số phiếu', dataIndex: 'docNumber', key: 'docNumber' },
     { title: 'Ngày chứng từ', dataIndex: 'docDate', key: 'docDate' },
-    { title: 'Khách hàng', key: 'customer', render: (_, r) => r.customer?.name },
+    { title: 'Nhân viên bán hàng', key: 'salesman', render: (_, r) => r.salesman?.fullName || '-' },
     { title: 'Kho', key: 'warehouse', render: (_, r) => r.warehouse?.name },
-    { title: 'Đơn hàng gốc', key: 'salesOrder', render: (_, r) => r.salesOrder?.docNumber || '-' },
     { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },
     {
       title: 'Thao tác',
@@ -186,6 +191,7 @@ export default function SalesReturnPage() {
 
   const detailColumns = [
     { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
+    { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
     { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity' },
     { title: 'Ghi chú', dataIndex: 'note', key: 'note' },
     {
@@ -204,7 +210,7 @@ export default function SalesReturnPage() {
       <TableToolbar
         searchValue={searchText}
         onSearchChange={setSearchText}
-        searchPlaceholder="Tìm theo số phiếu hoặc khách hàng..."
+        searchPlaceholder="Tìm theo số phiếu hoặc nhân viên..."
         onAdd={openCreateModal}
         addTooltip="Thêm phiếu trả hàng"
         onReload={() => {
@@ -243,13 +249,8 @@ export default function SalesReturnPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Khách hàng" name="customerId" rules={[{ required: true, message: 'Khách hàng không được để trống' }]}>
-                <Select options={customerOptions} placeholder="Chọn khách hàng" showSearch optionFilterProp="label" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="Đơn hàng gốc" name="salesOrderId">
-                <Select options={salesOrderOptions} placeholder="Chọn đơn hàng gốc (nếu có)" allowClear showSearch optionFilterProp="label" />
+              <Form.Item label="Nhân viên bán hàng" name="salesmanId" rules={[{ required: true, message: 'Nhân viên bán hàng không được để trống' }]}>
+                <Select options={salesmanOptions} placeholder="Chọn nhân viên bán hàng" showSearch optionFilterProp="label" />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -290,7 +291,10 @@ export default function SalesReturnPage() {
       >
         <Form form={detailForm} layout="vertical">
           <Form.Item label="Sản phẩm" name="productId" rules={[{ required: true, message: 'Sản phẩm không được để trống' }]}>
-            <Select options={productOptions} placeholder="Chọn sản phẩm" showSearch optionFilterProp="label" />
+            <Select options={productOptions} placeholder="Chọn sản phẩm" showSearch optionFilterProp="label" onChange={handleProductSelect} />
+          </Form.Item>
+          <Form.Item label="Đơn vị tính" name="uomId" extra={uomOptions.length === 0 ? 'Sản phẩm chưa có nhóm quy đổi - tính theo đơn vị cơ sở' : 'Tự động quy đổi về đơn vị cơ sở khi cộng lại kho'}>
+            <Select options={uomOptions} placeholder="Chọn đơn vị tính" disabled={uomOptions.length === 0} />
           </Form.Item>
           <Form.Item label="Số lượng" name="quantity" rules={[{ required: true, message: 'Số lượng không được để trống' }]}>
             <InputNumber min={0} style={{ width: '100%' }} />

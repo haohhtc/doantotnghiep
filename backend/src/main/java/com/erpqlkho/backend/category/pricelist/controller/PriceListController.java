@@ -79,7 +79,8 @@ public class PriceListController {
             @RequestParam Long productId,
             @RequestParam(required = false) Long customerId,
             @RequestParam(required = false) Long warehouseId,
-            @RequestParam String purpose) {
-        return ApiResponse.ok(priceListService.lookupPrice(productId, customerId, warehouseId, purpose));
+            @RequestParam String purpose,
+            @RequestParam(required = false) Long uomId) {
+        return ApiResponse.ok(priceListService.lookupPrice(productId, customerId, warehouseId, purpose, uomId));
     }
 }

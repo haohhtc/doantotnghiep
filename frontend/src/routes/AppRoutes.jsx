@@ -94,9 +94,7 @@ export default function AppRoutes() {
             <Route path="/sales/delivery-orders" element={<DeliveryOrderPage />} />
             <Route path="/sales/delivery-confirm" element={<DeliveryConfirmPage />} />
             <Route path="/sales/credit-memos" element={<PlaceholderPage title="Phiếu ghi có (đã gộp vào Trả hàng)" />} />
-            <Route path="/sales/document-generation" element={<PlaceholderPage title="Tạo chứng từ" />} />
             <Route path="/sales/printed-note" element={<PlaceholderPage title="Phiếu in nhanh" />} />
-            <Route path="/sales/document-printing" element={<PlaceholderPage title="In chứng từ" />} />
             <Route path="/sales/return-request" element={<PlaceholderPage title="Yêu cầu trả hàng (đã gộp vào Trả hàng)" />} />
             <Route path="/sales/upload-vat-pit" element={<PlaceholderPage title="Khai thuế TNCN hoa hồng" />} />
             <Route path="/inventory/inventories" element={<InventoriesPage />} />
