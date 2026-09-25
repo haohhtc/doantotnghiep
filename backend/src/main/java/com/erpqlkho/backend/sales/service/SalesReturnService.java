@@ -6,6 +6,8 @@ import com.erpqlkho.backend.category.product.entity.Product;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.category.warehouse.repository.WarehouseRepository;
+import com.erpqlkho.backend.category.uom.entity.Uom;
+import com.erpqlkho.backend.category.uomgroup.service.UomConversionService;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.inventory.service.StockService;
 import com.erpqlkho.backend.sales.dto.SalesReturnDto;
@@ -36,6 +38,7 @@ public class SalesReturnService {
     private final UserRepository userRepository;
     private final StockService stockService;
     private final NumberingConfigService numberingConfigService;
+    private final UomConversionService uomConversionService;
 
     public List<SalesReturn> findAll() {
         return salesReturnRepository.findAll();
@@ -79,7 +82,7 @@ public class SalesReturnService {
         requireDraft(ret);
 
         for (SalesReturnItem item : ret.getItems()) {
-            stockService.increase(item.getProduct(), ret.getWarehouse(), item.getQuantity(),
+            stockService.increase(item.getProduct(), ret.getWarehouse(), item.getBaseQuantity(),
                     "SALES_RETURN", ret.getId());
         }
 
@@ -99,8 +102,12 @@ public class SalesReturnService {
         for (SalesReturnDto.ItemDto itemDto : dto.getItems()) {
             SalesReturnItem item = new SalesReturnItem();
             item.setSalesReturn(ret);
-            item.setProduct(findProduct(itemDto.getProductId()));
+            Product product = findProduct(itemDto.getProductId());
+            Uom uom = uomConversionService.findUom(itemDto.getUomId());
+            item.setProduct(product);
+            item.setUom(uom);
             item.setQuantity(itemDto.getQuantity());
+            item.setBaseQuantity(uomConversionService.toBase(product, uom, itemDto.getQuantity()));
             item.setNote(itemDto.getNote());
             items.add(item);
         }

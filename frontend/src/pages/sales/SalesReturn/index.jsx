@@ -1,10 +1,11 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { fetchUomOptions, defaultUomId } from '../../../utils/uom';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -29,6 +30,7 @@ export default function SalesReturnPage() {
   const [editingReturn, setEditingReturn] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [uomOptions, setUomOptions] = useState([]);
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
@@ -86,7 +88,7 @@ export default function SalesReturnPage() {
       reason: record.reason,
       remarks: record.remarks,
     });
-    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, quantity: d.quantity, note: d.note })));
+    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, uomId: d.uom?.id, uomName: d.uom?.name, quantity: d.quantity, note: d.note })));
     setModalOpen(true);
   }
 
@@ -110,14 +112,23 @@ export default function SalesReturnPage() {
       .catch((err) => message.error(err.response?.data?.message || 'Duyệt thất bại'));
   }
 
+  async function handleProductSelect(productId) {
+    const product = products.find((p) => p.id === productId);
+    const options = await fetchUomOptions(product);
+    setUomOptions(options);
+    detailForm.setFieldsValue({ uomId: defaultUomId(product, options) });
+  }
+
   function handleAddDetailRow() {
     detailForm.resetFields();
+    setUomOptions([]);
     setDetailModalOpen(true);
   }
 
   function handleSubmitDetailRow() {
     detailForm.validateFields().then((values) => {
-      setDetailRows((prev) => [...prev, { id: Date.now(), ...values }]);
+      const uomName = uomOptions.find((o) => o.value === values.uomId)?.label;
+      setDetailRows((prev) => [...prev, { id: Date.now(), ...values, uomName }]);
       setDetailModalOpen(false);
     });
   }
@@ -134,7 +145,7 @@ export default function SalesReturnPage() {
       }
       const payload = {
         ...values,
-        items: detailRows.map((d) => ({ productId: d.productId, quantity: d.quantity, note: d.note })),
+        items: detailRows.map((d) => ({ productId: d.productId, uomId: d.uomId, quantity: d.quantity, note: d.note })),
       };
       const request = editingReturn
         ? axiosClient.put(`/sales-returns/${editingReturn.id}`, payload)
@@ -180,6 +191,7 @@ export default function SalesReturnPage() {
 
   const detailColumns = [
     { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
+    { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
     { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity' },
     { title: 'Ghi chú', dataIndex: 'note', key: 'note' },
     {
@@ -279,7 +291,10 @@ export default function SalesReturnPage() {
       >
         <Form form={detailForm} layout="vertical">
           <Form.Item label="Sản phẩm" name="productId" rules={[{ required: true, message: 'Sản phẩm không được để trống' }]}>
-            <Select options={productOptions} placeholder="Chọn sản phẩm" showSearch optionFilterProp="label" />
+            <Select options={productOptions} placeholder="Chọn sản phẩm" showSearch optionFilterProp="label" onChange={handleProductSelect} />
+          </Form.Item>
+          <Form.Item label="Đơn vị tính" name="uomId" extra={uomOptions.length === 0 ? 'Sản phẩm chưa có nhóm quy đổi - tính theo đơn vị cơ sở' : 'Tự động quy đổi về đơn vị cơ sở khi cộng lại kho'}>
+            <Select options={uomOptions} placeholder="Chọn đơn vị tính" disabled={uomOptions.length === 0} />
           </Form.Item>
           <Form.Item label="Số lượng" name="quantity" rules={[{ required: true, message: 'Số lượng không được để trống' }]}>
             <InputNumber min={0} style={{ width: '100%' }} />

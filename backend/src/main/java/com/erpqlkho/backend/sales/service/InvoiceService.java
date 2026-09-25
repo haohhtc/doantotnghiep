@@ -1,5 +1,8 @@
 package com.erpqlkho.backend.sales.service;
 
+import com.erpqlkho.backend.category.product.entity.Product;
+import com.erpqlkho.backend.category.uom.entity.Uom;
+import com.erpqlkho.backend.category.uomgroup.service.UomConversionService;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.sales.entity.DeliveryOrder;
 import com.erpqlkho.backend.sales.entity.DeliveryOrderItem;
@@ -35,6 +38,7 @@ public class InvoiceService {
     private final DeliveryOrderRepository deliveryOrderRepository;
     private final UserRepository userRepository;
     private final NumberingConfigService numberingConfigService;
+    private final UomConversionService uomConversionService;
 
     public List<Invoice> findAll() {
         return invoiceRepository.findAll();
@@ -72,7 +76,7 @@ public class InvoiceService {
         BigDecimal totalTax = BigDecimal.ZERO;
         List<InvoiceItem> items = new ArrayList<>();
         for (DeliveryOrderItem detail : deliveryOrder.getItems()) {
-            BigDecimal unitPrice = unitPriceOf(order, detail.getProduct().getId());
+            BigDecimal unitPrice = unitPriceOf(order, detail.getProduct(), detail.getUom());
             BigDecimal rate = detail.getProduct().getSaleTaxGroup() != null
                     ? detail.getProduct().getSaleTaxGroup().getRatePercent()
                     : BigDecimal.ZERO;
@@ -84,6 +88,7 @@ public class InvoiceService {
             InvoiceItem item = new InvoiceItem();
             item.setInvoice(invoice);
             item.setProduct(detail.getProduct());
+            item.setUom(detail.getUom());
             item.setQuantity(detail.getQuantity());
             item.setUnitPrice(unitPrice);
             item.setTaxRate(rate);
@@ -102,16 +107,26 @@ public class InvoiceService {
         return invoiceRepository.save(invoice);
     }
 
-    // Don gia chot hoa don van lay theo gia da thoa thuan luc dat hang (SalesOrderDetail) - Don
-    // giao hang chi thay doi SO LUONG giao thuc te, khong doi don gia.
-    private BigDecimal unitPriceOf(SalesOrder order, Long productId) {
-        return order.getDetails().stream()
-                .filter(d -> d.getProduct().getId().equals(productId))
-                .findFirst()
-                .map(d -> d.getUnitPrice())
-                .orElseThrow(() -> ApiException.conflict("San pham trong Don giao hang khong khop voi Don hang ban goc"));
-    }
+    // Don gia chot hoa don lay theo gia da thoa thuan luc dat hang (SalesOrderDetail); Don giao hang chi
+    // doi SO LUONG (va co the doi DVT giao). Khop dong cung san pham + cung DVT truoc; neu DVT giao khac
+    // DVT tren don thi QUY DOI gia: gia co so = gia don / he so DVT don, nhan he so DVT giao
+    // (VD don 1 Thung 720.000, giao 5 Hop (he so 6, thung 96) -> gia Hop = 720.000/96*6 = 45.000).
+    private BigDecimal unitPriceOf(SalesOrder order, Product product, Uom uom) {
+        Long uomId = uom == null ? null : uom.getId();
+        var candidates = order.getDetails().stream()
+                .filter(d -> d.getProduct().getId().equals(product.getId())).toList();
+        if (candidates.isEmpty()) {
+            throw ApiException.conflict("San pham trong Don giao hang khong khop voi Don hang ban goc");
+        }
+        var exact = candidates.stream()
+                .filter(d -> java.util.Objects.equals(d.getUom() == null ? null : d.getUom().getId(), uomId))
+                .findFirst();
+        if (exact.isPresent()) return exact.get().getUnitPrice();
 
+        var src = candidates.get(0);
+        BigDecimal basePrice = src.getUnitPrice().divide(uomConversionService.factorOf(product, src.getUom()), 6, RoundingMode.HALF_UP);
+        return basePrice.multiply(uomConversionService.factorOf(product, uom)).setScale(2, RoundingMode.HALF_UP);
+    }
     private String resolveInvoiceNumber() {
         return numberingConfigService.nextNumber("INVOICE");
     }

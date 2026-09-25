@@ -5,6 +5,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, SwapOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { fetchUomOptions, defaultUomId } from '../../../utils/uom';
 
 const { Title, Text } = Typography;
 
@@ -29,6 +30,7 @@ export default function SalesRequestPage() {
   const [editingRequest, setEditingRequest] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [uomOptions, setUomOptions] = useState([]);
   const [convertModalRequest, setConvertModalRequest] = useState(null);
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
@@ -86,7 +88,7 @@ export default function SalesRequestPage() {
       customerId: record.customer?.id,
       remarks: record.remarks,
     });
-    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, quantity: d.quantity, unitPrice: d.unitPrice })));
+    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, uomId: d.uom?.id, uomName: d.uom?.name, quantity: d.quantity, unitPrice: d.unitPrice })));
     setModalOpen(true);
   }
 
@@ -102,30 +104,42 @@ export default function SalesRequestPage() {
 
   function handleAddDetailRow() {
     detailForm.resetFields();
+    setUomOptions([]);
     setDetailModalOpen(true);
   }
 
-  // Tra gia tu dong theo Bang gia loai SALE cua khach hang - giong het pattern o trang Don hang
-  // ban (SalesOrder/index.jsx). SR chua co kho xuat nen KHONG truyen warehouseId - chi xet duoc
-  // nhanh customer.price_list_id, du dung vi day la nhanh uu tien dau trong PriceListService.
-  function handleProductSelect(productId) {
+  // Tra gia tu dong theo Bang gia loai SALE cua khach hang + DVT dang chon - giong pattern o trang Don hang
+  // ban. SR chua co kho xuat nen KHONG truyen warehouseId - chi xet duoc nhanh customer.price_list_id, du
+  // dung vi day la nhanh uu tien dau trong PriceListService. Bang gia thieu DVT thi backend tu quy doi.
+  function lookupPrice(productId, uomId) {
     detailForm.setFieldsValue({ unitPrice: undefined });
     const customerId = form.getFieldValue('customerId');
     axiosClient
-      .get('/price-lists/lookup', { params: { productId, customerId, purpose: 'SALE' } })
+      .get('/price-lists/lookup', { params: { productId, customerId, purpose: 'SALE', uomId } })
       .then(({ data }) => {
-        if (data.data != null) {
-          detailForm.setFieldsValue({ unitPrice: data.data });
-        }
+        if (data.data != null) detailForm.setFieldsValue({ unitPrice: data.data });
       })
       .catch((err) => {
         message.error(err.response?.data?.message || 'Không tra được giá bán cho sản phẩm này - vui lòng cấu hình bảng giá');
       });
   }
 
+  async function handleProductSelect(productId) {
+    const product = products.find((p) => p.id === productId);
+    const options = await fetchUomOptions(product);
+    setUomOptions(options);
+    const uomId = defaultUomId(product, options);
+    detailForm.setFieldsValue({ uomId });
+    lookupPrice(productId, uomId);
+  }
+
+  function handleUomChange(uomId) {
+    lookupPrice(detailForm.getFieldValue('productId'), uomId);
+  }
   function handleSubmitDetailRow() {
     detailForm.validateFields().then((values) => {
-      setDetailRows((prev) => [...prev, { id: Date.now(), ...values }]);
+      const uomName = uomOptions.find((o) => o.value === values.uomId)?.label;
+      setDetailRows((prev) => [...prev, { id: Date.now(), ...values, uomName }]);
       setDetailModalOpen(false);
     });
   }
@@ -142,7 +156,7 @@ export default function SalesRequestPage() {
       }
       const payload = {
         ...values,
-        items: detailRows.map((d) => ({ productId: d.productId, quantity: d.quantity, unitPrice: d.unitPrice })),
+        items: detailRows.map((d) => ({ productId: d.productId, uomId: d.uomId, quantity: d.quantity, unitPrice: d.unitPrice })),
       };
       const request = editingRequest
         ? axiosClient.put(`/sales-requests/${editingRequest.id}`, payload)
@@ -210,6 +224,7 @@ export default function SalesRequestPage() {
 
   const detailColumns = [
     { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
+    { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
     { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity' },
     { title: 'Đơn giá', dataIndex: 'unitPrice', key: 'unitPrice', render: (v) => v?.toLocaleString('vi-VN') + ' đ' },
     {
@@ -302,6 +317,9 @@ export default function SalesRequestPage() {
         <Form form={detailForm} layout="vertical">
           <Form.Item label="Sản phẩm" name="productId" rules={[{ required: true, message: 'Sản phẩm không được để trống' }]}>
             <Select options={productOptions} placeholder="Chọn sản phẩm" showSearch optionFilterProp="label" onChange={handleProductSelect} />
+          </Form.Item>
+          <Form.Item label="Đơn vị tính" name="uomId" extra={uomOptions.length === 0 ? 'Sản phẩm chưa có nhóm quy đổi - tính theo đơn vị cơ sở' : undefined}>
+            <Select options={uomOptions} placeholder="Chọn đơn vị tính" disabled={uomOptions.length === 0} onChange={handleUomChange} />
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>

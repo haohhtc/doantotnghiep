@@ -42,6 +42,9 @@ public class SalesReturnDto {
         @NotNull(message = "So luong khong duoc de trong")
         private BigDecimal quantity;
 
+        // Don vi tinh cua dong (Goi/Hop/Thung) - de trong = don vi co so (he so 1)
+        private Long uomId;
+
         private String note;
     }
 }

@@ -6,6 +6,8 @@ import com.erpqlkho.backend.category.product.entity.Product;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.category.warehouse.repository.WarehouseRepository;
+import com.erpqlkho.backend.category.uom.entity.Uom;
+import com.erpqlkho.backend.category.uomgroup.service.UomConversionService;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.sales.dto.SalesOrderDto;
 import com.erpqlkho.backend.sales.entity.SalesOrder;
@@ -35,6 +37,7 @@ public class SalesOrderService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final NumberingConfigService numberingConfigService;
+    private final UomConversionService uomConversionService;
 
     public List<SalesOrder> findAll() {
         return salesOrderRepository.findAll();
@@ -119,8 +122,12 @@ public class SalesOrderService {
         for (SalesOrderDto.DetailDto detailDto : dto.getDetails()) {
             SalesOrderDetail detail = new SalesOrderDetail();
             detail.setSalesOrder(order);
-            detail.setProduct(findProduct(detailDto.getProductId()));
+            Product product = findProduct(detailDto.getProductId());
+            Uom uom = uomConversionService.findUom(detailDto.getUomId());
+            detail.setProduct(product);
+            detail.setUom(uom);
             detail.setQuantity(detailDto.getQuantity());
+            detail.setBaseQuantity(uomConversionService.toBase(product, uom, detailDto.getQuantity()));
             // Don mau: mien phi, ep don gia = 0 bat ke client gui gi.
             BigDecimal unitPrice = "SAMPLE".equals(orderType) ? BigDecimal.ZERO : detailDto.getUnitPrice();
             detail.setUnitPrice(unitPrice);

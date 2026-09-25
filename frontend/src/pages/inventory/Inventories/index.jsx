@@ -60,7 +60,7 @@ export default function InventoriesPage() {
     pendingOrders.forEach((o) => {
       if (o.warehouse?.id !== warehouseId) return;
       o.details.forEach((d) => {
-        if (d.product?.id === productId) total += Number(d.quantity);
+        if (d.product?.id === productId) total += Number(d.baseQuantity ?? d.quantity);
       });
     });
     return total;

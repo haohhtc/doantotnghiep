@@ -87,7 +87,7 @@ export default function DeliveryOrderPage() {
       warehouseId: record.warehouse.id,
       remarks: record.remarks,
     });
-    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, quantity: d.quantity, orderedQty: d.quantity, note: d.note })));
+    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, uomId: d.uom?.id, uomName: d.uom?.name, quantity: d.quantity, orderedQty: d.quantity, note: d.note })));
     setModalOpen(true);
   }
 
@@ -101,6 +101,8 @@ export default function DeliveryOrderPage() {
       order.details.map((d) => ({
         id: d.id,
         productId: d.product.id,
+        uomId: d.uom?.id,
+        uomName: d.uom?.name,
         quantity: d.quantity,
         orderedQty: d.quantity,
       }))
@@ -129,7 +131,7 @@ export default function DeliveryOrderPage() {
       }
       const payload = {
         ...values,
-        items: detailRows.map((d) => ({ productId: d.productId, quantity: d.quantity })),
+        items: detailRows.map((d) => ({ productId: d.productId, uomId: d.uomId, quantity: d.quantity })),
       };
       const request = editingOrder
         ? axiosClient.put(`/delivery-orders/${editingOrder.id}`, payload)
@@ -170,6 +172,7 @@ export default function DeliveryOrderPage() {
 
   const detailColumns = [
     { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
+    { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
     { title: 'Số lượng đặt', dataIndex: 'orderedQty', key: 'orderedQty', align: 'right' },
     {
       title: 'Số lượng giao thực tế',

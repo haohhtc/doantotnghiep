@@ -6,6 +6,8 @@ import com.erpqlkho.backend.category.product.entity.Product;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.category.warehouse.repository.WarehouseRepository;
+import com.erpqlkho.backend.category.uom.entity.Uom;
+import com.erpqlkho.backend.category.uomgroup.service.UomConversionService;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.sales.dto.SalesRequestDto;
 import com.erpqlkho.backend.sales.entity.SalesOrder;
@@ -39,6 +41,7 @@ public class SalesRequestService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final NumberingConfigService numberingConfigService;
+    private final UomConversionService uomConversionService;
 
     public List<SalesRequest> findAll() {
         return salesRequestRepository.findAll();
@@ -99,7 +102,9 @@ public class SalesRequestService {
             SalesOrderDetail detail = new SalesOrderDetail();
             detail.setSalesOrder(order);
             detail.setProduct(item.getProduct());
+            detail.setUom(item.getUom());
             detail.setQuantity(item.getQuantity());
+            detail.setBaseQuantity(item.getBaseQuantity());
             detail.setUnitPrice(item.getUnitPrice());
             BigDecimal amount = item.getQuantity().multiply(item.getUnitPrice());
             detail.setAmount(amount);
@@ -127,8 +132,12 @@ public class SalesRequestService {
         for (SalesRequestDto.ItemDto itemDto : dto.getItems()) {
             SalesRequestItem item = new SalesRequestItem();
             item.setSalesRequest(request);
-            item.setProduct(findProduct(itemDto.getProductId()));
+            Product product = findProduct(itemDto.getProductId());
+            Uom uom = uomConversionService.findUom(itemDto.getUomId());
+            item.setProduct(product);
+            item.setUom(uom);
             item.setQuantity(itemDto.getQuantity());
+            item.setBaseQuantity(uomConversionService.toBase(product, uom, itemDto.getQuantity()));
             item.setUnitPrice(itemDto.getUnitPrice());
             items.add(item);
         }
