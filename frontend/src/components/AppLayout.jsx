@@ -124,7 +124,6 @@ function buildMenuItems(role) {
       key: 'purchase-order', icon: <ShoppingOutlined />, label: 'Mua hàng (Purchase Order)',
       children: [
         { key: '/purchase/purchase-request', label: <Link to="/purchase/purchase-request">Yêu cầu mua hàng</Link> },
-        { key: '/purchase/goods-receipt-po', label: <Link to="/goods-receipts">Phiếu nhập hàng mua</Link> },
         { key: '/purchase/goods-return', label: <Link to="/purchase/goods-return">Trả hàng NCC</Link> },
         { key: '/purchase/auto-rpo', label: <Link to="/purchase/auto-rpo">Nhật ký tự động đặt hàng / Thiết lập chỉ tiêu SP</Link> },
       ],
