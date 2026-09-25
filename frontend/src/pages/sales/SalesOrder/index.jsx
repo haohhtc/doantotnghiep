@@ -9,6 +9,18 @@ import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
 
+const ORDER_TYPE_OPTIONS = [
+  { value: 'STANDARD', label: 'Đơn thường' },
+  { value: 'PRE_ORDER', label: 'Pre-order (đặt trước giao sau)' },
+  { value: 'SAMPLE', label: 'Đơn hàng mẫu (miễn phí)' },
+];
+
+function orderTypeTag(type) {
+  if (type === 'PRE_ORDER') return <Tag color="blue">Pre-order</Tag>;
+  if (type === 'SAMPLE') return <Tag color="purple">Hàng mẫu</Tag>;
+  return <Tag>Đơn thường</Tag>;
+}
+
 function statusTag(status) {
   if (status === 'CONFIRMED') return <Tag color="green">Đã duyệt</Tag>;
   if (status === 'CANCELLED') return <Tag color="red">Đã hủy</Tag>;
@@ -54,7 +66,10 @@ export default function SalesOrderPage() {
   const [detailForm] = Form.useForm();
 
   const customerOptions = customers.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
-  const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
+  const orderType = Form.useWatch('orderType', form);
+  const warehouseOptions = warehouses
+    .filter((w) => orderType !== 'PRE_ORDER' || w.warehouseType === 'MAIN')
+    .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
   const visitType = computeVisitType(customerRouteInfo, Form.useWatch('docDate', form));
   const branchMismatch = customerRouteInfo?.branchId && selectedBranchId && customerRouteInfo.branchId !== selectedBranchId;
@@ -109,10 +124,22 @@ export default function SalesOrderPage() {
   function openCreateModal() {
     setEditingOrder(null);
     form.resetFields();
-    form.setFieldsValue({ docDate: new Date().toISOString().slice(0, 10) });
+    form.setFieldsValue({ docDate: new Date().toISOString().slice(0, 10), orderType: 'STANDARD' });
     setDetailRows([]);
     setCustomerRouteInfo(null);
     setModalOpen(true);
+  }
+
+  // Don mau: don gia luon = 0 (mien phi) - ep lai cac dong da them khi doi sang SAMPLE. Pre-order: chi
+  // cho Kho chinh, bo kho da chon neu khong phai Main.
+  function handleOrderTypeChange(type) {
+    if (type === 'SAMPLE') {
+      setDetailRows((prev) => prev.map((d) => ({ ...d, unitPrice: 0 })));
+    }
+    if (type === 'PRE_ORDER') {
+      const current = warehouses.find((w) => w.id === form.getFieldValue('warehouseId'));
+      if (current && current.warehouseType !== 'MAIN') form.setFieldsValue({ warehouseId: undefined });
+    }
   }
 
   function openEditModal(record) {
@@ -122,6 +149,8 @@ export default function SalesOrderPage() {
       docDate: record.docDate,
       customerId: record.customer?.id,
       warehouseId: record.warehouse?.id,
+      orderType: record.orderType || 'STANDARD',
+      deliveryDate: record.deliveryDate,
     });
     setDetailRows(record.details.map((d) => ({ id: d.id, productId: d.product.id, quantity: d.quantity, unitPrice: d.unitPrice })));
     handleCustomerSelect(record.customer?.id);
@@ -206,6 +235,10 @@ export default function SalesOrderPage() {
   // le, backend nem loi ro rang va o day hien thi loi cho nguoi dung, khong tu dien gia nao ca.
   // Van cho sua tay unitPrice sau khi dien tu dong (khong disable field), khop hanh vi truoc day.
   function handleProductSelect(productId) {
+    if (form.getFieldValue('orderType') === 'SAMPLE') {
+      detailForm.setFieldsValue({ unitPrice: 0 });
+      return;
+    }
     detailForm.setFieldsValue({ unitPrice: undefined });
 
     const customerId = form.getFieldValue('customerId');
@@ -247,6 +280,7 @@ export default function SalesOrderPage() {
       }
       const payload = {
         ...values,
+        deliveryDate: values.deliveryDate || null,
         details: detailRows.map((d) => ({ productId: d.productId, quantity: d.quantity, unitPrice: d.unitPrice })),
       };
       const request = editingOrder
@@ -281,7 +315,9 @@ export default function SalesOrderPage() {
     { title: 'Số đơn', dataIndex: 'docNumber', key: 'docNumber' },
     { title: 'Ngày đặt hàng', dataIndex: 'docDate', key: 'docDate' },
     { title: 'Khách hàng', key: 'customer', render: (_, o) => o.customer?.name },
+    { title: 'Loại đơn', dataIndex: 'orderType', key: 'orderType', render: (t) => orderTypeTag(t) },
     { title: 'Kho xuất', key: 'warehouse', render: (_, o) => o.warehouse?.name },
+    { title: 'Ngày giao', dataIndex: 'deliveryDate', key: 'deliveryDate', render: (v) => v || '-' },
     {
       title: 'Tổng tiền',
       dataIndex: 'totalAmount',
@@ -418,8 +454,27 @@ export default function SalesOrderPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Kho xuất" name="warehouseId" rules={[{ required: true, message: 'Kho xuất không được để trống' }]}>
+              <Form.Item label="Loại đơn" name="orderType" rules={[{ required: true, message: 'Chọn loại đơn' }]}>
+                <Select options={ORDER_TYPE_OPTIONS} onChange={handleOrderTypeChange} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                label="Kho xuất"
+                name="warehouseId"
+                rules={[{ required: true, message: 'Kho xuất không được để trống' }]}
+                extra={orderType === 'PRE_ORDER' ? 'Đơn Pre-order chỉ xuất từ Kho chính (Main)' : undefined}
+              >
                 <Select options={warehouseOptions} placeholder="Chọn kho" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                label="Ngày giao hàng"
+                name="deliveryDate"
+                rules={[{ required: orderType === 'PRE_ORDER', message: 'Đơn Pre-order bắt buộc chọn Ngày giao hàng' }]}
+              >
+                <Input type="date" />
               </Form.Item>
             </Col>
             <Col span={8}>

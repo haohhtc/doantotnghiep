@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
 } from 'antd';
@@ -20,10 +20,9 @@ function statusTag(status) {
 // Quyen mo giong Sales Order (moi role deu thao tac duoc, khong rieng ADMIN+WAREHOUSE_MANAGER).
 export default function SalesReturnPage() {
   const [returns, setReturns] = useState([]);
-  const [customers, setCustomers] = useState([]);
+  const [salesmen, setSalesmen] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
-  const [salesOrders, setSalesOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -33,10 +32,9 @@ export default function SalesReturnPage() {
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
-  const customerOptions = customers.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
+  const salesmanOptions = salesmen.filter((e) => e.type === 'NVBH').map((e) => ({ value: e.id, label: `${e.code} - ${e.fullName}` }));
   const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
-  const salesOrderOptions = salesOrders.map((o) => ({ value: o.id, label: o.docNumber }));
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';
@@ -46,17 +44,15 @@ export default function SalesReturnPage() {
     setLoading(true);
     Promise.all([
       axiosClient.get('/sales-returns'),
-      axiosClient.get('/customers'),
+      axiosClient.get('/employees'),
       axiosClient.get('/warehouses'),
       axiosClient.get('/products'),
-      axiosClient.get('/sales-orders'),
     ])
-      .then(([retRes, customersRes, warehousesRes, productsRes, ordersRes]) => {
+      .then(([retRes, employeesRes, warehousesRes, productsRes]) => {
         setReturns(retRes.data.data);
-        setCustomers(customersRes.data.data);
+        setSalesmen(employeesRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setProducts(productsRes.data.data);
-        setSalesOrders(ordersRes.data.data);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu phiếu trả hàng'))
       .finally(() => setLoading(false));
@@ -69,7 +65,7 @@ export default function SalesReturnPage() {
   const filteredReturns = returns.filter((r) => {
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
-    return r.docNumber.toLowerCase().includes(keyword) || (r.customer?.name || '').toLowerCase().includes(keyword);
+    return r.docNumber.toLowerCase().includes(keyword) || (r.salesman?.fullName || '').toLowerCase().includes(keyword);
   });
 
   function openCreateModal() {
@@ -85,9 +81,8 @@ export default function SalesReturnPage() {
     form.setFieldsValue({
       docNumber: record.docNumber,
       docDate: record.docDate,
-      customerId: record.customer?.id,
+      salesmanId: record.salesman?.id,
       warehouseId: record.warehouse?.id,
-      salesOrderId: record.salesOrder?.id,
       reason: record.reason,
       remarks: record.remarks,
     });
@@ -157,9 +152,8 @@ export default function SalesReturnPage() {
   const columns = [
     { title: 'Số phiếu', dataIndex: 'docNumber', key: 'docNumber' },
     { title: 'Ngày chứng từ', dataIndex: 'docDate', key: 'docDate' },
-    { title: 'Khách hàng', key: 'customer', render: (_, r) => r.customer?.name },
+    { title: 'Nhân viên bán hàng', key: 'salesman', render: (_, r) => r.salesman?.fullName || '-' },
     { title: 'Kho', key: 'warehouse', render: (_, r) => r.warehouse?.name },
-    { title: 'Đơn hàng gốc', key: 'salesOrder', render: (_, r) => r.salesOrder?.docNumber || '-' },
     { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },
     {
       title: 'Thao tác',
@@ -204,7 +198,7 @@ export default function SalesReturnPage() {
       <TableToolbar
         searchValue={searchText}
         onSearchChange={setSearchText}
-        searchPlaceholder="Tìm theo số phiếu hoặc khách hàng..."
+        searchPlaceholder="Tìm theo số phiếu hoặc nhân viên..."
         onAdd={openCreateModal}
         addTooltip="Thêm phiếu trả hàng"
         onReload={() => {
@@ -243,13 +237,8 @@ export default function SalesReturnPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Khách hàng" name="customerId" rules={[{ required: true, message: 'Khách hàng không được để trống' }]}>
-                <Select options={customerOptions} placeholder="Chọn khách hàng" showSearch optionFilterProp="label" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item label="Đơn hàng gốc" name="salesOrderId">
-                <Select options={salesOrderOptions} placeholder="Chọn đơn hàng gốc (nếu có)" allowClear showSearch optionFilterProp="label" />
+              <Form.Item label="Nhân viên bán hàng" name="salesmanId" rules={[{ required: true, message: 'Nhân viên bán hàng không được để trống' }]}>
+                <Select options={salesmanOptions} placeholder="Chọn nhân viên bán hàng" showSearch optionFilterProp="label" />
               </Form.Item>
             </Col>
             <Col span={8}>

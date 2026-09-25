@@ -1,7 +1,7 @@
 package com.erpqlkho.backend.sales.service;
 
-import com.erpqlkho.backend.category.customer.entity.Customer;
-import com.erpqlkho.backend.category.customer.repository.CustomerRepository;
+import com.erpqlkho.backend.category.employee.entity.Employee;
+import com.erpqlkho.backend.category.employee.repository.EmployeeRepository;
 import com.erpqlkho.backend.category.product.entity.Product;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
@@ -9,10 +9,8 @@ import com.erpqlkho.backend.category.warehouse.repository.WarehouseRepository;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.inventory.service.StockService;
 import com.erpqlkho.backend.sales.dto.SalesReturnDto;
-import com.erpqlkho.backend.sales.entity.SalesOrder;
 import com.erpqlkho.backend.sales.entity.SalesReturn;
 import com.erpqlkho.backend.sales.entity.SalesReturnItem;
-import com.erpqlkho.backend.sales.repository.SalesOrderRepository;
 import com.erpqlkho.backend.sales.repository.SalesReturnRepository;
 import com.erpqlkho.backend.system.service.NumberingConfigService;
 import com.erpqlkho.backend.user.entity.User;
@@ -32,10 +30,9 @@ import java.util.List;
 public class SalesReturnService {
 
     private final SalesReturnRepository salesReturnRepository;
-    private final CustomerRepository customerRepository;
+    private final EmployeeRepository employeeRepository;
     private final WarehouseRepository warehouseRepository;
     private final ProductRepository productRepository;
-    private final SalesOrderRepository salesOrderRepository;
     private final UserRepository userRepository;
     private final StockService stockService;
     private final NumberingConfigService numberingConfigService;
@@ -92,9 +89,8 @@ public class SalesReturnService {
 
     private void applyDto(SalesReturn ret, SalesReturnDto dto) {
         ret.setDocDate(dto.getDocDate());
-        ret.setCustomer(findCustomer(dto.getCustomerId()));
+        ret.setSalesman(findSalesman(dto.getSalesmanId()));
         ret.setWarehouse(findWarehouse(dto.getWarehouseId()));
-        ret.setSalesOrder(findSalesOrder(dto.getSalesOrderId()));
         ret.setReason(dto.getReason());
         ret.setRemarks(dto.getRemarks());
 
@@ -127,9 +123,13 @@ public class SalesReturnService {
         return numberingConfigService.nextNumber("SALES_RETURN");
     }
 
-    private Customer findCustomer(Long id) {
-        return customerRepository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Khong tim thay khach hang id=" + id));
+    private Employee findSalesman(Long id) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay nhan vien id=" + id));
+        if (!"NVBH".equals(employee.getType())) {
+            throw ApiException.conflict("Chi chon duoc nhan vien ban hang (NVBH) cho phieu tra hang");
+        }
+        return employee;
     }
 
     private Warehouse findWarehouse(Long id) {
@@ -140,12 +140,6 @@ public class SalesReturnService {
     private Product findProduct(Long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay san pham id=" + id));
-    }
-
-    private SalesOrder findSalesOrder(Long id) {
-        if (id == null) return null;
-        return salesOrderRepository.findById(id)
-                .orElseThrow(() -> ApiException.notFound("Khong tim thay don hang id=" + id));
     }
 
     private User currentUser() {

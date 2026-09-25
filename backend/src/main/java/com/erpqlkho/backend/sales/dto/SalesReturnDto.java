@@ -20,13 +20,11 @@ public class SalesReturnDto {
     @NotNull(message = "Ngay chung tu khong duoc de trong")
     private LocalDate docDate;
 
-    @NotNull(message = "Khach hang khong duoc de trong")
-    private Long customerId;
+    @NotNull(message = "Nhan vien ban hang khong duoc de trong")
+    private Long salesmanId;
 
     @NotNull(message = "Kho khong duoc de trong")
     private Long warehouseId;
-
-    private Long salesOrderId;
 
     private String reason;
     private String remarks;
