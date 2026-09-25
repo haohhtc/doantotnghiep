@@ -13,7 +13,6 @@ import com.erpqlkho.backend.category.product.repository.ItemBranchRepository;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
 import com.erpqlkho.backend.category.uom.entity.Uom;
 import com.erpqlkho.backend.category.uom.repository.UomRepository;
-import com.erpqlkho.backend.category.uomgroup.service.UomConversionService;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.category.warehouse.repository.WarehouseRepository;
 import com.erpqlkho.backend.common.exception.ApiException;
@@ -22,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -41,7 +39,6 @@ public class PriceListService {
     private final CustomerRepository customerRepository;
     private final WarehouseRepository warehouseRepository;
     private final ItemBranchRepository itemBranchRepository;
-    private final UomConversionService uomConversionService;
 
     public List<PriceList> findAll() {
         return priceListRepository.findAll();
@@ -152,13 +149,13 @@ public class PriceListService {
     // xoa cot o V19) - khong tim duoc gia hop le thi nem loi ro rang, chan tao/xac nhan phieu.
     // Xem tonghop.md muc "Nhi dat hang lon" Nhom 4.
 
-    public BigDecimal lookupPrice(Long productId, Long customerId, Long warehouseId, String purpose, Long uomId) {
+    public BigDecimal lookupPrice(Long productId, Long customerId, Long warehouseId, String purpose) {
         Product product = findProduct(productId);
 
         if (customerId != null) {
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer != null && customer.getPriceList() != null && purpose.equals(customer.getPriceList().getType())) {
-                Optional<BigDecimal> price = pickPrice(customer.getPriceList().getId(), productId, product, purpose, uomId);
+                Optional<BigDecimal> price = pickPrice(customer.getPriceList().getId(), productId, product, purpose);
                 if (price.isPresent()) return price.get();
             }
         }
@@ -167,7 +164,7 @@ public class PriceListService {
             Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
             if (warehouse != null && warehouse.getBranch() != null && warehouse.getBranch().getPriceList() != null
                     && purpose.equals(warehouse.getBranch().getPriceList().getType())) {
-                Optional<BigDecimal> price = pickPrice(warehouse.getBranch().getPriceList().getId(), productId, product, purpose, uomId);
+                Optional<BigDecimal> price = pickPrice(warehouse.getBranch().getPriceList().getId(), productId, product, purpose);
                 if (price.isPresent()) return price.get();
             }
         }
@@ -176,25 +173,21 @@ public class PriceListService {
                 + " hợp lệ cho sản phẩm \"" + product.getName() + "\" - vui lòng cấu hình bảng giá trước");
     }
 
-    // DVT can gia: uomId nguoi dung chon -> (khong co) sale_uom/purchase_uom cua san pham. Co dong gia
-    // dung DVT do thi lay thang; khong co thi SUY RA tu 1 dong gia khac: gia co so = gia / he so cua dong
-    // do, roi nhan he so DVT can tim (VD co gia HOP 40.000, he so 12 -> gia GOI = 3.333,33, THUNG x144).
-    // Khong chon DVT nao va san pham cung khong co DVT mac dinh -> lay dong dau (nhu truoc).
-    private Optional<BigDecimal> pickPrice(Long priceListId, Long productId, Product product, String purpose, Long uomId) {
+    // Uu tien dong gia trung uom cua tab tuong ung (sale_uom/purchase_uom cua san pham); neu
+    // khong co thi lay dong dau tien tim thay trong bang gia do cho san pham nay.
+    private Optional<BigDecimal> pickPrice(Long priceListId, Long productId, Product product, String purpose) {
         List<PriceListItem> items = priceListItemRepository.findByPriceListIdAndProductId(priceListId, productId);
         if (items.isEmpty()) return Optional.empty();
-        Uom defaultUom = "SALE".equals(purpose) ? product.getSaleUom() : product.getPurchaseUom();
-        Long targetUomId = uomId != null ? uomId : (defaultUom != null ? defaultUom.getId() : null);
-        if (targetUomId == null) return Optional.of(items.get(0).getPrice());
-
-        Optional<PriceListItem> exact = items.stream().filter(i -> i.getUom().getId().equals(targetUomId)).findFirst();
-        if (exact.isPresent()) return Optional.of(exact.get().getPrice());
-
-        PriceListItem source = items.get(0);
-        Uom target = uomRepository.findById(targetUomId).orElse(null);
-        BigDecimal basePrice = source.getPrice().divide(uomConversionService.factorOf(product, source.getUom()), 6, RoundingMode.HALF_UP);
-        return Optional.of(basePrice.multiply(uomConversionService.factorOf(product, target)).setScale(2, RoundingMode.HALF_UP));
+        var preferredUom = "SALE".equals(purpose) ? product.getSaleUom() : product.getPurchaseUom();
+        if (preferredUom != null) {
+            Optional<PriceListItem> matched = items.stream()
+                    .filter(i -> i.getUom().getId().equals(preferredUom.getId()))
+                    .findFirst();
+            if (matched.isPresent()) return Optional.of(matched.get().getPrice());
+        }
+        return Optional.of(items.get(0).getPrice());
     }
+
     private Product findProduct(Long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay san pham id=" + id));

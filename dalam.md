@@ -2,21 +2,6 @@
 
 Đối chiếu theo file `NGHIEP-VU-DMS-THAM-CHIEU.html` (5 nhóm module trong phạm vi đồ án: MDM, Inventory, Sales Order, Purchase Order, Quản trị).
 
-## 🧩 Đợt nâng cấp 3 bước: Đã đặt hàng / Loại đơn / Đơn vị tính (2026-09-25)
-
-**Bước 1 — Tồn kho, cột "Đã đặt hàng"** (chỉ sửa frontend): = tổng SL các đơn **PENDING + CONFIRMED** mà Đơn giao hàng **chưa Xác nhận** (dùng số lượng quy đổi cơ sở). Trước đây chỉ cộng PENDING nên đơn đã duyệt chờ giao không được tính giữ chỗ. *Lưu ý:* các đơn test cũ (SO0001, SO0003, "34", SO0008-10) được duyệt từ thời "Xác nhận = trừ kho" và chưa có Đơn giao hàng nên đang bị tính "đã đặt" dù kho đã trừ từ trước — chỉ là dữ liệu test cũ, không phải lỗi logic.
-
-**Bước 2 — Trường mới (V35)**: Đơn hàng bán có **Loại đơn** (`STANDARD` / `PRE_ORDER` / `SAMPLE`) + **Ngày giao hàng**. Pre-order bắt buộc có Ngày giao và xuất từ kho loại MAIN. Đơn mẫu: ép đơn giá = 0 ở backend (vẫn trừ kho, vẫn xuất hóa đơn 0đ). **Trả hàng** đổi sang gắn **Nhân viên bán hàng (NVBH)**, bỏ Khách hàng + Đơn hàng gốc khỏi form (2 cột cũ giữ ở DB, cho phép NULL).
-
-**Bước 3 — Đơn vị tính (V36)**: tồn kho luôn lưu theo **đơn vị cơ sở (Gói)** của nhóm quy đổi; mọi chứng từ chọn Gói/Hộp/Thùng đều qua 1 hàm quy đổi chung (`UomConversionService`) và lưu thêm `base_quantity`.
-- Áp dụng cho: Yêu cầu bán hàng, Đơn hàng bán, Đơn giao hàng (thừa hưởng ĐVT từ đơn), Hóa đơn (hiển thị ĐVT, đơn giá theo ĐVT giao), Trả hàng. Trừ/cộng kho và "Đã đặt hàng" đều dùng `base_quantity`.
-- **Tra giá theo ĐVT**: bảng giá có giá đúng ĐVT thì lấy thẳng; không có thì tự suy ra từ dòng giá khác (giá cơ sở = giá / hệ số, nhân hệ số ĐVT cần). VD CP001 Hộp 40.000 → Gói 3.333,33 → Thùng 480.000.
-- **Hóa đơn khi giao khác ĐVT với đơn** (VD đơn 1 Thùng 720.000, giao 5 Hộp): đơn giá quy đổi 720.000/96×6 = 45.000/Hộp (đã phát hiện và sửa lỗi lấy nhầm giá Thùng cho Hộp trong lúc test).
-- **Dữ liệu demo đã seed**: 4 nhóm quy đổi mới (`QC-12X12` Chocopie hộp 12/thùng 144 gói; `QC-6X16` Custas hộp 6/thùng 96; `QC-COSY` hộp 10/thùng 240; `QC-SNACK` gói/thùng 30) + Swing dùng `NHOM-BANHKEO`; gán cho 12 sản phẩm Orion (bán theo Hộp — riêng snack bán theo Gói, mua theo Thùng, tồn kho theo Gói). Bổ sung giá bán cho các sản phẩm chưa có giá vào 2 bảng giá bán hiện có (`BG-DAILY-C1`, `BG-CHUAN-CTY`).
-- **Lưu ý cho người test**: tồn kho demo (100 mỗi SP) giờ hiểu là **100 gói** — 1 hộp Chocopie = 12 gói nên đặt vài hộp là hết. Phiếu nhập hàng (Goods Receipt) **chưa** có ĐVT: số nhập vào được hiểu là đơn vị cơ sở. Đơn/dòng cũ (không có ĐVT) coi như hệ số 1.
-
-**Đã test qua API**: Pre-order thiếu ngày giao / kho Van bị chặn; Đơn mẫu đi hết chuỗi đến hóa đơn 0đ; Trả hàng bắt buộc NVBH; ĐVT sai nhóm bị chặn; Đơn 2 Hộp → base 24, xác nhận giao trừ đúng 24 (90→66); Yêu cầu bán hàng 1 Thùng → chuyển đơn giữ ĐVT; sửa Đơn giao từ 1 Thùng xuống 5 Hộp → trừ 30; Trả hàng 1 Thùng CS001 → cộng 240 vào kho Van. Frontend build sạch (chưa test được bằng trình duyệt thật trong phiên này — cần bạn thao tác thử trên UI).
-
 ## ⚠️ Giới hạn đã biết: Đơn giao hàng chỉ hỗ trợ 1-1 với Đơn hàng bán (không giao nhiều đợt)
 
 `delivery_order.sales_order_id` đang là **UNIQUE** — 1 Đơn hàng bán chỉ tạo được tối đa **1 Đơn giao hàng**. Sửa số lượng ở bước "Đơn giao hàng" chỉ cho phép "giao thiếu rồi thôi" (giao 1 lần, ít hơn số đặt), **không hỗ trợ** tạo thêm Đơn giao hàng thứ 2 cho phần còn thiếu của cùng đơn (giao nhiều đợt/multiple shipments). Đã hỏi người dùng có cần sửa không — **người dùng xác nhận không cần**, giữ nguyên giới hạn này. Nếu giám khảo hỏi "giao nhiều đợt thì sao": trả lời rằng phạm vi đồ án chỉ hỗ trợ 1 đơn giao hàng/1 đơn hàng bán, muốn giao thiếu thì sửa số lượng ngay trên đơn giao hàng đó trước khi xác nhận.

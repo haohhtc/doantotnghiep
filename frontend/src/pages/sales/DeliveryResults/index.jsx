@@ -42,7 +42,7 @@ export default function DeliveryResultsPage() {
     {
       title: 'Số lượng SP',
       key: 'items',
-      render: (_, o) => o.items.map((it) => `${it.product.code} x${Number(it.quantity)} ${it.uom?.name || ''}`.trim()).join(', '),
+      render: (_, o) => o.items.map((it) => `${it.product.code} x${Number(it.quantity)}`).join(', '),
     },
   ];
 

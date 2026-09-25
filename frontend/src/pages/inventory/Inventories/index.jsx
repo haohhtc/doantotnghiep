@@ -16,7 +16,7 @@ const WHSE_TYPE_LABELS = { MAIN: 'Kho chính', VAN: 'Kho xe tải', DAMAGE: 'Kho
 // stock that vi chua tung phat sinh giao dich) - build cartesian o Frontend, khong sua backend.
 // Cot "Kho" doi thanh "Loai kho" (warehouseType) thay vi ten kho cu the.
 // Cot "Committed" khong co trong bang stock that - tinh song song bang tong SL cac dong
-// sales_order PENDING/CONFIRMED chua giao xong (Don giao hang chua CLOSED) cung product+warehouse.
+// sales_order dang PENDING cung product+warehouse (goi them GET /api/sales-orders).
 export default function InventoriesPage() {
   const { selectedBranchId, loading: branchLoading } = useBranch();
   const [branchProducts, setBranchProducts] = useState([]);
@@ -34,18 +34,12 @@ export default function InventoriesPage() {
       axiosClient.get('/warehouses', { params: { branchId: selectedBranchId } }),
       axiosClient.get('/stock'),
       axiosClient.get('/sales-orders'),
-      axiosClient.get('/delivery-orders'),
     ])
-      .then(([productsRes, warehousesRes, stockRes, ordersRes, deliveryRes]) => {
+      .then(([productsRes, warehousesRes, stockRes, ordersRes]) => {
         setBranchProducts(productsRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setStockRows(stockRes.data.data);
-        // "Da dat hang" = don PENDING + CONFIRMED ma Don giao hang CHUA Xac nhan (CLOSED) - hang van
-        // nam trong kho nhung da bi giu cho don. Xac nhan giao hang xong ton thuc te da giam nen het tinh.
-        const deliveredOrderIds = new Set(deliveryRes.data.data.filter((d) => d.status === 'CLOSED').map((d) => d.salesOrder.id));
-        setPendingOrders(
-          ordersRes.data.data.filter((o) => (o.status === 'PENDING' || o.status === 'CONFIRMED') && !deliveredOrderIds.has(o.id))
-        );
+        setPendingOrders(ordersRes.data.data.filter((o) => o.status === 'PENDING'));
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu tồn kho'))
       .finally(() => setLoading(false));
@@ -60,7 +54,7 @@ export default function InventoriesPage() {
     pendingOrders.forEach((o) => {
       if (o.warehouse?.id !== warehouseId) return;
       o.details.forEach((d) => {
-        if (d.product?.id === productId) total += Number(d.baseQuantity ?? d.quantity);
+        if (d.product?.id === productId) total += Number(d.quantity);
       });
     });
     return total;

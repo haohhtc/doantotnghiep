@@ -45,14 +45,6 @@ public class SalesOrder extends BaseEntity {
     @Column(nullable = false, length = 20)
     private String status = "PENDING";
 
-    // PRE_ORDER: dat truoc giao sau (bat buoc ngay giao + kho Main) | SAMPLE: don hang mau, don gia = 0
-    // (van tru kho, van xuat hoa don 0d) | STANDARD: don thuong - xem V35 + SalesOrderService.applyDto().
-    @Column(name = "order_type", nullable = false, length = 20)
-    private String orderType = "STANDARD";
-
-    @Column(name = "delivery_date")
-    private LocalDate deliveryDate;
-
     @Column(name = "total_amount", nullable = false, precision = 18, scale = 2)
     private BigDecimal totalAmount = BigDecimal.ZERO;
 

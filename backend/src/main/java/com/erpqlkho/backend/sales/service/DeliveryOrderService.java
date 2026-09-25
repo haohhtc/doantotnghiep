@@ -4,8 +4,6 @@ import com.erpqlkho.backend.category.product.entity.Product;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.category.warehouse.repository.WarehouseRepository;
-import com.erpqlkho.backend.category.uom.entity.Uom;
-import com.erpqlkho.backend.category.uomgroup.service.UomConversionService;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.inventory.service.StockService;
 import com.erpqlkho.backend.sales.dto.DeliveryOrderDto;
@@ -41,7 +39,6 @@ public class DeliveryOrderService {
     private final UserRepository userRepository;
     private final StockService stockService;
     private final NumberingConfigService numberingConfigService;
-    private final UomConversionService uomConversionService;
 
     public List<DeliveryOrder> findAll() {
         return deliveryOrderRepository.findAll();
@@ -74,18 +71,21 @@ public class DeliveryOrderService {
         List<DeliveryOrderItem> items = new ArrayList<>();
         if (dto.getItems() != null && !dto.getItems().isEmpty()) {
             for (DeliveryOrderDto.ItemDto itemDto : dto.getItems()) {
-                items.add(buildItem(order, salesOrder, itemDto));
+                DeliveryOrderItem item = new DeliveryOrderItem();
+                item.setDeliveryOrder(order);
+                item.setProduct(findProduct(itemDto.getProductId()));
+                item.setQuantity(itemDto.getQuantity());
+                item.setNote(itemDto.getNote());
+                items.add(item);
             }
         } else {
-            // Mac dinh copy dung so luong + DVT da dat tu Don hang ban - nguoi dung sua lai truoc khi
+            // Mac dinh copy dung so luong da dat tu Don hang ban - nguoi dung sua lai truoc khi
             // Xac nhan neu giao thuc te khac so luong dat.
             for (SalesOrderDetail detail : salesOrder.getDetails()) {
                 DeliveryOrderItem item = new DeliveryOrderItem();
                 item.setDeliveryOrder(order);
                 item.setProduct(detail.getProduct());
-                item.setUom(detail.getUom());
                 item.setQuantity(detail.getQuantity());
-                item.setBaseQuantity(detail.getBaseQuantity());
                 items.add(item);
             }
         }
@@ -107,31 +107,17 @@ public class DeliveryOrderService {
             order.getItems().clear();
             List<DeliveryOrderItem> items = new ArrayList<>();
             for (DeliveryOrderDto.ItemDto itemDto : dto.getItems()) {
-                items.add(buildItem(order, order.getSalesOrder(), itemDto));
+                DeliveryOrderItem item = new DeliveryOrderItem();
+                item.setDeliveryOrder(order);
+                item.setProduct(findProduct(itemDto.getProductId()));
+                item.setQuantity(itemDto.getQuantity());
+                item.setNote(itemDto.getNote());
+                items.add(item);
             }
             order.getItems().addAll(items);
         }
 
         return deliveryOrderRepository.save(order);
-    }
-
-    // DVT: lay theo dto neu co, khong thi lay DVT cua dong cung san pham trong Don hang ban goc.
-    private DeliveryOrderItem buildItem(DeliveryOrder order, SalesOrder salesOrder, DeliveryOrderDto.ItemDto itemDto) {
-        Product product = findProduct(itemDto.getProductId());
-        Uom uom = itemDto.getUomId() != null
-                ? uomConversionService.findUom(itemDto.getUomId())
-                : salesOrder.getDetails().stream()
-                        .filter(d -> d.getProduct().getId().equals(product.getId()))
-                        .map(SalesOrderDetail::getUom)
-                        .findFirst().orElse(null);
-        DeliveryOrderItem item = new DeliveryOrderItem();
-        item.setDeliveryOrder(order);
-        item.setProduct(product);
-        item.setUom(uom);
-        item.setQuantity(itemDto.getQuantity());
-        item.setBaseQuantity(uomConversionService.toBase(product, uom, itemDto.getQuantity()));
-        item.setNote(itemDto.getNote());
-        return item;
     }
 
     @Transactional
@@ -150,10 +136,10 @@ public class DeliveryOrderService {
         requireDraft(order);
 
         for (DeliveryOrderItem item : order.getItems()) {
-            stockService.assertSufficientStock(item.getProduct(), order.getWarehouse(), item.getBaseQuantity());
+            stockService.assertSufficientStock(item.getProduct(), order.getWarehouse(), item.getQuantity());
         }
         for (DeliveryOrderItem item : order.getItems()) {
-            stockService.decrease(item.getProduct(), order.getWarehouse(), item.getBaseQuantity(),
+            stockService.decrease(item.getProduct(), order.getWarehouse(), item.getQuantity(),
                     "DELIVERY_ORDER", order.getId());
         }
 

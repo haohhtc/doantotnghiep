@@ -1,7 +1,6 @@
 package com.erpqlkho.backend.sales.entity;
 
 import com.erpqlkho.backend.category.product.entity.Product;
-import com.erpqlkho.backend.category.uom.entity.Uom;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -38,14 +37,6 @@ public class SalesRequestItem {
 
     @Column(nullable = false, precision = 18, scale = 3)
     private BigDecimal quantity;
-    // Don vi tinh cua dong (null = don vi co so, he so 1) - xem V36 + UomConversionService.
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "uom_id")
-    private Uom uom;
-
-    // So luong quy doi ve don vi co so - dung de tru/cong kho va tinh Da dat hang.
-    @Column(name = "base_quantity", nullable = false, precision = 18, scale = 3)
-    private BigDecimal baseQuantity = BigDecimal.ZERO;
 
     @Column(name = "unit_price", nullable = false, precision = 18, scale = 2)
     private BigDecimal unitPrice;

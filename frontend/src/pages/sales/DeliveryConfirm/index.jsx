@@ -59,7 +59,7 @@ export default function DeliveryConfirmPage() {
     {
       title: 'Số lượng SP',
       key: 'items',
-      render: (_, r) => r.items.map((it) => `${it.product.code} x${Number(it.quantity)} ${it.uom?.name || ''}`.trim()).join(', '),
+      render: (_, r) => r.items.map((it) => `${it.product.code} x${Number(it.quantity)}`).join(', '),
     },
     { title: 'Trạng thái', key: 'status', render: () => <Tag color="gold">Chờ xác nhận</Tag> },
     {

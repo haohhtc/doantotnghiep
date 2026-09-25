@@ -1,7 +1,6 @@
 package com.erpqlkho.backend.sales.entity;
 
 import com.erpqlkho.backend.category.product.entity.Product;
-import com.erpqlkho.backend.category.uom.entity.Uom;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -40,11 +39,6 @@ public class InvoiceItem {
 
     @Column(nullable = false, precision = 18, scale = 3)
     private BigDecimal quantity;
-
-    // Don vi tinh cua dong hoa don (quantity + unit_price tinh theo DVT nay) - null = don vi co so.
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "uom_id")
-    private Uom uom;
 
     @Column(name = "unit_price", nullable = false, precision = 18, scale = 2)
     private BigDecimal unitPrice;

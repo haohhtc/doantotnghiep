@@ -28,11 +28,6 @@ public class SalesOrderDto {
     @NotNull(message = "Kho xuat khong duoc de trong")
     private Long warehouseId;
 
-    // PRE_ORDER / SAMPLE / STANDARD - de trong = STANDARD
-    private String orderType;
-
-    private LocalDate deliveryDate;
-
     @NotEmpty(message = "Don hang phai co it nhat 1 dong san pham")
     private List<@Valid DetailDto> details;
 
@@ -45,9 +40,6 @@ public class SalesOrderDto {
 
         @NotNull(message = "So luong khong duoc de trong")
         private BigDecimal quantity;
-
-        // Don vi tinh cua dong (Goi/Hop/Thung) - de trong = don vi co so (he so 1)
-        private Long uomId;
 
         @NotNull(message = "Don gia khong duoc de trong")
         private BigDecimal unitPrice;

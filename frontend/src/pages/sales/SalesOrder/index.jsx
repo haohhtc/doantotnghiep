@@ -6,21 +6,8 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, StopOutlined
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { useBranch } from '../../../contexts/BranchContext';
-import { fetchUomOptions, defaultUomId } from '../../../utils/uom';
 
 const { Title, Text } = Typography;
-
-const ORDER_TYPE_OPTIONS = [
-  { value: 'STANDARD', label: 'Đơn thường' },
-  { value: 'PRE_ORDER', label: 'Pre-order (đặt trước giao sau)' },
-  { value: 'SAMPLE', label: 'Đơn hàng mẫu (miễn phí)' },
-];
-
-function orderTypeTag(type) {
-  if (type === 'PRE_ORDER') return <Tag color="blue">Pre-order</Tag>;
-  if (type === 'SAMPLE') return <Tag color="purple">Hàng mẫu</Tag>;
-  return <Tag>Đơn thường</Tag>;
-}
 
 function statusTag(status) {
   if (status === 'CONFIRMED') return <Tag color="green">Đã duyệt</Tag>;
@@ -63,15 +50,11 @@ export default function SalesOrderPage() {
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [massConfirming, setMassConfirming] = useState(false);
   const [requesterModalOpen, setRequesterModalOpen] = useState(false);
-  const [uomOptions, setUomOptions] = useState([]);
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
   const customerOptions = customers.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
-  const orderType = Form.useWatch('orderType', form);
-  const warehouseOptions = warehouses
-    .filter((w) => orderType !== 'PRE_ORDER' || w.warehouseType === 'MAIN')
-    .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
+  const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
   const visitType = computeVisitType(customerRouteInfo, Form.useWatch('docDate', form));
   const branchMismatch = customerRouteInfo?.branchId && selectedBranchId && customerRouteInfo.branchId !== selectedBranchId;
@@ -126,22 +109,10 @@ export default function SalesOrderPage() {
   function openCreateModal() {
     setEditingOrder(null);
     form.resetFields();
-    form.setFieldsValue({ docDate: new Date().toISOString().slice(0, 10), orderType: 'STANDARD' });
+    form.setFieldsValue({ docDate: new Date().toISOString().slice(0, 10) });
     setDetailRows([]);
     setCustomerRouteInfo(null);
     setModalOpen(true);
-  }
-
-  // Don mau: don gia luon = 0 (mien phi) - ep lai cac dong da them khi doi sang SAMPLE. Pre-order: chi
-  // cho Kho chinh, bo kho da chon neu khong phai Main.
-  function handleOrderTypeChange(type) {
-    if (type === 'SAMPLE') {
-      setDetailRows((prev) => prev.map((d) => ({ ...d, unitPrice: 0 })));
-    }
-    if (type === 'PRE_ORDER') {
-      const current = warehouses.find((w) => w.id === form.getFieldValue('warehouseId'));
-      if (current && current.warehouseType !== 'MAIN') form.setFieldsValue({ warehouseId: undefined });
-    }
   }
 
   function openEditModal(record) {
@@ -151,10 +122,8 @@ export default function SalesOrderPage() {
       docDate: record.docDate,
       customerId: record.customer?.id,
       warehouseId: record.warehouse?.id,
-      orderType: record.orderType || 'STANDARD',
-      deliveryDate: record.deliveryDate,
     });
-    setDetailRows(record.details.map((d) => ({ id: d.id, productId: d.product.id, uomId: d.uom?.id, uomName: d.uom?.name, quantity: d.quantity, unitPrice: d.unitPrice })));
+    setDetailRows(record.details.map((d) => ({ id: d.id, productId: d.product.id, quantity: d.quantity, unitPrice: d.unitPrice })));
     handleCustomerSelect(record.customer?.id);
     setModalOpen(true);
   }
@@ -229,47 +198,33 @@ export default function SalesOrderPage() {
 
   function handleAddDetailRow() {
     detailForm.resetFields();
-    setUomOptions([]);
     setDetailModalOpen(true);
   }
 
-  // Tra gia tu dong theo Bang gia loai SALE + DVT dang chon: customer.price_list_id -> branch.price_list_id
-  // (qua kho xuat). Bang gia chi co gia 1 DVT thi backend tu quy doi sang DVT khac theo he so. Don mau
-  // (SAMPLE) luon = 0. O gia bi khoa, khong tra duoc gia thi bao loi va khong them duoc dong.
-  function lookupPrice(productId, uomId) {
-    if (form.getFieldValue('orderType') === 'SAMPLE') {
-      detailForm.setFieldsValue({ unitPrice: 0 });
-      return;
-    }
+  // Tra gia tu dong theo Bang gia loai SALE: customer.price_list_id -> branch.price_list_id (qua
+  // kho xuat). KHONG con fallback ve product.price (da bi xoa cot) - neu khong tim duoc gia hop
+  // le, backend nem loi ro rang va o day hien thi loi cho nguoi dung, khong tu dien gia nao ca.
+  // Van cho sua tay unitPrice sau khi dien tu dong (khong disable field), khop hanh vi truoc day.
+  function handleProductSelect(productId) {
     detailForm.setFieldsValue({ unitPrice: undefined });
+
     const customerId = form.getFieldValue('customerId');
     const warehouseId = form.getFieldValue('warehouseId');
     axiosClient
-      .get('/price-lists/lookup', { params: { productId, customerId, warehouseId, purpose: 'SALE', uomId } })
+      .get('/price-lists/lookup', { params: { productId, customerId, warehouseId, purpose: 'SALE' } })
       .then(({ data }) => {
-        if (data.data != null) detailForm.setFieldsValue({ unitPrice: data.data });
+        if (data.data != null) {
+          detailForm.setFieldsValue({ unitPrice: data.data });
+        }
       })
       .catch((err) => {
-        message.error(err.response?.data?.message || 'Không tra được giá bán cho sản phẩm này - vui lòng cấu hình bảng giá');
+        message.error(err.response?.data?.message || 'Không tra được giá bán cho sản phẩm này - vui lòng nhập tay hoặc cấu hình bảng giá');
       });
   }
 
-  async function handleProductSelect(productId) {
-    const product = products.find((p) => p.id === productId);
-    const options = await fetchUomOptions(product);
-    setUomOptions(options);
-    const uomId = defaultUomId(product, options);
-    detailForm.setFieldsValue({ uomId });
-    lookupPrice(productId, uomId);
-  }
-
-  function handleUomChange(uomId) {
-    lookupPrice(detailForm.getFieldValue('productId'), uomId);
-  }
   function handleSubmitDetailRow() {
     detailForm.validateFields().then((values) => {
-      const uomName = uomOptions.find((o) => o.value === values.uomId)?.label;
-      setDetailRows((prev) => [...prev, { id: Date.now(), ...values, uomName }]);
+      setDetailRows((prev) => [...prev, { id: Date.now(), ...values }]);
       setDetailModalOpen(false);
     });
   }
@@ -292,8 +247,7 @@ export default function SalesOrderPage() {
       }
       const payload = {
         ...values,
-        deliveryDate: values.deliveryDate || null,
-        details: detailRows.map((d) => ({ productId: d.productId, uomId: d.uomId, quantity: d.quantity, unitPrice: d.unitPrice })),
+        details: detailRows.map((d) => ({ productId: d.productId, quantity: d.quantity, unitPrice: d.unitPrice })),
       };
       const request = editingOrder
         ? axiosClient.put(`/sales-orders/${editingOrder.id}`, payload)
@@ -327,9 +281,7 @@ export default function SalesOrderPage() {
     { title: 'Số đơn', dataIndex: 'docNumber', key: 'docNumber' },
     { title: 'Ngày đặt hàng', dataIndex: 'docDate', key: 'docDate' },
     { title: 'Khách hàng', key: 'customer', render: (_, o) => o.customer?.name },
-    { title: 'Loại đơn', dataIndex: 'orderType', key: 'orderType', render: (t) => orderTypeTag(t) },
     { title: 'Kho xuất', key: 'warehouse', render: (_, o) => o.warehouse?.name },
-    { title: 'Ngày giao', dataIndex: 'deliveryDate', key: 'deliveryDate', render: (v) => v || '-' },
     {
       title: 'Tổng tiền',
       dataIndex: 'totalAmount',
@@ -385,7 +337,6 @@ export default function SalesOrderPage() {
 
   const detailColumns = [
     { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
-    { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
     { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity' },
     { title: 'Đơn giá', dataIndex: 'unitPrice', key: 'unitPrice', render: (v) => v?.toLocaleString('vi-VN') + ' đ' },
     {
@@ -467,27 +418,8 @@ export default function SalesOrderPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Loại đơn" name="orderType" rules={[{ required: true, message: 'Chọn loại đơn' }]}>
-                <Select options={ORDER_TYPE_OPTIONS} onChange={handleOrderTypeChange} />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                label="Kho xuất"
-                name="warehouseId"
-                rules={[{ required: true, message: 'Kho xuất không được để trống' }]}
-                extra={orderType === 'PRE_ORDER' ? 'Đơn Pre-order chỉ xuất từ Kho chính (Main)' : undefined}
-              >
+              <Form.Item label="Kho xuất" name="warehouseId" rules={[{ required: true, message: 'Kho xuất không được để trống' }]}>
                 <Select options={warehouseOptions} placeholder="Chọn kho" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item
-                label="Ngày giao hàng"
-                name="deliveryDate"
-                rules={[{ required: orderType === 'PRE_ORDER', message: 'Đơn Pre-order bắt buộc chọn Ngày giao hàng' }]}
-              >
-                <Input type="date" />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -558,13 +490,6 @@ export default function SalesOrderPage() {
               placeholder="Chọn sản phẩm"
               onChange={handleProductSelect}
             />
-          </Form.Item>
-          <Form.Item
-            label="Đơn vị tính"
-            name="uomId"
-            extra={uomOptions.length === 0 ? 'Sản phẩm chưa có nhóm quy đổi - tính theo đơn vị cơ sở' : undefined}
-          >
-            <Select options={uomOptions} placeholder="Chọn đơn vị tính" disabled={uomOptions.length === 0} onChange={handleUomChange} />
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>

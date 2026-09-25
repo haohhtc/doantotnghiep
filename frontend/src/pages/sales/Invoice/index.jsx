@@ -80,7 +80,7 @@ export default function InvoicePage() {
               renderItem={(item) => (
                 <List.Item>
                   <Text>
-                    {item.product.code} - {item.product.name}: {Number(item.quantity).toLocaleString('vi-VN')} {item.uom?.name || ''} x{' '}
+                    {item.product.code} - {item.product.name}: {Number(item.quantity).toLocaleString('vi-VN')} x{' '}
                     {Number(item.unitPrice).toLocaleString('vi-VN')} đ (thuế {Number(item.taxRate)}%) ={' '}
                     <Text strong>{Number(item.lineTotal).toLocaleString('vi-VN')} đ</Text>
                   </Text>
