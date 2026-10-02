@@ -23,6 +23,7 @@ export default function InventoriesPage() {
   const [warehouses, setWarehouses] = useState([]);
   const [stockRows, setStockRows] = useState([]);
   const [pendingOrders, setPendingOrders] = useState([]);
+  const [closedVanWarehouseIdByOrderId, setClosedVanWarehouseIdByOrderId] = useState({});
   const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -41,15 +42,22 @@ export default function InventoriesPage() {
         setBranchProducts(productsRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setStockRows(stockRes.data.data);
-        // "Da dat hang" = don PENDING + CONFIRMED con giu cho: kho Main/khac -> den khi Don giao hang duoc
-        // Xac nhan (hang da sang Kho Van); kho Van (ban thang tu xe) -> den khi xuat Hoa don. Cung cong thuc
-        // voi AvailabilityService o backend.
-        const deliveredOrderIds = new Set(deliveryRes.data.data.filter((d) => d.status === 'CLOSED').map((d) => d.salesOrder.id));
+        // "Da dat hang" = don PENDING + CONFIRMED, chua xuat Hoa don, con "giu cho" o 1 trong 3
+        // truong hop (khop AvailabilityService/sumCommittedBase o backend - sua V39):
+        //  1) Con nam o kho nguon (Main) - chua co Don giao hang CLOSED.
+        //  2) Dat thang tu kho Van (van sale truc tiep) - tinh den khi xuat Hoa don.
+        //  3) Da co Don giao hang CLOSED -> hang da nam o kho Van do, van phai tinh la "giu cho"
+        //     tai dung kho Van ay cho den khi xuat Hoa don (truoc day bi bo sot, hien 0 sai).
         const invoicedOrderIds = new Set(invoicesRes.data.data.map((i) => i.salesOrder.id));
+        const vanIdByOrderId = {};
+        deliveryRes.data.data
+          .filter((d) => d.status === 'CLOSED' && d.vanWarehouse)
+          .forEach((d) => { vanIdByOrderId[d.salesOrder.id] = d.vanWarehouse.id; });
+        setClosedVanWarehouseIdByOrderId(vanIdByOrderId);
         setPendingOrders(
           ordersRes.data.data.filter((o) => {
             if (o.status !== 'PENDING' && o.status !== 'CONFIRMED') return false;
-            return o.warehouse?.warehouseType === 'VAN' ? !invoicedOrderIds.has(o.id) : !deliveredOrderIds.has(o.id);
+            return !invoicedOrderIds.has(o.id);
           })
         );
       })
@@ -64,7 +72,11 @@ export default function InventoriesPage() {
   function committedOf(productId, warehouseId) {
     let total = 0;
     pendingOrders.forEach((o) => {
-      if (o.warehouse?.id !== warehouseId) return;
+      const vanWarehouseId = closedVanWarehouseIdByOrderId[o.id];
+      const stillAtSourceMain = o.warehouse?.id === warehouseId && o.warehouse?.warehouseType !== 'VAN' && vanWarehouseId == null;
+      const directVanSale = o.warehouse?.id === warehouseId && o.warehouse?.warehouseType === 'VAN';
+      const sittingAtThisVan = vanWarehouseId === warehouseId;
+      if (!stillAtSourceMain && !directVanSale && !sittingAtThisVan) return;
       o.details.forEach((d) => {
         if (d.product?.id === productId) total += Number(d.baseQuantity ?? d.quantity);
       });
