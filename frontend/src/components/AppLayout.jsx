@@ -110,7 +110,6 @@ function buildMenuItems(role) {
       children: [
         { key: '/inventory/inventories', label: <Link to="/inventory/inventories">Tồn kho</Link> },
         { key: '/warehouses', label: <Link to="/warehouses">Kho</Link> },
-        { key: '/goods-receipts', label: <Link to="/goods-receipts">Nhập hàng</Link> },
         { key: '/inventory/goods-issue', label: <Link to="/inventory/goods-issue">Phiếu xuất kho</Link> },
         { key: '/inventory/transfer', label: <Link to="/inventory/transfer">Chuyển hàng tồn kho</Link> },
         { key: '/inventory/transfer-confirmation', label: <Link to="/inventory/transfer-confirmation">Xác nhận di chuyển hàng tồn kho</Link> },
@@ -121,6 +120,7 @@ function buildMenuItems(role) {
       key: 'purchase-order', icon: <ShoppingOutlined />, label: 'Mua hàng (Purchase Order)',
       children: [
         { key: '/purchase/purchase-request', label: <Link to="/purchase/purchase-request">Yêu cầu mua hàng</Link> },
+        { key: '/goods-receipts', label: <Link to="/goods-receipts">Nhập hàng</Link> },
         { key: '/purchase/goods-return', label: <Link to="/purchase/goods-return">Trả hàng NCC</Link> },
         { key: '/purchase/auto-rpo', label: <Link to="/purchase/auto-rpo">Nhật ký tự động đặt hàng / Thiết lập chỉ tiêu SP</Link> },
       ],
@@ -180,7 +180,7 @@ const BREADCRUMB_MAP = {
   '/provinces': ['Danh mục', 'Vùng địa lý', 'Tỉnh/Thành phố'],
   '/districts': ['Danh mục', 'Vùng địa lý', 'Quận/Huyện'],
   '/wards': ['Danh mục', 'Vùng địa lý', 'Phường/Xã'],
-  '/goods-receipts': ['Tồn kho', 'Nhập hàng'],
+  '/goods-receipts': ['Mua hàng', 'Nhập hàng'],
   '/sales/sales-request': ['Bán hàng', 'Yêu cầu bán hàng'],
   '/sales-orders': ['Bán hàng', 'Đơn hàng bán'],
   '/sales/delivery-orders': ['Bán hàng', 'Đơn giao hàng'],
@@ -258,7 +258,7 @@ const MENU_ANCESTOR_KEYS = {
   '/purchase/auto-rpo': ['purchase-order'],
   '/inventory/inventories': ['ton-kho'],
   '/warehouses': ['ton-kho'],
-  '/goods-receipts': ['ton-kho'],
+  '/goods-receipts': ['purchase-order'],
   '/inventory/goods-issue': ['ton-kho'],
   '/inventory/transfer': ['ton-kho'],
   '/inventory/transfer-confirmation': ['ton-kho'],
