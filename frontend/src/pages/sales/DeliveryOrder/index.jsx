@@ -241,8 +241,13 @@ export default function DeliveryOrderPage() {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="Kho xuất" name="warehouseId" rules={[{ required: true, message: 'Kho xuất không được để trống' }]}>
-                <Select options={warehouseOptions} placeholder="Chọn kho" />
+              <Form.Item
+                label="Kho xuất"
+                name="warehouseId"
+                rules={[{ required: true, message: 'Kho xuất không được để trống' }]}
+                extra="Luôn lấy đúng kho của Đơn hàng bán gốc - không chọn kho khác được"
+              >
+                <Select options={warehouseOptions} placeholder="Chọn Đơn hàng bán trước" disabled />
               </Form.Item>
             </Col>
             <Col span={24}>
