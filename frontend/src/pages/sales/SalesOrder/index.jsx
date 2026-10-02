@@ -329,6 +329,7 @@ export default function SalesOrderPage() {
     { title: 'Ngày đặt hàng', dataIndex: 'docDate', key: 'docDate' },
     { title: 'Khách hàng', key: 'customer', render: (_, o) => o.customer?.name },
     { title: 'Loại đơn', dataIndex: 'orderType', key: 'orderType', render: (t) => orderTypeTag(t) },
+    { title: 'Yêu cầu gốc', key: 'salesRequest', render: (_, o) => o.salesRequest?.docNumber || '-' },
     { title: 'Kho xuất', key: 'warehouse', render: (_, o) => o.warehouse?.name },
     { title: 'Ngày giao', dataIndex: 'deliveryDate', key: 'deliveryDate', render: (v) => v || '-' },
     {
