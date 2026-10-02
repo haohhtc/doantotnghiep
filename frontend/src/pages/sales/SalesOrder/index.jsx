@@ -70,6 +70,7 @@ export default function SalesOrderPage() {
   const customerOptions = customers.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
   const orderType = Form.useWatch('orderType', form);
   const warehouseOptions = warehouses
+    .filter((w) => !selectedBranchId || w.branch?.id === selectedBranchId)
     .filter((w) => orderType !== 'PRE_ORDER' || w.warehouseType === 'MAIN')
     .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));

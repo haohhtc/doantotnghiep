@@ -5,6 +5,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, SwapOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { useBranch } from '../../../contexts/BranchContext';
 import { fetchUomOptions, defaultUomId } from '../../../utils/uom';
 
 const { Title, Text } = Typography;
@@ -20,6 +21,7 @@ function statusTag(status) {
 // nut "Chuyen thanh don hang" (chon kho xuat luc chuyen), sau do thao tac tiep o trang Don hang
 // ban nhu binh thuong.
 export default function SalesRequestPage() {
+  const { selectedBranchId } = useBranch();
   const [requests, setRequests] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -37,7 +39,11 @@ export default function SalesRequestPage() {
   const [convertForm] = Form.useForm();
 
   const customerOptions = customers.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
-  const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
+  // Chuyen Yeu cau ban hang thanh Don hang ban chi cho chon Kho chinh (MAIN) cua dung chi nhanh
+  // dang chon o Header - khong cho lan kho chi nhanh khac hay chon nham Kho xe tai (Van).
+  const warehouseOptions = warehouses
+    .filter((w) => (!selectedBranchId || w.branch?.id === selectedBranchId) && w.warehouseType === 'MAIN')
+    .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
 
   function optionLabel(options, id) {
