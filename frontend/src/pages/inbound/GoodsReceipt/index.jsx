@@ -6,6 +6,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { hasAnyRole } from '../../../utils/auth';
+import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -20,6 +21,7 @@ const { TextArea } = Input;
 // canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function GoodsReceiptPage() {
   const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
+  const { selectedBranchId } = useBranch();
   const [receipts, setReceipts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -34,7 +36,11 @@ export default function GoodsReceiptPage() {
   const [detailForm] = Form.useForm();
 
   const supplierOptions = suppliers.map((s) => ({ value: s.id, label: `${s.code} - ${s.name}` }));
-  const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
+  // Loc theo Chi nhanh dang chon o Header - van giu rieng kho cua ban ghi dang sua (neu khac chi
+  // nhanh dang chon) de Select khong mat label (giong bug da gap o Don giao hang).
+  const warehouseOptions = warehouses
+    .filter((w) => !selectedBranchId || w.branch?.id === selectedBranchId || w.id === editingReceipt?.warehouse?.id)
+    .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
 
   function optionLabel(options, id) {

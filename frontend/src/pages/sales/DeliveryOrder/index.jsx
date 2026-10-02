@@ -36,7 +36,15 @@ export default function DeliveryOrderPage() {
   // dan cac don da co DO khi bam Them.
   const usedSalesOrderIds = new Set(deliveryOrders.map((d) => d.salesOrder.id));
   const availableSalesOrders = salesOrders.filter((o) => o.status === 'CONFIRMED' && !usedSalesOrderIds.has(o.id));
-  const salesOrderOptions = availableSalesOrders.map((o) => ({ value: o.id, label: `${o.docNumber} - ${o.customer?.name || ''}` }));
+  // Khi sua DO da co, Don hang ban cua no bi loai khoi availableSalesOrders (vi da "used") nen
+  // phai them rieng option cua chinh no vao, khong thi Select khong tra duoc label va hien thang ID so.
+  const editingSalesOrderOption = editingOrder
+    ? { value: editingOrder.salesOrder.id, label: `${editingOrder.salesOrder.docNumber} - ${editingOrder.salesOrder.customer?.name || ''}` }
+    : null;
+  const salesOrderOptions = [
+    ...availableSalesOrders.map((o) => ({ value: o.id, label: `${o.docNumber} - ${o.customer?.name || ''}` })),
+    ...(editingSalesOrderOption ? [editingSalesOrderOption] : []),
+  ];
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';

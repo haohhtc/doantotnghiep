@@ -6,6 +6,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { fetchUomOptions, defaultUomId } from '../../../utils/uom';
+import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -20,6 +21,7 @@ function statusTag(status) {
 // ton kho qua StockService, KHONG tru cong no (project chua co khai niem cong no khach hang).
 // Quyen mo giong Sales Order (moi role deu thao tac duoc, khong rieng ADMIN+WAREHOUSE_MANAGER).
 export default function SalesReturnPage() {
+  const { selectedBranchId } = useBranch();
   const [returns, setReturns] = useState([]);
   const [salesmen, setSalesmen] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -35,7 +37,9 @@ export default function SalesReturnPage() {
   const [detailForm] = Form.useForm();
 
   const salesmanOptions = salesmen.filter((e) => e.type === 'NVBH').map((e) => ({ value: e.id, label: `${e.code} - ${e.fullName}` }));
-  const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
+  const warehouseOptions = warehouses
+    .filter((w) => !selectedBranchId || w.branch?.id === selectedBranchId || w.id === editingReturn?.warehouse?.id)
+    .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
 
   function optionLabel(options, id) {

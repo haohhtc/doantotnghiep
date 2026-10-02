@@ -69,9 +69,14 @@ export default function SalesOrderPage() {
 
   const customerOptions = customers.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
   const orderType = Form.useWatch('orderType', form);
+  // Giu rieng kho cua don dang sua (editingOrder) ngay ca khi no khac chi nhanh/loai kho dang loc,
+  // khong thi Select mat label va hien thang ID so (giong bug da gap o Don giao hang).
   const warehouseOptions = warehouses
-    .filter((w) => !selectedBranchId || w.branch?.id === selectedBranchId)
-    .filter((w) => orderType !== 'PRE_ORDER' || w.warehouseType === 'MAIN')
+    .filter((w) => w.id === editingOrder?.warehouse?.id
+      || (
+        (!selectedBranchId || w.branch?.id === selectedBranchId)
+        && (orderType !== 'PRE_ORDER' || w.warehouseType === 'MAIN')
+      ))
     .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
   const visitType = computeVisitType(customerRouteInfo, Form.useWatch('docDate', form));

@@ -6,6 +6,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { hasAnyRole } from '../../../utils/auth';
+import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -29,6 +30,7 @@ function reasonLabel(code) {
 // canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function GoodsIssuePage() {
   const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
+  const { selectedBranchId } = useBranch();
   const [issues, setIssues] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
@@ -41,7 +43,9 @@ export default function GoodsIssuePage() {
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
-  const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
+  const warehouseOptions = warehouses
+    .filter((w) => !selectedBranchId || w.branch?.id === selectedBranchId || w.id === editingIssue?.warehouse?.id)
+    .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
 
   function optionLabel(options, id) {
