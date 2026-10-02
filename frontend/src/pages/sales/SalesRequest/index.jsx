@@ -228,6 +228,11 @@ export default function SalesRequestPage() {
     { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity' },
     { title: 'Đơn giá', dataIndex: 'unitPrice', key: 'unitPrice', render: (v) => v?.toLocaleString('vi-VN') + ' đ' },
     {
+      title: 'Thành tiền',
+      key: 'amount',
+      render: (_, d) => (Number(d.quantity) * Number(d.unitPrice)).toLocaleString('vi-VN') + ' đ',
+    },
+    {
       title: '',
       key: 'actions',
       width: 60,
