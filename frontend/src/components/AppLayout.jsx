@@ -99,7 +99,6 @@ function buildMenuItems(role) {
         { key: '/sales/returns', label: <Link to="/sales/returns">Trả hàng</Link> },
         { key: '/sales/credit-memos', label: <Link to="/sales/credit-memos">Phiếu ghi có</Link> },
         { key: '/sales/printed-note', label: <Link to="/sales/printed-note">Phiếu in nhanh</Link> },
-        { key: '/sales/mass-process-delivery', label: <Link to="/sales-orders">Xử lý giao hàng hàng loạt</Link> },
         { key: '/sales/picking-list', label: <Link to="/sales/picking-list">Phiếu soạn hàng / In phiếu giao hàng</Link> },
         { key: '/sales/delivery-results', label: <Link to="/sales/delivery-results">Kết quả giao hàng</Link> },
         { key: '/sales/return-request', label: <Link to="/sales/return-request">Yêu cầu trả hàng</Link> },
