@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message, Tooltip,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, StopOutlined, FileTextOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, TruckOutlined, StopOutlined, FileTextOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { useBranch } from '../../../contexts/BranchContext';
@@ -179,7 +179,7 @@ export default function SalesOrderPage() {
     axiosClient
       .post(`/sales-orders/${record.id}/confirm`)
       .then(() => {
-        message.success('Đã xác nhận đơn hàng - tiếp theo vào "Đơn giao hàng" để tạo lệnh giao');
+        message.success('Đã xác nhận đơn hàng và tự động tạo Đơn giao hàng - vào "Xác nhận giao hàng" để xuất kho');
         loadData();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xác nhận thất bại'));
@@ -357,11 +357,11 @@ export default function SalesOrderPage() {
             {isPending && (
               <>
                 <Popconfirm
-                  title="Xác nhận đơn hàng này?"
-                  description="Sau khi xác nhận sẽ duyệt đơn (không thể sửa/hủy) - chưa xuất kho ngay, cần tạo Đơn giao hàng và Xác nhận giao hàng mới xuất kho."
+                  title="Xác nhận tạo đơn giao hàng?"
+                  description="Đơn sẽ được duyệt (không thể sửa/hủy) và tự động tạo sẵn 1 Đơn giao hàng - chưa xuất kho ngay, vào trang Xác nhận giao hàng để xuất kho."
                   onConfirm={() => handleConfirmOrder(record)}
                 >
-                  <Button icon={<CheckOutlined />} type="primary" ghost />
+                  <Button icon={<TruckOutlined />} type="primary" ghost title="Xác nhận tạo đơn giao hàng" />
                 </Popconfirm>
                 <Popconfirm title="Hủy đơn hàng này?" onConfirm={() => handleCancelOrder(record)}>
                   <Button icon={<StopOutlined />} />
