@@ -2,23 +2,31 @@
 Sinh du lieu mau lich su (N thang) cho CSDL OLTP (erp_qlkho_oltp) de Backend/ETL/BI/AI co
 data thuc te de demo - khong phai "vai dong test" khong co pattern gi.
 
+Danh muc san pham la hang Orion that (Chocopie, Custas, Solite, Cosy, Swing, O'Star,
+Marine Boy, Toonies), moi san pham co UOM rieng theo dung quy cach dong goi thuc te
+(vd: Chocopie = Cai -> Hop(12) -> Thung(12 hop); snack dang goi = Goi -> Thung truc tiep,
+khong co cap Hop trung gian).
+
 YEU CAU TRUOC KHI CHAY:
-  - Da chay Flyway (mvn spring-boot:run 1 lan, hoac chay thang
-    backend/src/main/resources/db/migration/V1..V5) de cac bang da ton tai.
+  - Da chay Flyway (mvn spring-boot:run 1 lan) toi it nhat V16 (branch/uom/price_list/
+    customer_channel...) de cac bang da ton tai.
   - .env o thu muc goc project da co OLTP_DB_* dung (xem .env.example).
 
 CACH CHAY:
   cd scripts
   pip install -r requirements.txt
   python generate_sample_data.py --months 6
-  python generate_sample_data.py --months 6 --force   # xoa data seed cu (chi data do seed_%),
-                                                        # sinh lai tu dau
+  python generate_sample_data.py --months 6 --force   # xoa data seed cu, sinh lai tu dau
 
 Y TUONG MO PHONG (khong random thuan tuy):
   - Moi san pham co 1 "do pho bien" khac nhau (kieu Pareto) -> vai SP ban chay, nhieu SP it ban.
   - Có xu huong tang nhe theo thoi gian + ban chay hon vao cuoi tuan.
   - Co gia 2-3 diem BAT THUONG that ro (xuat kho tang dot bien) -> Anomaly Detection co gi de bat.
   - Cuoi giai doan, vai san pham bi ep ton kho xuong thap + tao stock_alert -> Stock Risk co du lieu.
+
+PHAM VI (chua lam trong lan nay - de danh cho buoc sau):
+  - Chua sinh du lieu branch/selling_zone/route_master/route_setting/route_master_outlet.
+  - Chua gan channel_id/group_id cho customer (van la khach hang ca nhan chung chung).
 """
 
 import argparse
@@ -29,7 +37,7 @@ import numpy as np
 from dotenv import load_dotenv
 from pathlib import Path
 import os
-from sqlalchemy import create_engine, MetaData, delete, select
+from sqlalchemy import create_engine, MetaData, delete, select, text
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT_DIR / ".env")
@@ -37,9 +45,6 @@ load_dotenv(ROOT_DIR / ".env")
 # ============================================================================
 # CAU HINH
 # ============================================================================
-NUM_CATEGORIES = 8
-NUM_PRODUCTS = 80
-NUM_SUPPLIERS = 8
 NUM_WAREHOUSES = 3
 NUM_CUSTOMERS = 40
 DAILY_ORDERS_RANGE = (5, 20)       # so don ban / ngay
@@ -49,28 +54,62 @@ LOW_STOCK_PRODUCT_COUNT = 5        # so san pham bi ep ve ton thap cuoi giai doa
 SEED_USER_PREFIX = "seed_"
 
 # ============================================================================
-# DU LIEU MAU DE GHEP TEN (thuan tuy hu cau, khong lien quan cong ty/khach hang that)
+# DANH MUC SAN PHAM ORION THAT
 # ============================================================================
-CATEGORY_NAMES = [
-    "Nuoc giai khat", "Banh keo", "Sua va che pham", "Gia vi",
-    "Do hop", "Mi - Chao - Pho an lien", "Cham soc ca nhan", "Ve sinh nha cua",
+# (code, name, parent_code) - parent_code=None la danh muc goc
+ORION_CATEGORIES = [
+    ("BANHKEO", "Banh keo", None),
+    ("SNACK", "Snack", None),
+    ("CHOCOPIE", "Chocopie", "BANHKEO"),
+    ("CUSTAS", "Custas", "BANHKEO"),
+    ("SOLITE", "Solite - Banh bong lan", "BANHKEO"),
+    ("COSY", "Cosy", "BANHKEO"),
+    ("SWING", "Swing", "BANHKEO"),
+    ("OSTAR", "O'Star", "SNACK"),
+    ("MARINEBOY", "Marine Boy", "SNACK"),
+    ("TOONIES", "Toonies", "SNACK"),
 ]
-PRODUCT_TEMPLATES = {
-    "Nuoc giai khat": ["Nuoc ngot co ga", "Nuoc suoi", "Nuoc tang luc", "Tra dong chai", "Nuoc ep trai cay"],
-    "Banh keo": ["Banh quy bo", "Keo deo trai cay", "Banh xop", "Socola thanh", "Banh gao"],
-    "Sua va che pham": ["Sua tuoi tiet trung", "Sua chua uong", "Sua dac", "Pho mai lat", "Sua hat"],
-    "Gia vi": ["Nuoc mam", "Nuoc tuong", "Hat nem", "Dau an", "Tuong ot"],
-    "Do hop": ["Ca hop", "Thit hop", "Rau cu hop", "Xuc xich hop", "Pate hop"],
-    "Mi - Chao - Pho an lien": ["Mi ly", "Mi goi", "Chao an lien", "Pho an lien", "Bun an lien"],
-    "Cham soc ca nhan": ["Dau goi dau", "Sua tam", "Kem danh rang", "Khan giay", "Nuoc rua tay"],
-    "Ve sinh nha cua": ["Nuoc lau san", "Nuoc rua chen", "Bot giat", "Nuoc xa vai", "Tui rac"],
+
+# uom_group_code -> (ma+ten don vi goc, [(ma don vi, ten, so luong don vi goc trong 1 don vi nay), ...])
+# Hang dong goi tung Cai (Chocopie/Custas/Solite): Cai -> Hop -> Thung (3 cap).
+# Hang dong goi tung Goi (Cosy/Swing/O'Star/Marine Boy/Toonies): Goi -> Thung thang (2 cap,
+# dung thuc te - khong co "hop" trung gian cho snack dang goi rieng le).
+ORION_UOM_GROUPS = {
+    "UG_CHOCOPIE": ("CAI", "Cai", [("HOP", "Hop", 12), ("THUNG", "Thung", 144)]),
+    "UG_CUSTAS":   ("CAI", "Cai", [("HOP", "Hop", 6), ("THUNG", "Thung", 144)]),
+    "UG_SOLITE":   ("CAI", "Cai", [("HOP", "Hop", 6), ("THUNG", "Thung", 72)]),
+    "UG_COSY":     ("GOI", "Goi", [("THUNG", "Thung", 24)]),
+    "UG_SWING":    ("GOI", "Goi", [("THUNG", "Thung", 24)]),
+    "UG_OSTAR":    ("GOI", "Goi", [("THUNG", "Thung", 40)]),
+    "UG_MARINEBOY": ("GOI", "Goi", [("THUNG", "Thung", 40)]),
+    "UG_TOONIES":  ("GOI", "Goi", [("THUNG", "Thung", 50)]),
 }
-UNITS = ["Thung", "Loc", "Chai", "Hop", "Goi", "Cai", "Bich"]
-SUPPLIER_NAMES = [
-    "Cong ty TNHH Thuong mai An Phat", "Cong ty CP Minh Long", "Cong ty TNHH Viet Thanh",
-    "Cong ty CP Hoang Gia", "Cong ty TNHH Dai Duong", "Cong ty CP Phu Quy",
-    "Cong ty TNHH Thanh Cong", "Cong ty CP Tan Tien",
+
+# (ma SP, ten SP, ma danh muc, ma uom_group, gia ban theo don vi goc)
+ORION_PRODUCTS = [
+    ("CP001", "Banh Chocopie hop 12 cai 468g", "CHOCOPIE", "UG_CHOCOPIE", 3750),
+    ("CP002", "Banh Chocopie Dark hop 12 cai 456g", "CHOCOPIE", "UG_CHOCOPIE", 4000),
+    ("CT001", "Banh Custas hop 6 cai 297g", "CUSTAS", "UG_CUSTAS", 5833),
+    ("CT002", "Banh Custas Choco hop 6 cai 318g", "CUSTAS", "UG_CUSTAS", 6000),
+    ("SL001", "Banh bong lan cao cap kieu Au Opera vi Socola hop 6 cai", "SOLITE", "UG_SOLITE", 8000),
+    ("SL002", "Banh bong lan cao cap kieu Au Opera vi Vani hop 6 cai", "SOLITE", "UG_SOLITE", 8000),
+    ("CS001", "Banh quy Cosy Marie 300g", "COSY", "UG_COSY", 18000),
+    ("CS002", "Banh quy Cosy Kem Sua 200g", "COSY", "UG_COSY", 15000),
+    ("SW001", "Keo Swing Chocolate 168g", "SWING", "UG_SWING", 22000),
+    ("OS001", "Snack O'Star vi tom cay 40g", "OSTAR", "UG_OSTAR", 7000),
+    ("OS002", "Snack O'Star vi bo nuong 40g", "OSTAR", "UG_OSTAR", 7000),
+    ("MB001", "Snack Marine Boy vi muc 40g", "MARINEBOY", "UG_MARINEBOY", 6500),
+    ("TN001", "Toonies pho mai que 30g", "TOONIES", "UG_TOONIES", 6000),
 ]
+
+TAX_GROUP_DEF = ("VAT8", "VAT 8%", 8.00)
+
+SUPPLIER_DEF = {
+    "code": "NCC01", "name": "Cong ty TNHH Thuc Pham Orion Vina", "foreign_name": "Orion Vina Co., Ltd",
+    "contact_person": "Phong Kinh doanh", "phone": "02838123456", "email": "kinhdoanh@orionvina-mau.vn",
+    "address": "Khu Cong nghiep My Phuoc, Binh Duong", "active": True,
+}
+
 SURNAMES = ["Nguyen", "Tran", "Le", "Pham", "Hoang", "Huynh", "Vo", "Dang", "Bui", "Do"]
 MIDDLE_NAMES = ["Van", "Thi", "Minh", "Duc", "Ngoc", "Thanh", "Huu", "Thu"]
 GIVEN_NAMES = ["An", "Binh", "Chau", "Dung", "Giang", "Hoa", "Khang", "Lan", "Nam", "Phuc", "Quyen", "Trang"]
@@ -117,42 +156,91 @@ ids = IdSeq()
 # ============================================================================
 # BUOC 1: MASTER DATA (danh muc)
 # ============================================================================
+def build_uom_and_tax():
+    """UOM goc (Cai/Goi/Hop/Thung) dung chung, moi dong san pham co 1 uom_group rieng
+    vi he so quy doi khac nhau (VD Chocopie 12 cai/hop, Custas 6 cai/hop)."""
+    uom_master = [("CAI", "Cai"), ("GOI", "Goi"), ("HOP", "Hop"), ("THUNG", "Thung")]
+    uoms = []
+    uom_id_by_code = {}
+    for code, name in uom_master:
+        uid = ids.next("uom")
+        uoms.append({"id": uid, "code": code, "name": name})
+        uom_id_by_code[code] = uid
+
+    uom_groups = []
+    uom_conversions = []
+    group_id_by_code = {}
+    for gcode, (base_code, base_name, extra) in ORION_UOM_GROUPS.items():
+        gid = ids.next("uom_group")
+        uom_groups.append({"id": gid, "code": gcode, "name": f"Quy doi {gcode.replace('UG_', '').title()}",
+                            "base_uom_id": uom_id_by_code[base_code]})
+        group_id_by_code[gcode] = gid
+        uom_conversions.append({"id": ids.next("uom_conversion"), "uom_group_id": gid,
+                                 "uom_id": uom_id_by_code[base_code], "factor": 1})
+        for ucode, uname, factor in extra:
+            uom_conversions.append({"id": ids.next("uom_conversion"), "uom_group_id": gid,
+                                     "uom_id": uom_id_by_code[ucode], "factor": factor})
+
+    tax_code, tax_name, tax_rate = TAX_GROUP_DEF
+    tax_groups = [{"id": ids.next("tax_group"), "code": tax_code, "name": tax_name, "rate_percent": tax_rate}]
+
+    return uoms, uom_id_by_code, uom_groups, group_id_by_code, uom_conversions, tax_groups
+
+
+def build_price_list(products, uom_conversions):
+    """1 bang gia Standard - moi don vi (Cai/Hop/Thung...) cua 1 SP co 1 dong gia = gia goc x he so quy doi."""
+    conv_by_group = {}
+    for c in uom_conversions:
+        conv_by_group.setdefault(c["uom_group_id"], []).append((c["uom_id"], c["factor"]))
+
+    pl_id = ids.next("price_list")
+    price_lists = [{
+        "id": pl_id, "code": "BG-CHUAN-2026", "name": "Bang gia chuan 2026", "type": "STANDARD",
+        "start_date": date.today() - timedelta(days=210), "end_date": None, "is_active": True,
+    }]
+    price_list_items = []
+    for p in products:
+        for uom_id, factor in conv_by_group.get(p["uom_group_id"], []):
+            price_list_items.append({
+                "id": ids.next("price_list_item"), "price_list_id": pl_id, "product_id": p["id"],
+                "uom_id": uom_id, "price": round(p["price"] * factor, 2),
+            })
+    return price_lists, price_list_items
+
+
 def build_master_data():
     categories = []
-    for i, name in enumerate(CATEGORY_NAMES[:NUM_CATEGORIES], start=1):
-        categories.append({"id": ids.next("product_category"), "code": f"CAT{i:02d}", "name": name, "parent_id": None})
+    cat_id_by_code = {}
+    for code, name, parent_code in ORION_CATEGORIES:
+        cid = ids.next("product_category")
+        categories.append({"id": cid, "code": code, "name": name, "parent_id": cat_id_by_code.get(parent_code)})
+        cat_id_by_code[code] = cid
+
+    uoms, uom_id_by_code, uom_groups, group_id_by_code, uom_conversions, tax_groups = build_uom_and_tax()
+    tax_id = tax_groups[0]["id"]
 
     products = []
-    product_weights = []
-    for i in range(1, NUM_PRODUCTS + 1):
-        cat = categories[(i - 1) % len(categories)]
-        template = random.choice(PRODUCT_TEMPLATES[cat["name"]])
-        size = random.choice(["330ml", "500ml", "1L", "100g", "250g", "500g", "1kg"])
+    for code, name, cat_code, ug_code, price in ORION_PRODUCTS:
+        base_uom_code, base_uom_name, _ = ORION_UOM_GROUPS[ug_code]
+        base_uom_id = uom_id_by_code[base_uom_code]
         products.append({
-            "id": ids.next("product"),
-            "code": f"SP{i:04d}",
-            "name": f"{template} {size} #{i}",
-            "foreign_name": None,
-            "category_id": cat["id"],
-            "unit": random.choice(UNITS),
-            "price": round(random.uniform(5_000, 500_000), -2),
-            "description": None,
-            "active": True,
+            "id": ids.next("product"), "code": code, "name": name, "foreign_name": None,
+            "category_id": cat_id_by_code[cat_code], "description": None, "active": True,
+            "uom_group_id": group_id_by_code[ug_code],
+            # product khong co 1 cot UOM/thue duy nhat nua (V19 tach 3 tab Purchase/Sale/Inventory) -
+            # dung chung 1 don vi goc + 1 nhom thue cho ca 3 tab, don gian hoa cho du an.
+            "purchase_uom_id": base_uom_id, "sale_uom_id": base_uom_id, "inventory_uom_id": base_uom_id,
+            "purchase_tax_group_id": tax_id, "sale_tax_group_id": tax_id, "inventory_tax_group_id": tax_id,
+            # 2 key duoi day KHONG con la cot that cua bang product (da bi xoa o V19) - chi giu lai
+            # de cac ham khac trong file nay (gia don hang, bang gia) dung noi bo; se bi loc bo tu
+            # dong truoc khi INSERT (xem _rows_for_table trong main()).
+            "unit": base_uom_name, "price": price,
         })
-    # Do pho bien kieu Pareto: xao thu tu trong so 1/rank de vai SP ban chay, nhieu SP it ban
-    ranks = list(range(1, NUM_PRODUCTS + 1))
+    ranks = list(range(1, len(products) + 1))
     random.shuffle(ranks)
     product_weights = [1.0 / r for r in ranks]
 
-    suppliers = []
-    for i, name in enumerate(SUPPLIER_NAMES[:NUM_SUPPLIERS], start=1):
-        suppliers.append({
-            "id": ids.next("supplier"), "code": f"NCC{i:02d}", "name": name, "foreign_name": None,
-            "contact_person": f"{random.choice(SURNAMES)} {random.choice(GIVEN_NAMES)}",
-            "phone": f"09{random.randint(10000000, 99999999)}",
-            "email": f"lienhe{i}@ncc-mau.vn", "address": f"{random.randint(1,300)} {random.choice(STREETS)}, {random.choice(DISTRICTS)}",
-            "active": True,
-        })
+    suppliers = [{"id": ids.next("supplier"), **SUPPLIER_DEF}]
 
     warehouses = []
     for code, name, wtype in WAREHOUSE_DEFS[:NUM_WAREHOUSES]:
@@ -172,7 +260,14 @@ def build_master_data():
             "active": True,
         })
 
-    return categories, products, product_weights, suppliers, warehouses, customers
+    price_lists, price_list_items = build_price_list(products, uom_conversions)
+
+    return {
+        "categories": categories, "products": products, "product_weights": product_weights,
+        "suppliers": suppliers, "warehouses": warehouses, "customers": customers,
+        "uoms": uoms, "uom_groups": uom_groups, "uom_conversions": uom_conversions,
+        "tax_groups": tax_groups, "price_lists": price_lists, "price_list_items": price_list_items,
+    }
 
 
 def build_seed_users(role_id, count=3):
@@ -193,7 +288,7 @@ def build_seed_users(role_id, count=3):
 # ============================================================================
 # BUOC 2: GIAO DICH THEO NGAY (nhap hang / ban hang / kiem ke)
 # ============================================================================
-def generate_transactions(months, categories, products, product_weights, suppliers, warehouses, customers, user_ids):
+def generate_transactions(months, products, product_weights, suppliers, warehouses, customers, user_ids):
     end_date = date.today()
     start_date = end_date - timedelta(days=months * 30)
 
@@ -228,7 +323,7 @@ def generate_transactions(months, categories, products, product_weights, supplie
                     "supplier_id": supplier["id"], "warehouse_id": w["id"], "status": "CLOSED", "remarks": None,
                     "created_by": random.choice(user_ids), "created_at": day_dt,
                 })
-                for p in random.sample(products, k=random.randint(2, 5)):
+                for p in random.sample(products, k=min(5, len(products))):
                     qty = round(random.uniform(50, 300), 0)
                     unit_price = p["price"] * random.uniform(0.6, 0.8)  # gia nhap re hon gia ban
                     goods_receipt_details.append({
@@ -377,10 +472,17 @@ DELETE_ORDER = [
     "stock_alert", "stock_take_detail", "stock_take", "stock_transaction", "stock",
     "sales_order_detail", "sales_order", "customer",
     "goods_receipt_detail", "goods_receipt",
-    "warehouse", "supplier", "product", "product_category",
+    "price_list_item", "price_list",
+    "warehouse", "supplier",
+    "product", "product_category",
+    "uom_conversion", "uom_group", "uom", "tax_group",
 ]
-INSERT_ORDER = [
+MASTER_INSERT_ORDER = [
+    "tax_group", "uom", "uom_group", "uom_conversion",
     "product_category", "product", "supplier", "warehouse", "customer",
+    "price_list", "price_list_item",
+]
+TXN_INSERT_ORDER = [
     "goods_receipt", "goods_receipt_detail",
     "sales_order", "sales_order_detail",
     "stock_transaction", "stock_take", "stock_take_detail", "stock_alert", "stock",
@@ -397,12 +499,11 @@ def main():
     metadata = MetaData()
     metadata.reflect(bind=engine)
 
-    required_tables = set(INSERT_ORDER) | {"role", "user"}
+    required_tables = set(MASTER_INSERT_ORDER) | set(TXN_INSERT_ORDER) | {"role", "user"}
     missing = required_tables - set(metadata.tables.keys())
     if missing:
         raise SystemExit(
-            f"Thieu bang: {missing}. Chay Flyway (mvn spring-boot:run) hoac "
-            f"docs/03-database/full-schema-oltp.sql truoc khi chay script nay."
+            f"Thieu bang: {missing}. Chay Flyway (mvn spring-boot:run, toi it nhat V16) truoc khi chay script nay."
         )
 
     with engine.begin() as conn:
@@ -415,11 +516,13 @@ def main():
 
         if args.force:
             print("Dang xoa data seed cu...")
+            conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
             for t in DELETE_ORDER:
                 conn.execute(delete(metadata.tables[t]))
             conn.execute(delete(metadata.tables["user"]).where(
                 metadata.tables["user"].c.username.like(f"{SEED_USER_PREFIX}%")
             ))
+            conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
 
         role_row = conn.execute(
             select(metadata.tables["role"]).where(metadata.tables["role"].c.code == "ADMIN")
@@ -428,28 +531,48 @@ def main():
             raise SystemExit("Khong tim thay role ADMIN (tu V1__init_schema.sql). Chay Flyway truoc.")
         role_id = role_row.id
 
-        print("Dang sinh master data...")
-        categories, products, weights, suppliers, warehouses, customers = build_master_data()
+        max_user_id = conn.execute(
+            select(metadata.tables["user"].c.id).order_by(metadata.tables["user"].c.id.desc()).limit(1)
+        ).scalar()
+        ids.counters["user"] = max_user_id or 0
+
+        print("Dang sinh master data (danh muc Orion that + UOM + bang gia)...")
+        md = build_master_data()
         seed_users = build_seed_users(role_id)
         user_ids = [u["id"] for u in seed_users]
 
         print(f"Dang sinh giao dich {args.months} thang (co the mat vai giay)...")
-        data = generate_transactions(args.months, categories, products, weights, suppliers, warehouses, customers, user_ids)
+        data = generate_transactions(
+            args.months, md["products"], md["product_weights"], md["suppliers"], md["warehouses"],
+            md["customers"], user_ids,
+        )
+
+        md_key_by_table = {
+            "tax_group": "tax_groups", "uom": "uoms", "uom_group": "uom_groups",
+            "uom_conversion": "uom_conversions", "product_category": "categories",
+            "product": "products", "supplier": "suppliers", "warehouse": "warehouses",
+            "customer": "customers", "price_list": "price_lists", "price_list_item": "price_list_items",
+        }
+
+        def rows_for_table(table, rows):
+            """Loc bo cac key khong con la cot that (vd 'price'/'unit' tren product da bi
+            V19 xoa) - cac key nay chi con dung noi bo cho tinh toan trong file nay."""
+            cols = set(table.columns.keys())
+            return [{k: v for k, v in r.items() if k in cols} for r in rows]
 
         print("Dang ghi vao DB...")
         conn.execute(metadata.tables["user"].insert(), seed_users)
-        conn.execute(metadata.tables["product_category"].insert(), categories)
-        conn.execute(metadata.tables["product"].insert(), products)
-        conn.execute(metadata.tables["supplier"].insert(), suppliers)
-        conn.execute(metadata.tables["warehouse"].insert(), warehouses)
-        conn.execute(metadata.tables["customer"].insert(), customers)
-        for t in ["goods_receipt", "goods_receipt_detail", "sales_order", "sales_order_detail",
-                  "stock_transaction", "stock_take", "stock_take_detail", "stock_alert", "stock"]:
+        for t in MASTER_INSERT_ORDER:
+            rows = md[md_key_by_table[t]]
+            if rows:
+                conn.execute(metadata.tables[t].insert(), rows_for_table(metadata.tables[t], rows))
+        for t in TXN_INSERT_ORDER:
             if data[t]:
-                conn.execute(metadata.tables[t].insert(), data[t])
+                conn.execute(metadata.tables[t].insert(), rows_for_table(metadata.tables[t], data[t]))
 
     print("\nXong! Da sinh:")
-    print(f"  - {len(products)} san pham, {len(suppliers)} NCC, {len(warehouses)} kho, {len(customers)} khach hang")
+    print(f"  - {len(md['products'])} san pham Orion, {len(md['uoms'])} UOM, {len(md['uom_groups'])} nhom quy doi")
+    print(f"  - {len(md['suppliers'])} NCC, {len(md['warehouses'])} kho, {len(md['customers'])} khach hang")
     print(f"  - {len(data['goods_receipt'])} phieu nhap, {len(data['sales_order'])} don ban")
     print(f"  - {len(data['stock_alert'])} canh bao sap het hang")
     print("Tiep theo: chay ETL (etl/run_etl.py) de nap data nay vao Data Warehouse.")

@@ -8,7 +8,9 @@ CREATE TABLE dim_product (
     product_code VARCHAR(50) NOT NULL,
     product_name VARCHAR(255) NOT NULL,
     category_name VARCHAR(150),
-    unit VARCHAR(30),
+    unit VARCHAR(30),                    -- ten UOM ban (product.sale_uom_id) - giu ten cot cu de tuong thich
+    uom_code VARCHAR(50),                -- ma UOM ban, vd CAI/GOI
+    tax_rate DECIMAL(5,2),               -- % thue ban (product.sale_tax_group_id)
     UNIQUE KEY uk_dim_product_source (product_id)
 );
 
@@ -26,6 +28,8 @@ CREATE TABLE dim_warehouse (
     warehouse_code VARCHAR(50) NOT NULL,
     warehouse_name VARCHAR(150) NOT NULL,
     warehouse_type VARCHAR(20),
+    branch_code VARCHAR(50),             -- chi nhanh quan ly kho nay (warehouse.branch_id), null neu chua gan
+    branch_name VARCHAR(150),
     UNIQUE KEY uk_dim_warehouse_source (warehouse_id)
 );
 
@@ -34,6 +38,11 @@ CREATE TABLE dim_customer (
     customer_id BIGINT NOT NULL,
     customer_code VARCHAR(50) NOT NULL,
     customer_name VARCHAR(255) NOT NULL,
+    channel_code VARCHAR(50),            -- kenh GT/MT/HORECA (customer.channel_id), null neu chua gan
+    channel_name VARCHAR(150),
+    region_name VARCHAR(150),            -- vung/tinh/phuong-xa (customer.ward_id -> district -> province -> region)
+    province_name VARCHAR(150),          -- chuan 34 tinh/thanh sau sap nhap 2025, khong con cap quan/huyen
+    ward_name VARCHAR(150),
     UNIQUE KEY uk_dim_customer_source (customer_id)
 );
 
