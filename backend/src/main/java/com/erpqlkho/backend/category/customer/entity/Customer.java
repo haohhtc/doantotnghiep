@@ -1,5 +1,6 @@
 package com.erpqlkho.backend.category.customer.entity;
 
+import com.erpqlkho.backend.category.branch.entity.Branch;
 import com.erpqlkho.backend.category.customerchannel.entity.CustomerChannel;
 import com.erpqlkho.backend.category.district.entity.District;
 import com.erpqlkho.backend.category.pricelist.entity.PriceList;
@@ -70,4 +71,9 @@ public class Customer extends BaseEntity {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "channel_id")
     private CustomerChannel channel;
+
+    // 1 Khach hang thuoc dung 1 Chi nhanh quan ly (bat buoc) - xem V39__customer_branch.sql.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "branch_id", nullable = false)
+    private Branch branch;
 }

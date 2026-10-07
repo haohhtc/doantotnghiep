@@ -5,6 +5,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
 
@@ -18,6 +19,7 @@ function statusTag(status) {
 // o trang rieng "Xac nhan giao hang" (/sales/delivery-confirm), giong pattern 2 man hinh khac vai
 // cua Goods Receipt PO Confirmation trong DMS that - xem backend/.../sales/service/DeliveryOrderService.java.
 export default function DeliveryOrderPage() {
+  const { selectedBranchId } = useBranch();
   const [deliveryOrders, setDeliveryOrders] = useState([]);
   const [salesOrders, setSalesOrders] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -73,6 +75,7 @@ export default function DeliveryOrderPage() {
   }, []);
 
   const filtered = deliveryOrders.filter((d) => {
+    if (selectedBranchId && d.warehouse?.branch?.id !== selectedBranchId) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return d.docNumber.toLowerCase().includes(keyword) || d.salesOrder.docNumber.toLowerCase().includes(keyword);

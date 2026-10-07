@@ -73,6 +73,7 @@ export default function GoodsIssuePage() {
   }, []);
 
   const filteredIssues = issues.filter((i) => {
+    if (selectedBranchId && i.warehouse?.branch?.id !== selectedBranchId) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return i.docNumber.toLowerCase().includes(keyword) || (i.warehouse?.name || '').toLowerCase().includes(keyword);

@@ -64,10 +64,15 @@ export default function SalesOrderPage() {
   const [massConfirming, setMassConfirming] = useState(false);
   const [requesterModalOpen, setRequesterModalOpen] = useState(false);
   const [uomOptions, setUomOptions] = useState([]);
+  const [branchProducts, setBranchProducts] = useState([]);
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
-  const customerOptions = customers.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
+  // Giu rieng khach hang/dong SP cua don dang sua du no khac chi nhanh dang loc, tranh lap lai
+  // bug mat label o Select (giong warehouseOptions ben duoi).
+  const customerOptions = customers
+    .filter((c) => c.id === editingOrder?.customer?.id || !selectedBranchId || c.branch?.id === selectedBranchId)
+    .map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
   const orderType = Form.useWatch('orderType', form);
   // Giu rieng kho cua don dang sua (editingOrder) ngay ca khi no khac chi nhanh/loai kho dang loc,
   // khong thi Select mat label va hien thang ID so (giong bug da gap o Don giao hang).
@@ -78,7 +83,12 @@ export default function SalesOrderPage() {
         && (orderType !== 'PRE_ORDER' || w.warehouseType === 'MAIN')
       ))
     .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
-  const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
+  // Chi hien SP da duoc "Phan bo theo chi nhanh" (Item-Branch Assignment) cho dung chi nhanh dang
+  // chon - giu rieng cac dong SP da co san trong don (du khac chi nhanh) de khong mat label.
+  const branchProductIds = new Set(branchProducts.map((ib) => ib.product.id));
+  const productOptions = products
+    .filter((p) => !selectedBranchId || branchProductIds.has(p.id) || detailRows.some((d) => d.productId === p.id))
+    .map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
   const visitType = computeVisitType(customerRouteInfo, Form.useWatch('docDate', form));
   const branchMismatch = customerRouteInfo?.branchId && selectedBranchId && customerRouteInfo.branchId !== selectedBranchId;
 
@@ -123,7 +133,16 @@ export default function SalesOrderPage() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (!selectedBranchId) { setBranchProducts([]); return; }
+    axiosClient
+      .get(`/branches/${selectedBranchId}/products`)
+      .then(({ data }) => setBranchProducts(data.data))
+      .catch(() => setBranchProducts([]));
+  }, [selectedBranchId]);
+
   const filteredOrders = orders.filter((o) => {
+    if (selectedBranchId && o.warehouse?.branch?.id !== selectedBranchId) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return o.docNumber.toLowerCase().includes(keyword) || (o.customer?.name || '').toLowerCase().includes(keyword);

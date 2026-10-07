@@ -7,6 +7,7 @@ import { EditOutlined, DeleteOutlined, TeamOutlined, PlusOutlined, UserSwitchOut
 import TableToolbar from '../../components/TableToolbar';
 import axiosClient from '../../api/axiosClient';
 import { hasAnyRole } from '../../utils/auth';
+import { useBranch } from '../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
 
@@ -29,6 +30,7 @@ const WEEK_FIELDS = [
 // canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function RouteMastersPage() {
   const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
+  const { selectedBranchId } = useBranch();
   const [routes, setRoutes] = useState([]);
   const [sellingZones, setSellingZones] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -102,6 +104,7 @@ export default function RouteMastersPage() {
   }, []);
 
   const filteredRoutes = routes.filter((r) => {
+    if (selectedBranchId && r.branch?.id !== selectedBranchId) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return r.code.toLowerCase().includes(keyword) || r.name.toLowerCase().includes(keyword);

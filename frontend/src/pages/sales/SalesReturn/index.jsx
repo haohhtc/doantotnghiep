@@ -69,6 +69,7 @@ export default function SalesReturnPage() {
   }, []);
 
   const filteredReturns = returns.filter((r) => {
+    if (selectedBranchId && r.warehouse?.branch?.id !== selectedBranchId) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return r.docNumber.toLowerCase().includes(keyword) || (r.salesman?.fullName || '').toLowerCase().includes(keyword);

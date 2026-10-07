@@ -1,6 +1,7 @@
 package com.erpqlkho.backend.category.customer.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -35,4 +36,8 @@ public class CustomerDto {
     // Kenh ban hang (nullable) - xem V15__customer_group_channel.sql. Nhom khach hang chuyen
     // sang M:N, quan ly qua /api/customer-groups/{id}/members - khong con o day.
     private Long channelId;
+
+    // Chi nhanh quan ly khach hang nay (bat buoc) - xem V39__customer_branch.sql.
+    @NotNull(message = "Chi nhanh khong duoc de trong")
+    private Long branchId;
 }

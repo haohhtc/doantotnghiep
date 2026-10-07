@@ -37,14 +37,23 @@ export default function SalesRequestPage() {
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
   const [convertForm] = Form.useForm();
+  const [branchProducts, setBranchProducts] = useState([]);
 
-  const customerOptions = customers.map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
+  // Giu rieng khach hang cua yeu cau dang sua du no khac chi nhanh dang loc, tranh mat label.
+  const customerOptions = customers
+    .filter((c) => c.id === editingRequest?.customer?.id || !selectedBranchId || c.branch?.id === selectedBranchId)
+    .map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
   // Chuyen Yeu cau ban hang thanh Don hang ban chi cho chon Kho chinh (MAIN) cua dung chi nhanh
   // dang chon o Header - khong cho lan kho chi nhanh khac hay chon nham Kho xe tai (Van).
   const warehouseOptions = warehouses
     .filter((w) => (!selectedBranchId || w.branch?.id === selectedBranchId) && w.warehouseType === 'MAIN')
     .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
-  const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
+  // Chi hien SP da duoc "Phan bo theo chi nhanh" cho dung chi nhanh dang chon - giu rieng cac dong
+  // SP da co san trong yeu cau (du khac chi nhanh) de khong mat label.
+  const branchProductIds = new Set(branchProducts.map((ib) => ib.product.id));
+  const productOptions = products
+    .filter((p) => !selectedBranchId || branchProductIds.has(p.id) || detailRows.some((d) => d.productId === p.id))
+    .map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';
@@ -72,7 +81,18 @@ export default function SalesRequestPage() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (!selectedBranchId) { setBranchProducts([]); return; }
+    axiosClient
+      .get(`/branches/${selectedBranchId}/products`)
+      .then(({ data }) => setBranchProducts(data.data))
+      .catch(() => setBranchProducts([]));
+  }, [selectedBranchId]);
+
+  // SR chua gan kho (chua chot luc ghi tam) nen loc theo chi nhanh cua Khach hang, khac voi cac
+  // trang chung tu khac (dang loc theo warehouse.branch).
   const filtered = requests.filter((r) => {
+    if (selectedBranchId && r.customer?.branch?.id !== selectedBranchId) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return r.docNumber.toLowerCase().includes(keyword) || (r.customer?.name || '').toLowerCase().includes(keyword);

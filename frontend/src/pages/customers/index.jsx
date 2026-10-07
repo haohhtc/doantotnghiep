@@ -5,6 +5,7 @@ import TableToolbar from '../../components/TableToolbar';
 import ActiveStatus from '../../components/ActiveStatus';
 import AddressCascadeFields from '../../components/AddressCascadeFields';
 import axiosClient from '../../api/axiosClient';
+import { useBranch } from '../../contexts/BranchContext';
 
 const { Title } = Typography;
 
@@ -20,9 +21,11 @@ const ACTIVE_FILTER_OPTIONS = [
 // Nhom khach hang: da chuyen sang M:N (khong con o form nay) - quan ly tai trang /customer-groups
 // (giong pattern Master-Detail cua /product-groups) - xem V21__employee_route_customer_group_mn.sql.
 export default function CustomersPage() {
+  const { selectedBranchId } = useBranch();
   const [customers, setCustomers] = useState([]);
   const [channels, setChannels] = useState([]);
   const [priceLists, setPriceLists] = useState([]);
+  const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -32,6 +35,7 @@ export default function CustomersPage() {
 
   const channelOptions = channels.map((c) => ({ value: c.id, label: c.name }));
   const priceListOptions = priceLists.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
+  const branchOptions = branches.map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` }));
 
   function loadData() {
     setLoading(true);
@@ -39,11 +43,13 @@ export default function CustomersPage() {
       axiosClient.get('/customers'),
       axiosClient.get('/customer-channels'),
       axiosClient.get('/price-lists'),
+      axiosClient.get('/branches'),
     ])
-      .then(([customersRes, channelsRes, priceListsRes]) => {
+      .then(([customersRes, channelsRes, priceListsRes, branchesRes]) => {
         setCustomers(customersRes.data.data);
         setChannels(channelsRes.data.data);
         setPriceLists(priceListsRes.data.data);
+        setBranches(branchesRes.data.data);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách khách hàng'))
       .finally(() => setLoading(false));
@@ -59,13 +65,14 @@ export default function CustomersPage() {
       return false;
     }
     if (filterValues.active && String(c.active) !== filterValues.active) return false;
+    if (selectedBranchId && c.branch?.id !== selectedBranchId) return false;
     return true;
   });
 
   function openCreateModal() {
     setEditingCustomer(null);
     form.resetFields();
-    form.setFieldsValue({ active: true });
+    form.setFieldsValue({ active: true, branchId: selectedBranchId || undefined });
     setModalOpen(true);
   }
 
@@ -79,6 +86,7 @@ export default function CustomersPage() {
       provinceId: record.province?.id,
       districtId: record.district?.id,
       wardId: record.ward?.id,
+      branchId: record.branch?.id,
     });
     setModalOpen(true);
   }
@@ -111,6 +119,7 @@ export default function CustomersPage() {
   const columns = [
     { title: 'Mã khách hàng', dataIndex: 'code', key: 'code' },
     { title: 'Tên khách hàng', dataIndex: 'name', key: 'name' },
+    { title: 'Chi nhánh', key: 'branch', render: (_, r) => r.branch?.name || '-' },
     { title: 'Điện thoại', dataIndex: 'phone', key: 'phone' },
     { title: 'Email', dataIndex: 'email', key: 'email' },
     { title: 'Địa chỉ', dataIndex: 'address', key: 'address' },
@@ -221,6 +230,15 @@ export default function CustomersPage() {
               </Form.Item>
             </Col>
           </Row>
+          <Form.Item label="Chi nhánh" name="branchId" rules={[{ required: true, message: 'Chi nhánh không được để trống' }]}>
+            <Select
+              options={branchOptions}
+              placeholder="Chọn chi nhánh"
+              showSearch
+              optionFilterProp="label"
+              popupMatchSelectWidth={false}
+            />
+          </Form.Item>
           <AddressCascadeFields form={form} />
           <Form.Item name="active" valuePropName="checked">
             <Checkbox>Kích hoạt</Checkbox>

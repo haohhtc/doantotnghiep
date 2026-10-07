@@ -3,6 +3,7 @@ import { Typography, Table, Space, Button, Modal, List, message } from 'antd';
 import { EyeOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
 
@@ -10,6 +11,7 @@ const { Title, Text } = Typography;
 // Order, khong phai o day - xem tonghop.md). Trang nay chi xem lai, khong tao/sua duoc (hoa don
 // bat bien sau khi xuat) - xem backend/.../sales/controller/InvoiceController.java.
 export default function InvoicePage() {
+  const { selectedBranchId } = useBranch();
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -29,6 +31,7 @@ export default function InvoicePage() {
   }, []);
 
   const filtered = invoices.filter((i) => {
+    if (selectedBranchId && i.salesOrder?.warehouse?.branch?.id !== selectedBranchId) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return i.invoiceNumber.toLowerCase().includes(keyword) || (i.salesOrder?.docNumber || '').toLowerCase().includes(keyword);

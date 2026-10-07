@@ -70,6 +70,7 @@ export default function GoodsReceiptPage() {
   }, []);
 
   const filteredReceipts = receipts.filter((r) => {
+    if (selectedBranchId && r.warehouse?.branch?.id !== selectedBranchId) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return r.docNumber.toLowerCase().includes(keyword) || (r.supplier?.name || '').toLowerCase().includes(keyword);

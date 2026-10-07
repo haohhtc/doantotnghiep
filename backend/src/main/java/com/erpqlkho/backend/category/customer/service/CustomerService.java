@@ -1,5 +1,7 @@
 package com.erpqlkho.backend.category.customer.service;
 
+import com.erpqlkho.backend.category.branch.entity.Branch;
+import com.erpqlkho.backend.category.branch.repository.BranchRepository;
 import com.erpqlkho.backend.category.customer.dto.CustomerDto;
 import com.erpqlkho.backend.category.customer.dto.CustomerRouteInfoDto;
 import com.erpqlkho.backend.category.customer.entity.Customer;
@@ -30,6 +32,7 @@ public class CustomerService {
     private final CustomerChannelRepository customerChannelRepository;
     private final CustomerGroupMemberRepository customerGroupMemberRepository;
     private final RouteMasterOutletRepository routeMasterOutletRepository;
+    private final BranchRepository branchRepository;
 
     public List<Customer> findAll() {
         return customerRepository.findAll();
@@ -56,6 +59,7 @@ public class CustomerService {
         applyGeography(customer, dto);
         customer.setPriceList(findPriceList(dto.getPriceListId()));
         customer.setChannel(findChannel(dto.getChannelId()));
+        customer.setBranch(findBranch(dto.getBranchId()));
 
         return customerRepository.save(customer);
     }
@@ -79,6 +83,7 @@ public class CustomerService {
         applyGeography(customer, dto);
         customer.setPriceList(findPriceList(dto.getPriceListId()));
         customer.setChannel(findChannel(dto.getChannelId()));
+        customer.setBranch(findBranch(dto.getBranchId()));
 
         return customerRepository.save(customer);
     }
@@ -118,6 +123,11 @@ public class CustomerService {
         if (id == null) return null;
         return customerChannelRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay kenh ban hang id=" + id));
+    }
+
+    private Branch findBranch(Long id) {
+        return branchRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay chi nhanh id=" + id));
     }
 
     // Thong tin tuyen cua khach hang (chi nhanh + lich ghe tham) suy ra tu route_master_outlet -
