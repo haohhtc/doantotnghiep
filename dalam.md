@@ -451,3 +451,15 @@ Toàn bộ các module trong `tonghop.md` đã code xong (tính đến bản c�
 **Dữ liệu thật sau backfill**: 3 khách hàng demo cũ (WinMart/BHX/Co.opmart, không có tỉnh) → `CN-BD`; khách hàng "abc" (tỉnh id=1) → chi nhánh `HCM` (người dùng tự tạo tay lúc test tính năng auto-sinh-kho).
 
 **Đã test qua API**: GET /customers trả về đúng field `branch`; POST thiếu `branchId` bị chặn đúng thông báo lỗi; migration V39 chạy sạch; `GET /branches/{id}/products` xác nhận đúng CN-BD có 11 SP, CN_HN có 4 SP, HCM có 0 SP (đúng cảnh báo đã nêu trước khi code). Build backend + frontend đều sạch.
+
+## ✅ Rà soát toàn hệ thống sau đợt lọc theo Chi nhánh (2026-10-07)
+
+Theo yêu cầu "kiểm lại toàn bộ xem có lỗi không" — chạy đủ 3 lớp kiểm tra, không chỉ dựa vào build sạch:
+
+**1. 22 kiểm tra toàn vẹn dữ liệu trực tiếp trên DB** (tồn kho âm, Khách hàng thiếu/mồ côi `branch_id`, Kho thiếu chi nhánh/thiếu kho MAIN-VAN, Khung tuyến thiếu `branch_id`, Item-Branch Assignment mồ côi, trùng mã, trùng dòng giá, SO thiếu chi tiết, DO thiếu `van_warehouse_id`, Hóa đơn thiếu DO CLOSED, đối chiếu số dòng Đơn giao hàng tự động tạo khớp đúng số dòng Đơn hàng bán gốc...) — **21/22 sạch**. 1 dòng cảnh báo ("SO CONFIRMED nhưng chưa có DO") hóa ra là đơn "abca" do chính người dùng tự tạo+duyệt tay lúc 16:39 — **trước** thời điểm backend nạp xong code tính năng tự động tạo Đơn giao hàng (16:53), nên thuộc diện lịch sử bình thường, không phải lỗi, giống hệt trường hợp SO0002 trước đó.
+
+**2. Quét trực tiếp 32 API chính** (Khách hàng, Chi nhánh, Kho, Sản phẩm, Bảng giá, Đơn hàng bán, Yêu cầu bán hàng, Đơn giao hàng, Hóa đơn, Trả hàng, Nhập/Xuất kho, Khung tuyến, Nhân viên, Tồn kho, Kiểm kê, Nhóm KH/SP, Danh mục...) — phát hiện 2 lỗi 500 ở `/units` và `/vendors`, nhưng kiểm lại thì đây là **lỗi trong chính danh sách endpoint tôi tự gõ** (API thật là `/uoms` và `/suppliers`, không phải `/units`/`/vendors`) — gọi đúng đường dẫn thì cả 2 đều trả về OK bình thường. **Không có lỗi 500 thật nào.**
+
+**3. Build backend (Maven) + frontend (Vite)**: cả 2 đều sạch, không cảnh báo/lỗi.
+
+**Kết luận: hệ thống hiện đang sạch**, không phát hiện lỗi thật nào sau toàn bộ các thay đổi của đợt "Xác nhận tự tạo Đơn giao hàng" + "Lọc theo Chi nhánh" hôm nay.
