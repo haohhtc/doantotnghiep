@@ -268,8 +268,6 @@ export default function RouteMastersPage() {
   const columns = [
     { title: 'Mã tuyến', dataIndex: 'code', key: 'code' },
     { title: 'Tên khung tuyến', dataIndex: 'name', key: 'name' },
-    { title: 'Loại', dataIndex: 'type', key: 'type' },
-    { title: 'Kênh', dataIndex: 'channel', key: 'channel' },
     { title: 'Vùng bán hàng', key: 'sellingZone', render: (_, r) => r.sellingZone?.name },
     { title: 'Chi nhánh', key: 'branch', render: (_, r) => r.branch?.name },
     { title: 'Ngày hiệu lực', dataIndex: 'effectiveDate', key: 'effectiveDate' },
@@ -330,12 +328,6 @@ export default function RouteMastersPage() {
           </Form.Item>
           <Form.Item label="Tên khung tuyến" name="name" rules={[{ required: true, message: 'Tên khung tuyến không được để trống' }]}>
             <Input />
-          </Form.Item>
-          <Form.Item label="Loại" name="type">
-            <Input placeholder="VD: MT (Modern Trade), GT (General Trade)" />
-          </Form.Item>
-          <Form.Item label="Kênh" name="channel">
-            <Input placeholder="VD: Supermarket, Convenience Store" />
           </Form.Item>
           <Form.Item label="Danh mục bán hàng" name="sellingCategory">
             <Input />
