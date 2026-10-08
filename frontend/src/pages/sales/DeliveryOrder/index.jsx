@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
-  Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
+  Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message, Tooltip,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, UserOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { useBranch } from '../../../contexts/BranchContext';
@@ -15,9 +15,9 @@ function statusTag(status) {
 }
 
 // Don giao hang (DO) - tach rieng khoi Don hang ban (SO) theo dung chuoi DMS goc SO -> DO -> Xac
-// nhan DO. Trang nay: tao/sua/xoa lenh giao (chi khi con DRAFT) - viec Xac nhan (tru kho that) lam
-// o trang rieng "Xac nhan giao hang" (/sales/delivery-confirm), giong pattern 2 man hinh khac vai
-// cua Goods Receipt PO Confirmation trong DMS that - xem backend/.../sales/service/DeliveryOrderService.java.
+// nhan DO. Trang nay gop ca tao/sua/xoa lenh giao (chi khi con DRAFT) LAN Xac nhan giao hang (tru
+// kho that, DRAFT -> CLOSED) - truoc day la 2 trang rieng, da gop lam 1 theo yeu cau nguoi dung -
+// xem backend/.../sales/service/DeliveryOrderService.java.
 export default function DeliveryOrderPage() {
   const { selectedBranchId } = useBranch();
   const [deliveryOrders, setDeliveryOrders] = useState([]);
@@ -29,6 +29,8 @@ export default function DeliveryOrderPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
+  const [confirmingId, setConfirmingId] = useState(null);
+  const [confirmedByModalOpen, setConfirmedByModalOpen] = useState(false);
   const [form] = Form.useForm();
 
   const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
@@ -134,6 +136,20 @@ export default function DeliveryOrderPage() {
       .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
 
+  // Xac nhan giao hang (DRAFT -> CLOSED) - gop tu trang "Xac nhan giao hang" cu theo yeu cau nguoi
+  // dung, dung lai nguyen API /delivery-orders/{id}/confirm da co san.
+  function handleConfirm(record) {
+    setConfirmingId(record.id);
+    axiosClient
+      .post(`/delivery-orders/${record.id}/confirm`)
+      .then(() => {
+        message.success('Đã xác nhận giao hàng - hàng đã chuyển sang Kho xe tải');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xác nhận thất bại'))
+      .finally(() => setConfirmingId(null));
+  }
+
   function handleSubmit() {
     form.validateFields().then((values) => {
       if (detailRows.length === 0) {
@@ -171,6 +187,15 @@ export default function DeliveryOrderPage() {
         const isDraft = record.status === 'DRAFT';
         return (
           <Space>
+            {isDraft && (
+              <Popconfirm
+                title="Xác nhận đã giao hàng này?"
+                description="Hàng chuyển từ Kho chính sang Kho xe tải của chi nhánh (Kho chính giảm, Kho xe tải tăng) đúng số lượng khai báo, không thể sửa/hủy. Tồn thực tế chỉ giảm hẳn khi xuất hóa đơn."
+                onConfirm={() => handleConfirm(record)}
+              >
+                <Button icon={<CheckOutlined />} type="primary" ghost loading={confirmingId === record.id} />
+              </Popconfirm>
+            )}
             <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
             <Popconfirm title="Xóa đơn giao hàng này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
               <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
@@ -213,6 +238,11 @@ export default function DeliveryOrderPage() {
           loadData();
           setSearchText('');
         }}
+        betweenReloadExport={
+          <Tooltip title="Người xác nhận giao hàng">
+            <Button icon={<UserOutlined />} onClick={() => setConfirmedByModalOpen(true)} />
+          </Tooltip>
+        }
       />
 
       <Table rowKey="id" columns={columns} dataSource={filtered} loading={loading} />
@@ -278,6 +308,36 @@ export default function DeliveryOrderPage() {
           pagination={false}
           style={{ marginTop: 8 }}
           locale={{ emptyText: 'Chọn đơn hàng bán ở trên để hiện danh sách sản phẩm' }}
+        />
+      </Modal>
+
+      <Modal
+        title="Người xác nhận giao hàng"
+        open={confirmedByModalOpen}
+        onCancel={() => setConfirmedByModalOpen(false)}
+        footer={<Button onClick={() => setConfirmedByModalOpen(false)}>Đóng</Button>}
+        width={640}
+        destroyOnHidden
+      >
+        <Table
+          rowKey="id"
+          size="small"
+          dataSource={deliveryOrders}
+          pagination={{ pageSize: 10 }}
+          columns={[
+            { title: 'Số đơn giao', dataIndex: 'docNumber', key: 'docNumber' },
+            { title: 'Đơn hàng bán', key: 'salesOrder', render: (_, r) => r.salesOrder?.docNumber },
+            {
+              title: 'Trạng thái',
+              key: 'status',
+              render: (_, r) => (r.status === 'CLOSED' ? <Tag color="green">Đã xác nhận</Tag> : <Tag color="gold">Chờ xác nhận</Tag>),
+            },
+            {
+              title: 'Người xác nhận',
+              key: 'confirmedBy',
+              render: (_, r) => r.confirmedBy?.fullName || r.confirmedBy?.username || '-',
+            },
+          ]}
         />
       </Modal>
     </div>

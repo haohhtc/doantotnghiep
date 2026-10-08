@@ -40,9 +40,10 @@ function computeVisitType(routeInfo, dateStr) {
 }
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../sales/controller/SalesOrderController.java.
-// SALE-05: xac nhan (CONFIRMED) CHI duyet don, KHONG tru kho nua - phai qua trang "Don giao hang"
-// (/sales/delivery-orders) roi "Xac nhan giao hang" (/sales/delivery-confirm) moi thuc su xuat
-// kho, dung chuoi DMS goc SO -> DO -> Xac nhan DO (xem V33 + DeliveryOrderService).
+// SALE-05: xac nhan (CONFIRMED) tu dong tao luon Don giao hang DRAFT, nhung CHUA tru kho - phai
+// qua nut "Xac nhan giao hang" ngay tren trang "Don giao hang" (/sales/delivery-orders, da gop
+// chung 1 trang) moi thuc su xuat kho, dung chuoi DMS goc SO -> DO -> Xac nhan DO (xem V33 +
+// DeliveryOrderService).
 // Nhom 6 (tonghop.md): validate Khach hang phai thuoc dung Chi nhanh dang chon o Header (suy ra
 // tu tuyen cua khach, GET /api/customers/{id}/route-info) + tu dong tinh "Loai ghe tham".
 export default function SalesOrderPage() {

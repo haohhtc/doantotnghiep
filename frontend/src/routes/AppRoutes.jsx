@@ -29,7 +29,6 @@ import SalesReturnPage from '../pages/sales/SalesReturn';
 import InvoicePage from '../pages/sales/Invoice';
 import PickingListPage from '../pages/sales/PickingList';
 import DeliveryOrderPage from '../pages/sales/DeliveryOrder';
-import DeliveryConfirmPage from '../pages/sales/DeliveryConfirm';
 import DeliveryResultsPage from '../pages/sales/DeliveryResults';
 import CreditMemoInfoPage from '../pages/sales/CreditMemoInfo';
 import InventoriesPage from '../pages/inventory/Inventories';
@@ -93,7 +92,6 @@ export default function AppRoutes() {
             <Route path="/sales/picking-list" element={<PickingListPage />} />
             <Route path="/sales/delivery-results" element={<DeliveryResultsPage />} />
             <Route path="/sales/delivery-orders" element={<DeliveryOrderPage />} />
-            <Route path="/sales/delivery-confirm" element={<DeliveryConfirmPage />} />
             <Route path="/sales/credit-memos" element={<CreditMemoInfoPage />} />
             <Route path="/sales/printed-note" element={<PlaceholderPage title="Phiếu in nhanh" />} />
             <Route path="/sales/upload-vat-pit" element={<PlaceholderPage title="Khai thuế TNCN hoa hồng" />} />
