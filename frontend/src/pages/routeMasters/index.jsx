@@ -34,7 +34,6 @@ export default function RouteMastersPage() {
   const [routes, setRoutes] = useState([]);
   const [sellingZones, setSellingZones] = useState([]);
   const [branches, setBranches] = useState([]);
-  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -63,7 +62,6 @@ export default function RouteMastersPage() {
 
   const zoneOptions = sellingZones.map((z) => ({ value: z.id, label: `${z.code} - ${z.name}` }));
   const branchOptions = branches.map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` }));
-  const userOptions = users.map((u) => ({ value: u.id, label: u.fullName || u.username }));
   const salesmanEmployeeOptions = employees
     .filter((e) => e.type === 'NVBH')
     .map((e) => ({ value: e.id, label: `${e.code} - ${e.fullName}` }));
@@ -77,13 +75,11 @@ export default function RouteMastersPage() {
       axiosClient.get('/route-masters'),
       axiosClient.get('/selling-zones'),
       axiosClient.get('/branches'),
-      axiosClient.get('/users'),
     ])
-      .then(([routesRes, zonesRes, branchesRes, usersRes]) => {
+      .then(([routesRes, zonesRes, branchesRes]) => {
         setRoutes(routesRes.data.data);
         setSellingZones(zonesRes.data.data);
         setBranches(branchesRes.data.data);
-        setUsers(usersRes.data.data);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách khung tuyến'))
       .finally(() => setLoading(false));
@@ -130,8 +126,6 @@ export default function RouteMastersPage() {
       ...record,
       sellingZoneId: record.sellingZone?.id,
       branchId: record.branch?.id,
-      manageById: record.manageBy?.id,
-      salesmanId: record.salesman?.id,
     });
     setModalOpen(true);
   }
@@ -356,12 +350,6 @@ export default function RouteMastersPage() {
             extra="Luôn lấy đúng chi nhánh của Vùng bán hàng đã chọn - không chọn chi nhánh khác được"
           >
             <Select options={branchOptions} placeholder="Chọn Vùng bán hàng trước" disabled />
-          </Form.Item>
-          <Form.Item label="Người quản lý mặc định" name="manageById">
-            <Select options={userOptions} placeholder="Chọn người quản lý" allowClear />
-          </Form.Item>
-          <Form.Item label="Nhân viên bán hàng mặc định" name="salesmanId">
-            <Select options={userOptions} placeholder="Chọn nhân viên bán hàng" allowClear />
           </Form.Item>
           <Form.Item label="Ngày hiệu lực" name="effectiveDate" rules={[{ required: true, message: 'Ngày hiệu lực không được để trống' }]}>
             <Input type="date" />
