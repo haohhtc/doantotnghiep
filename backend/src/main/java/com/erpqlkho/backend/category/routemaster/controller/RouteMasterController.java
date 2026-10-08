@@ -67,6 +67,12 @@ public class RouteMasterController {
         return ApiResponse.ok("Da them khach hang vao khung tuyen", routeMasterService.assignOutlet(id, dto));
     }
 
+    @PutMapping("/{id}/outlets/{outletId}")
+    public ApiResponse<RouteMasterOutlet> updateOutlet(
+            @PathVariable Long id, @PathVariable Long outletId, @Valid @RequestBody RouteMasterOutletDto dto) {
+        return ApiResponse.ok("Da cap nhat lich ghe tham", routeMasterService.updateOutlet(id, outletId, dto));
+    }
+
     @DeleteMapping("/{id}/outlets/{outletId}")
     public ApiResponse<Void> removeOutlet(@PathVariable Long id, @PathVariable Long outletId) {
         routeMasterService.removeOutlet(id, outletId);

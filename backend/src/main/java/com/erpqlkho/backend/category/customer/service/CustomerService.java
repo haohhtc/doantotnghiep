@@ -156,10 +156,7 @@ public class CustomerService {
         dto.setFriday(outlet.isFriday());
         dto.setSaturday(outlet.isSaturday());
         dto.setSunday(outlet.isSunday());
-        dto.setWeek1(outlet.isWeek1());
-        dto.setWeek2(outlet.isWeek2());
-        dto.setWeek3(outlet.isWeek3());
-        dto.setWeek4(outlet.isWeek4());
+        dto.setVisitWeeks(outlet.getVisitWeeks());
         return dto;
     }
 }

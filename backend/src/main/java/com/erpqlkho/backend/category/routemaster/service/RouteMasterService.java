@@ -129,10 +129,20 @@ public class RouteMasterService {
         outlet.setFriday(Boolean.TRUE.equals(dto.getFriday()));
         outlet.setSaturday(Boolean.TRUE.equals(dto.getSaturday()));
         outlet.setSunday(Boolean.TRUE.equals(dto.getSunday()));
-        outlet.setWeek1(Boolean.TRUE.equals(dto.getWeek1()));
-        outlet.setWeek2(Boolean.TRUE.equals(dto.getWeek2()));
-        outlet.setWeek3(Boolean.TRUE.equals(dto.getWeek3()));
-        outlet.setWeek4(Boolean.TRUE.equals(dto.getWeek4()));
+        outlet.setVisitWeeks(dto.getVisitWeeks());
+    }
+
+    // Sua lich ghe tham (thu/tuan/thu tu) cua 1 outlet da co - KHONG cho doi khach hang (dung
+    // pattern Don giao hang: sua chi doi so luong/lich, khong doi lai doi tuong goc).
+    @Transactional
+    public RouteMasterOutlet updateOutlet(Long routeMasterId, Long outletId, RouteMasterOutletDto dto) {
+        RouteMasterOutlet outlet = routeMasterOutletRepository.findById(outletId)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay outlet id=" + outletId));
+        if (!outlet.getRouteMaster().getId().equals(routeMasterId)) {
+            throw ApiException.notFound("Outlet nay khong thuoc khung tuyen id=" + routeMasterId);
+        }
+        applyOutletSchedule(outlet, dto);
+        return routeMasterOutletRepository.save(outlet);
     }
 
     @Transactional

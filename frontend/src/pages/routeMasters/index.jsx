@@ -16,10 +16,8 @@ const WEEKDAY_FIELDS = [
   { name: 'thursday', label: 'T5' }, { name: 'friday', label: 'T6' }, { name: 'saturday', label: 'T7' },
   { name: 'sunday', label: 'CN' },
 ];
-const WEEK_FIELDS = [
-  { name: 'week1', label: 'Tuần 1' }, { name: 'week2', label: 'Tuần 2' },
-  { name: 'week3', label: 'Tuần 3' }, { name: 'week4', label: 'Tuần 4' },
-];
+// Tuan cu the trong nam (ISO week 1-53, tu reset moi nam moi) - xem V40__route_outlet_visit_weeks.sql.
+const WEEK_OPTIONS = Array.from({ length: 53 }, (_, i) => ({ value: i + 1, label: `Tuần ${i + 1}` }));
 
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa khung tuyen
 // va gan/go khach hang.
@@ -46,6 +44,7 @@ export default function RouteMastersPage() {
   const [outlets, setOutlets] = useState([]);
   const [outletLoading, setOutletLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
+  const [editingOutlet, setEditingOutlet] = useState(null);
   const [outletForm] = Form.useForm();
 
   // Modal "Nhan su tuyen" - 2 timeline doc lap Salesman/Manager.
@@ -162,6 +161,7 @@ export default function RouteMastersPage() {
 
   function openOutletModal(record) {
     setOutletRoute(record);
+    setEditingOutlet(null);
     outletForm.resetFields();
     setOutletModalOpen(true);
     loadOutlets(record.id);
@@ -176,16 +176,38 @@ export default function RouteMastersPage() {
       .finally(() => setOutletLoading(false));
   }
 
-  function handleAddOutlet() {
+  // Sua lich ghe tham cua 1 khach hang da co trong tuyen (VD khach ban, phai doi sang hom khac) -
+  // khong cho doi khach hang, chi doi Thu tu/Thu/Tuan ghe tham.
+  function openEditOutletForm(outlet) {
+    setEditingOutlet(outlet);
+    outletForm.setFieldsValue({
+      customerId: outlet.customer.id,
+      visitOrder: outlet.visitOrder,
+      monday: outlet.monday, tuesday: outlet.tuesday, wednesday: outlet.wednesday, thursday: outlet.thursday,
+      friday: outlet.friday, saturday: outlet.saturday, sunday: outlet.sunday,
+      visitWeeks: (outlet.visitWeeks || '').split(',').map((s) => Number(s.trim())).filter(Boolean),
+    });
+  }
+
+  function cancelEditOutlet() {
+    setEditingOutlet(null);
+    outletForm.resetFields();
+  }
+
+  function handleSubmitOutlet() {
     outletForm.validateFields().then((values) => {
-      axiosClient
-        .post(`/route-masters/${outletRoute.id}/outlets`, values)
+      const payload = { ...values, visitWeeks: (values.visitWeeks || []).join(',') };
+      const request = editingOutlet
+        ? axiosClient.put(`/route-masters/${outletRoute.id}/outlets/${editingOutlet.id}`, payload)
+        : axiosClient.post(`/route-masters/${outletRoute.id}/outlets`, payload);
+      request
         .then(() => {
-          message.success('Đã thêm khách hàng vào khung tuyến');
+          message.success(editingOutlet ? 'Đã cập nhật lịch ghé thăm' : 'Đã thêm khách hàng vào khung tuyến');
+          setEditingOutlet(null);
           outletForm.resetFields();
           loadOutlets(outletRoute.id);
         })
-        .catch((err) => message.error(err.response?.data?.message || 'Thêm thất bại'));
+        .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
   }
 
@@ -194,14 +216,28 @@ export default function RouteMastersPage() {
       .delete(`/route-masters/${outletRoute.id}/outlets/${outletId}`)
       .then(() => {
         message.success('Đã gỡ khách hàng khỏi khung tuyến');
+        if (editingOutlet?.id === outletId) cancelEditOutlet();
         loadOutlets(outletRoute.id);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Gỡ thất bại'));
   }
 
+  // Chi hien khach hang co dia chi (Vung/Tinh/Huyen/Xa) khop voi Vung ban hang cua tuyen - khop
+  // den cap nao Vung ban hang DA khai bao (VD vung chi set toi Tinh = TP.HCM thi khop ca Q12 lan
+  // Q1, vung set them Huyen = Q12 thi chi khop dung Q12).
+  function customerMatchesZone(customer, zone) {
+    if (!zone) return true;
+    if (zone.wardRef) return customer.ward?.id === zone.wardRef.id;
+    if (zone.districtRef) return customer.district?.id === zone.districtRef.id;
+    if (zone.provinceRef) return customer.province?.id === zone.provinceRef.id;
+    if (zone.regionRef) return customer.region?.id === zone.regionRef.id;
+    return true;
+  }
+
   const assignedCustomerIds = outlets.map((o) => o.customer.id);
   const availableCustomerOptions = customers
-    .filter((c) => !assignedCustomerIds.includes(c.id))
+    .filter((c) => c.id === editingOutlet?.customer?.id || !assignedCustomerIds.includes(c.id))
+    .filter((c) => c.id === editingOutlet?.customer?.id || customerMatchesZone(c, outletRoute?.sellingZone))
     .map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
 
   // --- Nhan su tuyen (2 timeline doc lap Salesman/Manager) ---
@@ -364,8 +400,20 @@ export default function RouteMastersPage() {
           <Form form={outletForm} layout="vertical" style={{ marginBottom: 16, padding: 12, background: '#fafafa', borderRadius: 4 }}>
             <Row gutter={12}>
               <Col span={16}>
-                <Form.Item label="Khách hàng" name="customerId" rules={[{ required: true, message: 'Chọn khách hàng' }]} style={{ marginBottom: 8 }}>
-                  <Select options={availableCustomerOptions} placeholder="Chọn khách hàng để thêm vào tuyến" showSearch optionFilterProp="label" />
+                <Form.Item
+                  label="Khách hàng"
+                  name="customerId"
+                  rules={[{ required: true, message: 'Chọn khách hàng' }]}
+                  style={{ marginBottom: 8 }}
+                  extra={!editingOutlet && outletRoute?.sellingZone ? 'Chỉ hiện khách hàng có địa chỉ khớp Vùng bán hàng của tuyến' : undefined}
+                >
+                  <Select
+                    options={availableCustomerOptions}
+                    placeholder="Chọn khách hàng để thêm vào tuyến"
+                    showSearch
+                    optionFilterProp="label"
+                    disabled={!!editingOutlet}
+                  />
                 </Form.Item>
               </Col>
               <Col span={8}>
@@ -383,18 +431,20 @@ export default function RouteMastersPage() {
                 ))}
               </Space>
             </Form.Item>
-            <Form.Item label="Lịch ghé thăm - Tuần trong tháng" style={{ marginBottom: 8 }}>
-              <Space wrap>
-                {WEEK_FIELDS.map((w) => (
-                  <Form.Item key={w.name} name={w.name} valuePropName="checked" noStyle>
-                    <Checkbox>{w.label}</Checkbox>
-                  </Form.Item>
-                ))}
-              </Space>
+            <Form.Item
+              label="Lịch ghé thăm - Tuần trong năm"
+              name="visitWeeks"
+              style={{ marginBottom: 8 }}
+              extra="Chọn các tuần cụ thể trong năm (1-53) - tự reset mỗi năm mới, không lặp lại theo tháng"
+            >
+              <Select mode="multiple" options={WEEK_OPTIONS} placeholder="Chọn tuần ghé thăm" showSearch optionFilterProp="label" />
             </Form.Item>
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleAddOutlet}>
-              Thêm vào tuyến
-            </Button>
+            <Space>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleSubmitOutlet}>
+                {editingOutlet ? 'Lưu lịch ghé thăm' : 'Thêm vào tuyến'}
+              </Button>
+              {editingOutlet && <Button onClick={cancelEditOutlet}>Hủy sửa</Button>}
+            </Space>
           </Form>
         )}
         <List
@@ -406,6 +456,7 @@ export default function RouteMastersPage() {
               actions={
                 canWrite
                   ? [
+                      <Button key="edit" size="small" icon={<EditOutlined />} onClick={() => openEditOutletForm(o)} />,
                       <Popconfirm key="remove" title="Gỡ khách hàng này khỏi tuyến?" onConfirm={() => handleRemoveOutlet(o.id)}>
                         <Button size="small" icon={<DeleteOutlined />} danger />
                       </Popconfirm>,
@@ -451,7 +502,7 @@ export default function RouteMastersPage() {
             <Form.Item name="effectiveDate" rules={[{ required: true, message: 'Ngày hiệu lực' }]}>
               <Input type="date" placeholder="Ngày hiệu lực" />
             </Form.Item>
-            <Form.Item name="endDate" extra="Bỏ trống nếu khung tuyến chưa có ngày kết thúc">
+            <Form.Item name="endDate">
               <Input type="date" placeholder="Ngày kết thúc (nếu có)" />
             </Form.Item>
             <Form.Item>
@@ -460,6 +511,11 @@ export default function RouteMastersPage() {
               </Button>
             </Form.Item>
           </Form>
+        )}
+        {canWrite && (
+          <Text type="secondary" style={{ display: 'block', marginTop: -12, marginBottom: 16 }}>
+            Bỏ trống "Ngày kết thúc" nếu khung tuyến chưa có ngày kết thúc
+          </Text>
         )}
         <List
           loading={assignLoading}

@@ -29,14 +29,23 @@ function statusTag(status) {
 }
 
 // Tra "Loai ghe tham" (Dung tuyen/Trai tuyen) tu lich route_master_outlet cua khach hang doi
-// chieu voi ngay dat hang - Thu + Tuan trong thang (Math.ceil(ngay/7)) - xem tonghop.md Nhom 6.
+// chieu voi ngay dat hang - Thu + Tuan cu the trong nam (ISO week, tu reset moi nam moi, xem
+// V40__route_outlet_visit_weeks.sql) - xem tonghop.md Nhom 6.
 const WEEKDAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+function isoWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+}
 function computeVisitType(routeInfo, dateStr) {
   if (!routeInfo || !routeInfo.branchId || !dateStr) return null;
   const date = new Date(dateStr);
   const weekdayKey = WEEKDAY_KEYS[date.getDay()];
-  const weekKey = `week${Math.ceil(date.getDate() / 7)}`;
-  return routeInfo[weekdayKey] && routeInfo[weekKey] ? 'ON_ROUTE' : 'OFF_ROUTE';
+  const weekNum = isoWeekNumber(date);
+  const visitWeeks = (routeInfo.visitWeeks || '').split(',').map((s) => Number(s.trim())).filter(Boolean);
+  return routeInfo[weekdayKey] && visitWeeks.includes(weekNum) ? 'ON_ROUTE' : 'OFF_ROUTE';
 }
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../sales/controller/SalesOrderController.java.

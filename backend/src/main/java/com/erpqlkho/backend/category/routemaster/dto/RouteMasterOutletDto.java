@@ -21,8 +21,6 @@ public class RouteMasterOutletDto {
     private Boolean saturday;
     private Boolean sunday;
 
-    private Boolean week1;
-    private Boolean week2;
-    private Boolean week3;
-    private Boolean week4;
+    // Danh sach tuan cu the trong nam (1-53), cach nhau dau phay - VD "3,7,11,15".
+    private String visitWeeks;
 }

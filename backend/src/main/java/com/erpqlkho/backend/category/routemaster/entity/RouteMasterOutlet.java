@@ -41,7 +41,7 @@ public class RouteMasterOutlet {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
-    // Thu tu ghe tham + lich ghe tham (thu/tuan trong thang) - xem
+    // Thu tu ghe tham + lich ghe tham (thu trong tuan + tuan cu the trong nam) - xem
     // V21__employee_route_customer_group_mn.sql, dung cho Nhom 6 "Loai ghe tham" cua Sales Order.
     @Column(name = "visit_order")
     private Integer visitOrder;
@@ -54,8 +54,9 @@ public class RouteMasterOutlet {
     private boolean saturday;
     private boolean sunday;
 
-    private boolean week1;
-    private boolean week2;
-    private boolean week3;
-    private boolean week4;
+    // Danh sach tuan cu the trong nam (ISO week 1-53), cach nhau dau phay (VD "3,7,11,15") - xem
+    // V40__route_outlet_visit_weeks.sql. Tu reset moi nam moi vi chi luu so thu tu tuan, khong
+    // luu nam - tuan 3 cua nam nao cung tinh la "tuan 3".
+    @Column(name = "visit_weeks", length = 255)
+    private String visitWeeks;
 }

@@ -21,8 +21,7 @@ public class CustomerRouteInfoDto {
     private boolean saturday;
     private boolean sunday;
 
-    private boolean week1;
-    private boolean week2;
-    private boolean week3;
-    private boolean week4;
+    // Danh sach tuan cu the trong nam (1-53) khach hang duoc ghe tham, cach nhau dau phay - xem
+    // V40__route_outlet_visit_weeks.sql.
+    private String visitWeeks;
 }
