@@ -116,6 +116,14 @@ export default function RouteMastersPage() {
     setModalOpen(true);
   }
 
+  // Chon Vung ban hang -> tu dong dien dung Chi nhanh cua vung do, khoa cung o Chi nhanh (giong
+  // pattern Kho xuat o Don giao hang) - tranh lech du lieu Vung thuoc chi nhanh A nhung Khung
+  // tuyen lai gan nham chi nhanh B.
+  function handleZoneSelect(zoneId) {
+    const zone = sellingZones.find((z) => z.id === zoneId);
+    form.setFieldsValue({ branchId: zone?.branch?.id });
+  }
+
   function openEditModal(record) {
     setEditingRoute(record);
     form.setFieldsValue({
@@ -339,10 +347,15 @@ export default function RouteMastersPage() {
             <Input />
           </Form.Item>
           <Form.Item label="Vùng bán hàng" name="sellingZoneId" rules={[{ required: true, message: 'Vùng bán hàng không được để trống' }]}>
-            <Select options={zoneOptions} placeholder="Chọn vùng bán hàng" />
+            <Select options={zoneOptions} placeholder="Chọn vùng bán hàng" onChange={handleZoneSelect} />
           </Form.Item>
-          <Form.Item label="Chi nhánh" name="branchId" rules={[{ required: true, message: 'Chi nhánh không được để trống' }]}>
-            <Select options={branchOptions} placeholder="Chọn chi nhánh" />
+          <Form.Item
+            label="Chi nhánh"
+            name="branchId"
+            rules={[{ required: true, message: 'Chi nhánh không được để trống' }]}
+            extra="Luôn lấy đúng chi nhánh của Vùng bán hàng đã chọn - không chọn chi nhánh khác được"
+          >
+            <Select options={branchOptions} placeholder="Chọn Vùng bán hàng trước" disabled />
           </Form.Item>
           <Form.Item label="Người quản lý mặc định" name="manageById">
             <Select options={userOptions} placeholder="Chọn người quản lý" allowClear />
