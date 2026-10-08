@@ -463,3 +463,13 @@ Theo yêu cầu "kiểm lại toàn bộ xem có lỗi không" — chạy đủ 
 **3. Build backend (Maven) + frontend (Vite)**: cả 2 đều sạch, không cảnh báo/lỗi.
 
 **Kết luận: hệ thống hiện đang sạch**, không phát hiện lỗi thật nào sau toàn bộ các thay đổi của đợt "Xác nhận tự tạo Đơn giao hàng" + "Lọc theo Chi nhánh" hôm nay.
+
+## 🔀 Gộp trang "Xác nhận giao hàng" vào trang "Đơn giao hàng" (2026-10-08)
+
+Trước đây 2 trang riêng (mô phỏng đúng pattern DMS thật: người lập lệnh giao và người xác nhận xuất kho là 2 vai khác nhau) — theo yêu cầu người dùng, gộp lại thành 1 trang duy nhất cho gọn:
+
+- Trang **"Đơn giao hàng"** giờ có thêm nút **Xác nhận giao hàng** (dấu tick) ngay trong cột Thao tác — chỉ hiện khi đơn còn "Chờ giao", tái sử dụng nguyên API `/delivery-orders/{id}/confirm` đã có sẵn (không đổi gì backend).
+- Thêm nút xem lịch sử **"Người xác nhận giao hàng"** (icon người, mở Modal liệt kê toàn bộ đơn + ai đã xác nhận) vào thanh công cụ — chuyển nguyên từ trang cũ sang.
+- **Xóa hẳn** trang/route/menu "Xác nhận giao hàng" (`/sales/delivery-confirm`) — menu Bán hàng còn 11 mục thay vì 12.
+
+Build frontend sạch, compile-check qua dev server OK. Không có thay đổi backend/database nào trong đợt này.
