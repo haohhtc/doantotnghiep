@@ -16,7 +16,6 @@ const WHSE_TYPE_OPTIONS = [
   { value: 'MAIN', label: 'Kho chính' },
   { value: 'VAN', label: 'Kho xe tải' },
   { value: 'DAMAGE', label: 'Kho hàng lỗi' },
-  { value: 'CONSIGNMENT', label: 'Kho ký gửi' },
 ];
 
 const ACTIVE_FILTER_OPTIONS = [
@@ -29,16 +28,16 @@ function whseTypeLabel(value) {
 }
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../category/warehouse/
-// WarehouseController (GET/POST/PUT/DELETE /api/warehouses) + GET /api/users (danh sach
-// chon nguoi quan ly kho, chi doc).
+// WarehouseController (GET/POST/PUT/DELETE /api/warehouses).
 // Loc theo Chi nhanh dang chon o Header (BranchSelector) - dong nhat UX voi trang Ton kho, thay
-// cho bo loc Chi nhanh rieng cu (theo yeu cau nguoi dung).
+// cho bo loc Chi nhanh rieng cu (theo yeu cau nguoi dung). Form Them/Sua: bo o nhap Dia chi (di
+// theo Chi nhanh), bo o nhap Nguoi quan ly, bo loai kho "Ky gui" (khong dung toi), khoa cung
+// "Chi nhanh quan ly" theo dung Chi nhanh dang chon o Header - khong cho chon chi nhanh khac.
 // canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function WarehousesPage() {
   const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const { selectedBranchId, loading: branchLoading } = useBranch();
   const [warehouses, setWarehouses] = useState([]);
-  const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -47,25 +46,22 @@ export default function WarehousesPage() {
   const [filterValues, setFilterValues] = useState({});
   const [form] = Form.useForm();
 
-  const managerOptions = users.map((u) => ({ value: u.id, label: u.fullName || u.username }));
-  const branchOptions = branches.map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` }));
+  // Khoa cung o dung chi nhanh dang chon o Header khi tao moi - giu rieng chi nhanh cua kho dang
+  // sua du no khac chi nhanh dang chon, tranh mat label (giong pattern o Don giao hang).
+  const branchOptions = branches
+    .filter((b) => b.id === editingWarehouse?.branch?.id || b.id === selectedBranchId)
+    .map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` }));
 
   function loadData() {
     if (!selectedBranchId) return;
     setLoading(true);
-    // GET /api/users chi ADMIN + WAREHOUSE_MANAGER duoc doc (xem SecurityConfig) - dung y het voi
-    // canWrite nen chi goi khi can, tranh 403 lam fail ca Promise.all doi voi SALES_STAFF (chi xem).
-    const requests = [
+    Promise.all([
       axiosClient.get('/warehouses', { params: { branchId: selectedBranchId } }),
       axiosClient.get('/branches'),
-    ];
-    if (canWrite) requests.push(axiosClient.get('/users'));
-
-    Promise.all(requests)
-      .then(([warehousesRes, branchesRes, usersRes]) => {
+    ])
+      .then(([warehousesRes, branchesRes]) => {
         setWarehouses(warehousesRes.data.data);
         setBranches(branchesRes.data.data);
-        if (usersRes) setUsers(usersRes.data.data);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách kho'))
       .finally(() => setLoading(false));
@@ -94,7 +90,7 @@ export default function WarehousesPage() {
 
   function openEditModal(record) {
     setEditingWarehouse(record);
-    form.setFieldsValue({ ...record, managerId: record.manager?.id, branchId: record.branch?.id });
+    form.setFieldsValue({ ...record, branchId: record.branch?.id });
     setModalOpen(true);
   }
 
@@ -198,19 +194,18 @@ export default function WarehousesPage() {
               <Form.Item label="Tên kho" name="name" rules={[{ required: true, message: 'Tên kho không được để trống' }]}>
                 <Input />
               </Form.Item>
-              <Form.Item label="Địa chỉ" name="address">
-                <Input />
-              </Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item label="Loại kho" name="warehouseType" rules={[{ required: true, message: 'Loại kho không được để trống' }]}>
                 <Select options={WHSE_TYPE_OPTIONS} />
               </Form.Item>
-              <Form.Item label="Người quản lý" name="managerId">
-                <Select options={managerOptions} placeholder="Chọn người quản lý" allowClear />
-              </Form.Item>
-              <Form.Item label="Chi nhánh quản lý" name="branchId">
-                <Select options={branchOptions} placeholder="Chọn chi nhánh" allowClear />
+              <Form.Item
+                label="Chi nhánh quản lý"
+                name="branchId"
+                rules={[{ required: true, message: 'Chi nhánh không được để trống' }]}
+                extra="Luôn lấy đúng chi nhánh đang chọn ở Header - không chọn chi nhánh khác được"
+              >
+                <Select options={branchOptions} disabled />
               </Form.Item>
             </Col>
             <Col span={8}>
