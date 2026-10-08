@@ -230,14 +230,13 @@ export default function CustomersPage() {
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item label="Chi nhánh" name="branchId" rules={[{ required: true, message: 'Chi nhánh không được để trống' }]}>
-            <Select
-              options={branchOptions}
-              placeholder="Chọn chi nhánh"
-              showSearch
-              optionFilterProp="label"
-              popupMatchSelectWidth={false}
-            />
+          <Form.Item
+            label="Chi nhánh"
+            name="branchId"
+            rules={[{ required: true, message: 'Chi nhánh không được để trống' }]}
+            extra="Luôn lấy đúng chi nhánh đang chọn ở Header - không chọn chi nhánh khác được"
+          >
+            <Select options={branchOptions} popupMatchSelectWidth={false} disabled />
           </Form.Item>
           <AddressCascadeFields form={form} />
           <Form.Item name="active" valuePropName="checked">
