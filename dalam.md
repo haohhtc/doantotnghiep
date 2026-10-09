@@ -516,6 +516,24 @@ Build frontend sạch, compile-check qua dev server OK. Không có thay đổi b
 
 **Đã test qua API (sạch, dữ liệu demo cũ không bị ảnh hưởng)**: tạo 2 dòng giá nối tiếp cho 1 SP+ĐVT mới (100.000đ hiệu lực 01/01→30/06, 120.000đ từ 01/07 không giới hạn) → thêm dòng thứ 3 chồng lặp (01/03) bị từ chối đúng như kỳ vọng → tra giá ngày 02/2026 ra 100.000, ngày 08/2026 ra 120.000, ngày trước 01/01/2026 báo lỗi "không tìm thấy giá hợp lệ" → dòng giá cũ có sẵn (backfill start_date=2026-01-01, end_date=NULL) vẫn tra đúng giá cũ bình thường. Sau test đã xóa sạch 2 dòng giá test, bảng giá BG-DAILY-C1 về lại đúng 11 dòng ban đầu.
 
+## ✏️ Thêm nút Sửa dòng giá sản phẩm (2026-10-09)
+
+Trang Bảng giá, mục "Giá sản phẩm": thêm nút Sửa (bên cạnh nút Xóa cũ) cho mỗi dòng giá — sửa Giá/Ngày hiệu lực/Ngày hết hiệu lực, **không đổi được** Sản phẩm/ĐVT (đổi 2 trường đó coi như là dòng khác, phải xóa/thêm lại). Lý do cần: sản phẩm đã phân bổ chi nhánh thì không xóa được dòng giá (chỉ sửa) — trước đây chưa có cách sửa nên bị kẹt.
+- Backend: `PriceListService.updateItem()` + `PUT /api/price-lists/{id}/items/{itemId}` — validate chồng lặp hiệu lực giống `addItem()`, trừ chính dòng đang sửa ra khỏi danh sách so sánh.
+- Đã test qua API: sửa giá trong đúng khoảng hiệu lực cũ → thành công, tra giá xác nhận đổi đúng; sửa ngày để chồng lặp dòng khác → bị chặn; ngày hết hiệu lực trước ngày hiệu lực → bị chặn.
+
+## 🚐 Loại đơn: Pre-order lên đầu + khóa Van-Sales; Kho xuất tự suy từ Khách hàng (2026-10-09)
+
+**Loại đơn** (Đơn hàng bán): đổi thứ tự dropdown — Pre-order lên đầu (loại chính dùng trên web). **Van-Sales** (STANDARD, đặt-giao ngay) bị **disable** trên web, không tạo mới được nữa — loại này sẽ làm qua **App Van-Sales riêng** (mobile, CHƯA làm, xem mục "Việc đang treo" dưới nếu cần theo dõi tiếp). Đơn Van-Sales cũ vẫn xem/sửa bình thường, chỉ không chọn lại được khi tạo mới. Backend KHÔNG đổi — vẫn nhận `orderType=STANDARD` qua API như cũ (để dành cho App Van-Sales gọi tới sau này qua cùng API). Mặc định khi tạo đơn mới đổi từ STANDARD sang PRE_ORDER.
+
+**Kho xuất**: bỏ hẳn việc chọn tay — tự suy từ Khách hàng: khách thuộc chi nhánh nào thì tự gán Kho **Main** của đúng chi nhánh đó (field hiện ở dạng khóa, chỉ hiện để biết đơn xuất từ kho nào). Đổi thứ tự field: Khách hàng lên trước Kho xuất. Chỉ áp dụng khi người dùng tự đổi Khách hàng (onChange) — mở lại đơn cũ để sửa vẫn giữ đúng kho đã lưu của đơn đó, không bị ghi đè. Khách hàng thuộc chi nhánh chưa có kho Main → báo lỗi, chặn lưu. Bỏ luôn đoạn code cũ "xóa kho đã chọn khi đổi sang Pre-order nếu không phải Main" (dư, vì giờ luôn là Main).
+
+Đã test qua API: tạo đơn Pre-order cho khách Hà Nội (chi nhánh CN_HN) → đơn tự nhận đúng kho `KHO-CHINH-HN` (Main của CN_HN) như kỳ vọng. Lưu ý: backend hiện KHÔNG tự validate warehouse phải cùng chi nhánh với khách hàng (chỉ web khóa field) — nếu có ai gọi API trực tiếp với warehouseId sai chi nhánh thì vẫn tạo được, đây là rủi ro nhỏ đã biết, chưa xử lý ở backend.
+
+Xác nhận lại 2 phần không cần sửa (đã đúng sẵn từ trước): dropdown Khách hàng ở "+Thêm đơn hàng bán" đã lọc đúng theo Chi nhánh đang chọn ở Header; tính "Đúng tuyến/Sai tuyến" theo tuần đã kiểm tra đúng cả ngày trong tuần + tuần ISO trong năm.
+
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
 **Phân trang (pagination) cho các trang danh sách** — nguyên nhân: Nhi (thành viên 2, làm ETL/DW/AI/BI nhánh `feature/data-ai`) đẩy lên 1 bộ dữ liệu khá lớn, làm các trang danh sách (Đơn hàng bán...) load chậm hẳn mỗi lần bấm, vì hiện tại mọi trang đều gọi API tải **toàn bộ** bảng 1 lần (không giới hạn số dòng, JSON lồng sâu), lọc/tìm kiếm làm phía trình duyệt. Đã phân tích trong phiên và người dùng **xác nhận hoãn lại**, đợi làm xong hết các yêu cầu hiện tại mới quay lại làm. Hướng giải quyết đã thống nhất: phân trang phía Server (Spring Data `Pageable` + AntD `Table` pagination gọi lại API theo trang), làm thí điểm ở trang Đơn hàng bán trước — nhớ vẫn cần hỏi xác nhận lại trước khi code theo đúng quy tắc chung.
+
+**App Van-Sales (mobile, riêng)** — Loại đơn "Van-Sales" (đặt-giao ngay, STANDARD) đã bị disable trên web (xem mục "Loại đơn: Pre-order lên đầu..." ở trên) vì nghiệp vụ này sẽ chuyển qua 1 App di động riêng cho NVBH/van-sales, hiện **chưa làm gì cả** (không nằm trong phạm vi web hiện tại của đồ án). Backend vẫn giữ nguyên hỗ trợ `orderType=STANDARD` qua API để app này gọi tới sau. Chưa có yêu cầu cụ thể nào về app này ngoài việc biết nó sẽ tồn tại.
