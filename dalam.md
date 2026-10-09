@@ -547,6 +547,16 @@ Xác nhận lại 2 phần không cần sửa (đã đúng sẵn từ trước):
 - Trang mới trong menu Tồn kho, cạnh Phiếu xuất kho — Xác nhận sẽ cộng tồn kho, không sửa/xóa được khi đã đóng (CLOSED).
 - Đã test qua API: tạo phiếu 2 Thùng CP001 → quy đổi đúng 288 Gói (hệ số 12×12×2) → DRAFT chưa đổi tồn → Xác nhận cộng đúng +288 vào tồn thực tế → sửa/xóa phiếu CLOSED bị chặn đúng.
 
+## 🔎 Thêm ô tìm kiếm trong Bảng giá + Khóa Kho xuất trả = Kho hư cho Trả hàng NCC (2026-10-09)
+
+**A. Bảng giá**: thêm tìm kiếm (showSearch) cho ô "Đơn vị" ở form "+Thêm giá sản phẩm" (ô "Chọn sản phẩm" đã có sẵn từ trước). Thêm 1 ô tìm riêng phía trên danh sách dòng giá trong Modal "Giá sản phẩm" để lọc theo mã/tên sản phẩm (lọc ở Frontend, không gọi lại API).
+
+**B. Trả hàng NCC**: "Kho xuất trả" không còn cho chọn tay - tự động là **Kho hư (DAMAGE)** của chi nhánh đang chọn ở Header (hàng trả NCC thường là hàng lỗi/hư, không phải hàng tốt ở Main/Van). Không tìm được Kho hư thì báo lỗi, chặn tạo phiếu. Phát hiện thêm lỗ hổng khi đọc code: danh sách Trả hàng NCC trước đó **chưa lọc theo chi nhánh** (khác mọi trang chứng từ khác) - đã sửa cho đồng bộ.
+
+**Dữ liệu phát hiện thiếu**: cả 2 chi nhánh hiện có (CN-BD, CN_HN) đều **chưa có Kho hư (DAMAGE)** - có lẽ được tạo trước khi logic tự sinh 3 kho/chi nhánh có Damage. Đã tạo bù qua API đúng mẫu mã `{mã CN}DWH01` (CN-BDDWH01, CN_HNDWH01) giống Chi nhánh mới tự sinh.
+
+Đã test qua API: tạo phiếu trả hàng → tự nhận đúng Kho hư vừa tạo; xác nhận bị chặn đúng vì kho hư mới tạo chưa có tồn (guard có sẵn, không cần sửa thêm).
+
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
 **Phân trang (pagination) cho các trang danh sách** — nguyên nhân: Nhi (thành viên 2, làm ETL/DW/AI/BI nhánh `feature/data-ai`) đẩy lên 1 bộ dữ liệu khá lớn, làm các trang danh sách (Đơn hàng bán...) load chậm hẳn mỗi lần bấm, vì hiện tại mọi trang đều gọi API tải **toàn bộ** bảng 1 lần (không giới hạn số dòng, JSON lồng sâu), lọc/tìm kiếm làm phía trình duyệt. Đã phân tích trong phiên và người dùng **xác nhận hoãn lại**, đợi làm xong hết các yêu cầu hiện tại mới quay lại làm. Hướng giải quyết đã thống nhất: phân trang phía Server (Spring Data `Pageable` + AntD `Table` pagination gọi lại API theo trang), làm thí điểm ở trang Đơn hàng bán trước — nhớ vẫn cần hỏi xác nhận lại trước khi code theo đúng quy tắc chung.
