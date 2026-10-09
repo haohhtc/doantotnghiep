@@ -3,7 +3,7 @@ import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Checkbox,
   Popconfirm, message, List, Empty, Row, Col,
 } from 'antd';
-import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import axiosClient from '../../api/axiosClient';
 import { hasAnyRole } from '../../utils/auth';
@@ -49,9 +49,17 @@ export default function PriceListsPage() {
   const [newStartDate, setNewStartDate] = useState(null);
   const [newEndDate, setNewEndDate] = useState(null);
   const [editingItem, setEditingItem] = useState(null);
+  const [itemSearchText, setItemSearchText] = useState('');
 
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
   const uomOptions = uoms.map((u) => ({ value: u.id, label: `${u.code} - ${u.name}` }));
+  // Loc danh sach "Gia san pham" dang hien trong Modal theo ma/ten san pham - tim o Frontend vi
+  // 1 bang gia thuong chi vai chuc dong, khong can goi lai API.
+  const filteredItems = items.filter((item) => {
+    const keyword = itemSearchText.trim().toLowerCase();
+    if (!keyword) return true;
+    return item.product.code.toLowerCase().includes(keyword) || item.product.name.toLowerCase().includes(keyword);
+  });
 
   function loadData() {
     setLoading(true);
@@ -116,6 +124,7 @@ export default function PriceListsPage() {
   function openItemModal(record) {
     setItemPriceList(record);
     resetItemForm();
+    setItemSearchText('');
     setItemModalOpen(true);
     loadItems(record.id);
   }
@@ -330,10 +339,18 @@ export default function PriceListsPage() {
             </Row>
           </Space>
         )}
+        <Input
+          placeholder="Tìm trong danh sách giá sản phẩm theo mã hoặc tên..."
+          prefix={<SearchOutlined />}
+          value={itemSearchText}
+          onChange={(e) => setItemSearchText(e.target.value)}
+          allowClear
+          style={{ marginBottom: 12 }}
+        />
         <List
           loading={itemsLoading}
-          dataSource={items}
-          locale={{ emptyText: <Empty description="Bảng giá chưa có sản phẩm nào" /> }}
+          dataSource={filteredItems}
+          locale={{ emptyText: <Empty description={itemSearchText ? 'Không tìm thấy sản phẩm phù hợp' : 'Bảng giá chưa có sản phẩm nào'} /> }}
           renderItem={(item) => (
             <List.Item
               actions={
