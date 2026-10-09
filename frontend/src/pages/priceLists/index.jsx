@@ -286,6 +286,8 @@ export default function PriceListsPage() {
                   options={uomOptions}
                   value={newUomId}
                   onChange={setNewUomId}
+                  showSearch
+                  optionFilterProp="label"
                   disabled={!!editingItem}
                 />
               </Col>
