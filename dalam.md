@@ -532,6 +532,21 @@ Trang Bảng giá, mục "Giá sản phẩm": thêm nút Sửa (bên cạnh nút
 
 Xác nhận lại 2 phần không cần sửa (đã đúng sẵn từ trước): dropdown Khách hàng ở "+Thêm đơn hàng bán" đã lọc đúng theo Chi nhánh đang chọn ở Header; tính "Đúng tuyến/Sai tuyến" theo tuần đã kiểm tra đúng cả ngày trong tuần + tuần ISO trong năm.
 
+## 🧹 Xóa 5 trang Placeholder + Thêm "NVBH + Tuyến" vào Đơn hàng bán + Phiếu nhập kho mới (2026-10-09)
+
+**A. Xóa 5 trang Placeholder rỗng khỏi Sidebar** (dọn tiếp các mục chỉ dựng khung chưa có logic thật, xem mục "Chưa làm / ngoài phạm vi"): Phiếu ghi có, Phiếu soạn hàng/In phiếu giao hàng, Kết quả giao hàng, Khai thuế TNCN hoa hồng (nhóm Bán hàng), Nhật ký tự động đặt hàng/Thiết lập chỉ tiêu SP (nhóm Mua hàng). Xóa luôn 3 file trang không còn dùng.
+
+**B. "NVBH" + "Tuyến" trên Đơn hàng bán** — lưu lại Tuyến + NVBH đang phụ trách tuyến của khách hàng **tại đúng Ngày đặt hàng** (phục vụ báo cáo doanh số/hoa hồng sau này). Tự suy hoàn toàn, khóa cứng không cho chọn tay:
+- V42: thêm `sales_order.route_master_id` + `salesman_id` (FK `employee`), cho phép NULL (khách hàng chưa gán tuyến, hoặc tuyến đang trống NVBH tại thời điểm đó thì không chặn tạo đơn).
+- `GET /customers/{id}/route-info` thêm tham số `date` → trả thêm Tuyến + NVBH đang hiệu lực tại ngày đó (NVBH tra theo timeline `RouteSalesmanAssignment`, khác Tuyến là cố định theo khách hàng).
+- Frontend: gọi lại API này cả khi đổi Khách hàng **và** khi đổi Ngày đặt hàng (vì NVBH phụ thuộc ngày). Mở lại đơn cũ để sửa thì giữ đúng Tuyến/NVBH đã lưu của đơn đó, không tự tính lại.
+- Đã test qua API: thêm phân bổ NVBH cho tuyến RT-HN01 → route-info tra đúng; tạo đơn lưu đúng quan hệ; đổi ngày về trước khi NVBH có hiệu lực → NVBH trả null nhưng Tuyến giữ nguyên (đúng thiết kế, vì Tuyến cố định còn NVBH theo thời gian).
+
+**C. "Phiếu nhập kho" mới (độc lập, KHÔNG qua Nhà cung cấp)** — đối xứng với "Phiếu xuất kho" đã có, dùng cho nhập kho không qua mua hàng (điều chỉnh tăng sau kiểm kê, phát hiện thừa, nhập nội bộ). Khác "Nhập hàng" (GoodsReceipt) hiện tại ở chỗ **có ĐVT** (Gói/Hộp/Thùng, quy đổi qua `UomConversionService`) + Đơn giá trên từng dòng — nhiều hơn "Nhập hàng" cũ (bên đó chưa có ĐVT).
+- V43: bảng `stock_receipt` + `stock_receipt_item`, mã phiếu tự sinh prefix `NK` (vì `PN` đã dùng cho Nhập hàng).
+- Trang mới trong menu Tồn kho, cạnh Phiếu xuất kho — Xác nhận sẽ cộng tồn kho, không sửa/xóa được khi đã đóng (CLOSED).
+- Đã test qua API: tạo phiếu 2 Thùng CP001 → quy đổi đúng 288 Gói (hệ số 12×12×2) → DRAFT chưa đổi tồn → Xác nhận cộng đúng +288 vào tồn thực tế → sửa/xóa phiếu CLOSED bị chặn đúng.
+
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
 **Phân trang (pagination) cho các trang danh sách** — nguyên nhân: Nhi (thành viên 2, làm ETL/DW/AI/BI nhánh `feature/data-ai`) đẩy lên 1 bộ dữ liệu khá lớn, làm các trang danh sách (Đơn hàng bán...) load chậm hẳn mỗi lần bấm, vì hiện tại mọi trang đều gọi API tải **toàn bộ** bảng 1 lần (không giới hạn số dòng, JSON lồng sâu), lọc/tìm kiếm làm phía trình duyệt. Đã phân tích trong phiên và người dùng **xác nhận hoãn lại**, đợi làm xong hết các yêu cầu hiện tại mới quay lại làm. Hướng giải quyết đã thống nhất: phân trang phía Server (Spring Data `Pageable` + AntD `Table` pagination gọi lại API theo trang), làm thí điểm ở trang Đơn hàng bán trước — nhớ vẫn cần hỏi xác nhận lại trước khi code theo đúng quy tắc chung.
