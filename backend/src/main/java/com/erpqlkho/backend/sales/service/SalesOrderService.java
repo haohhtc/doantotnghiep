@@ -2,8 +2,12 @@ package com.erpqlkho.backend.sales.service;
 
 import com.erpqlkho.backend.category.customer.entity.Customer;
 import com.erpqlkho.backend.category.customer.repository.CustomerRepository;
+import com.erpqlkho.backend.category.employee.entity.Employee;
+import com.erpqlkho.backend.category.employee.repository.EmployeeRepository;
 import com.erpqlkho.backend.category.product.entity.Product;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
+import com.erpqlkho.backend.category.routemaster.entity.RouteMaster;
+import com.erpqlkho.backend.category.routemaster.repository.RouteMasterRepository;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.category.warehouse.repository.WarehouseRepository;
 import com.erpqlkho.backend.category.uom.entity.Uom;
@@ -41,6 +45,8 @@ public class SalesOrderService {
     private final UomConversionService uomConversionService;
     private final AvailabilityService availabilityService;
     private final DeliveryOrderService deliveryOrderService;
+    private final RouteMasterRepository routeMasterRepository;
+    private final EmployeeRepository employeeRepository;
 
     public List<SalesOrder> findAll() {
         return salesOrderRepository.findAll();
@@ -129,6 +135,8 @@ public class SalesOrderService {
         order.setDocDate(dto.getDocDate());
         order.setCustomer(findCustomer(dto.getCustomerId()));
         order.setWarehouse(warehouse);
+        order.setRouteMaster(dto.getRouteMasterId() != null ? findRouteMaster(dto.getRouteMasterId()) : null);
+        order.setSalesman(dto.getSalesmanId() != null ? findEmployee(dto.getSalesmanId()) : null);
 
         order.getDetails().clear();
         List<SalesOrderDetail> details = new ArrayList<>();
@@ -178,6 +186,16 @@ public class SalesOrderService {
     private Warehouse findWarehouse(Long id) {
         return warehouseRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay kho id=" + id));
+    }
+
+    private RouteMaster findRouteMaster(Long id) {
+        return routeMasterRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay khung tuyen id=" + id));
+    }
+
+    private Employee findEmployee(Long id) {
+        return employeeRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay nhan vien id=" + id));
     }
 
     private Product findProduct(Long id) {

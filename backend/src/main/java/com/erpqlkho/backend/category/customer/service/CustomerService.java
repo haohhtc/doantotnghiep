@@ -13,12 +13,14 @@ import com.erpqlkho.backend.category.pricelist.entity.PriceList;
 import com.erpqlkho.backend.category.pricelist.repository.PriceListRepository;
 import com.erpqlkho.backend.category.routemaster.entity.RouteMasterOutlet;
 import com.erpqlkho.backend.category.routemaster.repository.RouteMasterOutletRepository;
+import com.erpqlkho.backend.category.routemaster.repository.RouteSalesmanAssignmentRepository;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.common.geography.GeographyResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,6 +34,7 @@ public class CustomerService {
     private final CustomerChannelRepository customerChannelRepository;
     private final CustomerGroupMemberRepository customerGroupMemberRepository;
     private final RouteMasterOutletRepository routeMasterOutletRepository;
+    private final RouteSalesmanAssignmentRepository routeSalesmanAssignmentRepository;
     private final BranchRepository branchRepository;
 
     public List<Customer> findAll() {
@@ -137,18 +140,32 @@ public class CustomerService {
     // dung binh thuong) - phai giu session mo de doc outlet.getRouteMaster() o day, neu khong se
     // nem LazyInitializationException ("no Session") vi open-in-view=false.
     @Transactional(readOnly = true)
-    public CustomerRouteInfoDto findRouteInfo(Long customerId) {
+    public CustomerRouteInfoDto findRouteInfo(Long customerId, LocalDate date) {
         findById(customerId);
         CustomerRouteInfoDto dto = new CustomerRouteInfoDto();
         Optional<RouteMasterOutlet> outletOpt = routeMasterOutletRepository.findByCustomerId(customerId);
         if (outletOpt.isEmpty()) return dto;
 
         RouteMasterOutlet outlet = outletOpt.get();
-        var branch = outlet.getRouteMaster().getBranch();
+        var routeMaster = outlet.getRouteMaster();
+        var branch = routeMaster.getBranch();
         if (branch != null) {
             dto.setBranchId(branch.getId());
             dto.setBranchName(branch.getName());
         }
+        dto.setRouteMasterId(routeMaster.getId());
+        dto.setRouteMasterName(routeMaster.getName());
+
+        LocalDate effectiveDate = date != null ? date : LocalDate.now();
+        routeSalesmanAssignmentRepository.findByRouteMasterIdOrderByEffectiveDateAsc(routeMaster.getId()).stream()
+                .filter(a -> !a.getEffectiveDate().isAfter(effectiveDate)
+                        && (a.getEndDate() == null || !a.getEndDate().isBefore(effectiveDate)))
+                .findFirst()
+                .ifPresent(a -> {
+                    dto.setSalesmanId(a.getEmployee().getId());
+                    dto.setSalesmanName(a.getEmployee().getFullName());
+                });
+
         dto.setMonday(outlet.isMonday());
         dto.setTuesday(outlet.isTuesday());
         dto.setWednesday(outlet.isWednesday());

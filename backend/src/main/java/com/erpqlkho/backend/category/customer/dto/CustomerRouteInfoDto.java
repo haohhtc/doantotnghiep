@@ -13,6 +13,14 @@ public class CustomerRouteInfoDto {
     private Long branchId;
     private String branchName;
 
+    private Long routeMasterId;
+    private String routeMasterName;
+
+    // NVBH dang phu trach tuyen TAI NGAY duoc truyen vao findRouteInfo(customerId, date) - co the
+    // null neu tuyen dang trong NVBH tai thoi diem do.
+    private Long salesmanId;
+    private String salesmanName;
+
     private boolean monday;
     private boolean tuesday;
     private boolean wednesday;

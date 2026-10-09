@@ -1,6 +1,8 @@
 package com.erpqlkho.backend.sales.entity;
 
 import com.erpqlkho.backend.category.customer.entity.Customer;
+import com.erpqlkho.backend.category.employee.entity.Employee;
+import com.erpqlkho.backend.category.routemaster.entity.RouteMaster;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.common.base.BaseEntity;
 import com.erpqlkho.backend.user.entity.User;
@@ -52,6 +54,17 @@ public class SalesOrder extends BaseEntity {
 
     @Column(name = "delivery_date")
     private LocalDate deliveryDate;
+
+    // Tuyen + NVBH dang phu trach tuyen cua khach hang TAI NGAY dat hang (tu dong suy o Frontend
+    // khi chon Khach hang/doi Ngay dat hang, khoa cung khong cho chon tay) - phuc vu bao cao doanh
+    // so/hoa hong. Nullable - khach hang co the chua gan tuyen, hoac tuyen dang trong NVBH luc do.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "route_master_id")
+    private RouteMaster routeMaster;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "salesman_id")
+    private Employee salesman;
 
     @Column(name = "total_amount", nullable = false, precision = 18, scale = 2)
     private BigDecimal totalAmount = BigDecimal.ZERO;

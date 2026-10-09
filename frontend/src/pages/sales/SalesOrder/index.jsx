@@ -99,18 +99,59 @@ export default function SalesOrderPage() {
     .map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
   const visitType = computeVisitType(customerRouteInfo, Form.useWatch('docDate', form));
   const branchMismatch = customerRouteInfo?.branchId && selectedBranchId && customerRouteInfo.branchId !== selectedBranchId;
+  // Tuyen + NVBH tu suy tu Khach hang + Ngay dat hang (xem fetchRouteInfo) - gio field bi khoa.
+  // Giu rieng gia tri da luu cua don dang sua (escape hatch, giong warehouseOptions) vi don cu co
+  // the khac voi ket qua tra lai theo ngay hom nay (NVBH doi theo thoi gian).
+  const routeMasterOptions = [
+    ...(editingOrder?.routeMaster ? [{ value: editingOrder.routeMaster.id, label: editingOrder.routeMaster.name }] : []),
+    ...(customerRouteInfo?.routeMasterId
+      ? [{ value: customerRouteInfo.routeMasterId, label: customerRouteInfo.routeMasterName }]
+      : []),
+  ];
+  const salesmanOptions = [
+    ...(editingOrder?.salesman ? [{ value: editingOrder.salesman.id, label: editingOrder.salesman.fullName }] : []),
+    ...(customerRouteInfo?.salesmanId ? [{ value: customerRouteInfo.salesmanId, label: customerRouteInfo.salesmanName }] : []),
+  ];
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';
   }
 
-  function handleCustomerSelect(customerId) {
+  // Dung chung cho ca load don cu (CHI de hien thi Loai ghe tham/canh bao chi nhanh, KHONG ghi de
+  // routeMasterId/salesmanId cua form) va cho nguoi dung tu doi Khach hang/Ngay dat hang (CO ghi de
+  // - xem handleCustomerSelect/handleDocDateChange). Tra ve Promise de goi tiep sau khi co du lieu.
+  function fetchRouteInfo(customerId, date) {
     setCustomerRouteInfo(null);
+    if (!customerId) return Promise.resolve(null);
+    return axiosClient
+      .get(`/customers/${customerId}/route-info`, { params: { date } })
+      .then(({ data }) => {
+        setCustomerRouteInfo(data.data);
+        return data.data;
+      })
+      .catch(() => {
+        setCustomerRouteInfo(null);
+        return null;
+      });
+  }
+
+  // Khi NGUOI DUNG tu doi Khach hang (onChange cua Select) - tu suy lai Tuyen + NVBH TAI dung
+  // Ngay dat hang dang chon, ghi vao form (khoa cung, khong cho chon tay).
+  function handleCustomerSelect(customerId) {
+    fetchRouteInfo(customerId, form.getFieldValue('docDate')).then((info) => {
+      form.setFieldsValue({ routeMasterId: info?.routeMasterId, salesmanId: info?.salesmanId });
+    });
+    autoFillWarehouse(customerId);
+  }
+
+  // Khi NGUOI DUNG tu doi Ngay dat hang - NVBH co the doi theo (gan theo thoi gian trong
+  // RouteSalesmanAssignment), Tuyen thi khong doi (gan co dinh theo Khach hang).
+  function handleDocDateChange(dateStr) {
+    const customerId = form.getFieldValue('customerId');
     if (!customerId) return;
-    axiosClient
-      .get(`/customers/${customerId}/route-info`)
-      .then(({ data }) => setCustomerRouteInfo(data.data))
-      .catch(() => setCustomerRouteInfo(null));
+    fetchRouteInfo(customerId, dateStr).then((info) => {
+      form.setFieldsValue({ routeMasterId: info?.routeMasterId, salesmanId: info?.salesmanId });
+    });
   }
 
   // Kho xuat khong con cho chon tay - tu suy tu Khach hang: khach thuoc chi nhanh nao thi xuat tu
@@ -204,9 +245,12 @@ export default function SalesOrderPage() {
       warehouseId: record.warehouse?.id,
       orderType: record.orderType || 'STANDARD',
       deliveryDate: record.deliveryDate,
+      // Giu dung Tuyen/NVBH da luu cua don nay, KHONG tu tinh lai theo ngay hom nay.
+      routeMasterId: record.routeMaster?.id,
+      salesmanId: record.salesman?.id,
     });
     setDetailRows(record.details.map((d) => ({ id: d.id, productId: d.product.id, uomId: d.uom?.id, uomName: d.uom?.name, quantity: d.quantity, unitPrice: d.unitPrice })));
-    handleCustomerSelect(record.customer?.id);
+    fetchRouteInfo(record.customer?.id, record.docDate);
     setModalOpen(true);
   }
 
@@ -516,7 +560,7 @@ export default function SalesOrderPage() {
             </Col>
             <Col span={8}>
               <Form.Item label="Ngày đặt hàng" name="docDate" rules={[{ required: true, message: 'Ngày đặt hàng không được để trống' }]}>
-                <Input type="date" />
+                <Input type="date" onChange={(e) => handleDocDateChange(e.target.value)} />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -543,7 +587,7 @@ export default function SalesOrderPage() {
                 <Select
                   options={customerOptions}
                   placeholder="Chọn khách hàng"
-                  onChange={(customerId) => { handleCustomerSelect(customerId); autoFillWarehouse(customerId); }}
+                  onChange={handleCustomerSelect}
                   showSearch
                   optionFilterProp="label"
                 />
@@ -557,6 +601,16 @@ export default function SalesOrderPage() {
                 extra="Tự động theo chi nhánh của khách hàng (Kho chính)"
               >
                 <Select options={warehouseOptions} placeholder="Tự động khi chọn khách hàng" disabled />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Tuyến" name="routeMasterId" extra="Tự động theo khách hàng">
+                <Select options={routeMasterOptions} placeholder="Khách hàng chưa gán tuyến" disabled />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="NV bán hàng" name="salesmanId" extra="Tự động theo tuyến + ngày đặt hàng">
+                <Select options={salesmanOptions} placeholder="Tuyến chưa có NVBH tại ngày này" disabled />
               </Form.Item>
             </Col>
           </Row>

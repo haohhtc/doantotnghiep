@@ -14,8 +14,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -54,7 +56,7 @@ public class CustomerController {
     // Chi nhanh + lich ghe tham cua khach hang (suy ra tu tuyen dang gan) - dung cho Sales Order
     // validate Chi nhanh va tinh "Loai ghe tham" - xem tonghop.md Nhom 6.
     @GetMapping("/{id}/route-info")
-    public ApiResponse<CustomerRouteInfoDto> findRouteInfo(@PathVariable Long id) {
-        return ApiResponse.ok(customerService.findRouteInfo(id));
+    public ApiResponse<CustomerRouteInfoDto> findRouteInfo(@PathVariable Long id, @RequestParam(required = false) LocalDate date) {
+        return ApiResponse.ok(customerService.findRouteInfo(id, date));
     }
 }

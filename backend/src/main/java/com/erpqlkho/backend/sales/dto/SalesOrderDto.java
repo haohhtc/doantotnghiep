@@ -33,6 +33,11 @@ public class SalesOrderDto {
 
     private LocalDate deliveryDate;
 
+    // Tuyen + NVBH tu suy o Frontend tu Khach hang + Ngay dat hang (khong chon tay) - nullable neu
+    // khach hang chua gan tuyen hoac tuyen dang trong NVBH - xem SalesOrderService.applyDto().
+    private Long routeMasterId;
+    private Long salesmanId;
+
     @NotEmpty(message = "Don hang phai co it nhat 1 dong san pham")
     private List<@Valid DetailDto> details;
 
