@@ -11,7 +11,7 @@ import { fetchUomOptions, defaultUomId } from '../../../utils/uom';
 const { Title, Text } = Typography;
 
 const ORDER_TYPE_OPTIONS = [
-  { value: 'STANDARD', label: 'Đơn thường' },
+  { value: 'STANDARD', label: 'Đơn Van-Sales' },
   { value: 'PRE_ORDER', label: 'Pre-order (đặt trước giao sau)' },
   { value: 'SAMPLE', label: 'Đơn hàng mẫu (miễn phí)' },
 ];
@@ -19,7 +19,7 @@ const ORDER_TYPE_OPTIONS = [
 function orderTypeTag(type) {
   if (type === 'PRE_ORDER') return <Tag color="blue">Pre-order</Tag>;
   if (type === 'SAMPLE') return <Tag color="purple">Hàng mẫu</Tag>;
-  return <Tag>Đơn thường</Tag>;
+  return <Tag>Đơn Van-Sales</Tag>;
 }
 
 function statusTag(status) {
