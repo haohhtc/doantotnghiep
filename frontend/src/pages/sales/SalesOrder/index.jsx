@@ -10,9 +10,11 @@ import { fetchUomOptions, defaultUomId } from '../../../utils/uom';
 
 const { Title, Text } = Typography;
 
+// Pre-order dua len dau vi la loai chinh dung tren web. Van-Sales (STANDARD, dat-giao ngay) bi
+// disable tren web - se lam qua App Van-Sales rieng (chua lam), chi con hien de xem/sua don cu.
 const ORDER_TYPE_OPTIONS = [
-  { value: 'STANDARD', label: 'Đơn Van-Sales' },
   { value: 'PRE_ORDER', label: 'Pre-order (đặt trước giao sau)' },
+  { value: 'STANDARD', label: 'Đơn Van-Sales', disabled: true },
   { value: 'SAMPLE', label: 'Đơn hàng mẫu (miễn phí)' },
 ];
 
@@ -84,14 +86,10 @@ export default function SalesOrderPage() {
     .filter((c) => c.id === editingOrder?.customer?.id || !selectedBranchId || c.branch?.id === selectedBranchId)
     .map((c) => ({ value: c.id, label: `${c.code} - ${c.name}` }));
   const orderType = Form.useWatch('orderType', form);
-  // Giu rieng kho cua don dang sua (editingOrder) ngay ca khi no khac chi nhanh/loai kho dang loc,
-  // khong thi Select mat label va hien thang ID so (giong bug da gap o Don giao hang).
+  // Kho xuat gio tu suy tu Khach hang (xem autoFillWarehouse) nen field bi khoa - options o day
+  // chi can du de Select hien dung label cho gia tri da duoc gan (tu dong hoac cua don dang sua).
   const warehouseOptions = warehouses
-    .filter((w) => w.id === editingOrder?.warehouse?.id
-      || (
-        (!selectedBranchId || w.branch?.id === selectedBranchId)
-        && (orderType !== 'PRE_ORDER' || w.warehouseType === 'MAIN')
-      ))
+    .filter((w) => w.id === editingOrder?.warehouse?.id || !selectedBranchId || w.branch?.id === selectedBranchId)
     .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   // Chi hien SP da duoc "Phan bo theo chi nhanh" (Item-Branch Assignment) cho dung chi nhanh dang
   // chon - giu rieng cac dong SP da co san trong don (du khac chi nhanh) de khong mat label.
@@ -113,6 +111,26 @@ export default function SalesOrderPage() {
       .get(`/customers/${customerId}/route-info`)
       .then(({ data }) => setCustomerRouteInfo(data.data))
       .catch(() => setCustomerRouteInfo(null));
+  }
+
+  // Kho xuat khong con cho chon tay - tu suy tu Khach hang: khach thuoc chi nhanh nao thi xuat tu
+  // Kho Main cua dung chi nhanh do. Chi goi khi NGUOI DUNG tu doi Khach hang (onChange cua Select),
+  // KHONG goi khi mo lai don cu de sua (giu dung kho da luu cua don do, xem openEditModal).
+  function autoFillWarehouse(customerId) {
+    if (!customerId) {
+      form.setFieldsValue({ warehouseId: undefined });
+      return;
+    }
+    const customer = customers.find((c) => c.id === customerId);
+    const mainWarehouse = customer?.branch?.id
+      ? warehouses.find((w) => w.branch?.id === customer.branch.id && w.warehouseType === 'MAIN')
+      : null;
+    if (!mainWarehouse) {
+      message.error('Khách hàng này thuộc chi nhánh chưa có Kho chính (Main) - vui lòng cấu hình kho trước');
+      form.setFieldsValue({ warehouseId: undefined });
+      return;
+    }
+    form.setFieldsValue({ warehouseId: mainWarehouse.id });
   }
 
   function loadData() {
@@ -161,21 +179,19 @@ export default function SalesOrderPage() {
   function openCreateModal() {
     setEditingOrder(null);
     form.resetFields();
-    form.setFieldsValue({ docDate: new Date().toISOString().slice(0, 10), orderType: 'STANDARD' });
+    // Van-Sales (STANDARD) bi disable tren web nen mac dinh la Pre-order - xem ORDER_TYPE_OPTIONS.
+    form.setFieldsValue({ docDate: new Date().toISOString().slice(0, 10), orderType: 'PRE_ORDER' });
     setDetailRows([]);
     setCustomerRouteInfo(null);
     setModalOpen(true);
   }
 
-  // Don mau: don gia luon = 0 (mien phi) - ep lai cac dong da them khi doi sang SAMPLE. Pre-order: chi
-  // cho Kho chinh, bo kho da chon neu khong phai Main.
+  // Don mau: don gia luon = 0 (mien phi) - ep lai cac dong da them khi doi sang SAMPLE. Kho xuat gio
+  // luon la Kho Main (tu suy tu khach hang - xem autoFillWarehouse) nen khong can xu ly rieng cho
+  // Pre-order nua.
   function handleOrderTypeChange(type) {
     if (type === 'SAMPLE') {
       setDetailRows((prev) => prev.map((d) => ({ ...d, unitPrice: 0 })));
-    }
-    if (type === 'PRE_ORDER') {
-      const current = warehouses.find((w) => w.id === form.getFieldValue('warehouseId'));
-      if (current && current.warehouseType !== 'MAIN') form.setFieldsValue({ warehouseId: undefined });
     }
   }
 
@@ -504,18 +520,13 @@ export default function SalesOrderPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Loại đơn" name="orderType" rules={[{ required: true, message: 'Chọn loại đơn' }]}>
-                <Select options={ORDER_TYPE_OPTIONS} onChange={handleOrderTypeChange} />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
               <Form.Item
-                label="Kho xuất"
-                name="warehouseId"
-                rules={[{ required: true, message: 'Kho xuất không được để trống' }]}
-                extra={orderType === 'PRE_ORDER' ? 'Đơn Pre-order chỉ xuất từ Kho chính (Main)' : undefined}
+                label="Loại đơn"
+                name="orderType"
+                rules={[{ required: true, message: 'Chọn loại đơn' }]}
+                extra={orderType === 'STANDARD' ? 'Đơn Van-Sales (giao ngay) - tạo mới sẽ qua App Van-Sales (đang phát triển)' : undefined}
               >
-                <Select options={warehouseOptions} placeholder="Chọn kho" />
+                <Select options={ORDER_TYPE_OPTIONS} onChange={handleOrderTypeChange} />
               </Form.Item>
             </Col>
             <Col span={8}>
@@ -529,7 +540,23 @@ export default function SalesOrderPage() {
             </Col>
             <Col span={8}>
               <Form.Item label="Khách hàng" name="customerId" rules={[{ required: true, message: 'Khách hàng không được để trống' }]}>
-                <Select options={customerOptions} placeholder="Chọn khách hàng" onChange={handleCustomerSelect} showSearch optionFilterProp="label" />
+                <Select
+                  options={customerOptions}
+                  placeholder="Chọn khách hàng"
+                  onChange={(customerId) => { handleCustomerSelect(customerId); autoFillWarehouse(customerId); }}
+                  showSearch
+                  optionFilterProp="label"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                label="Kho xuất"
+                name="warehouseId"
+                rules={[{ required: true, message: 'Chọn khách hàng để tự xác định kho xuất' }]}
+                extra="Tự động theo chi nhánh của khách hàng (Kho chính)"
+              >
+                <Select options={warehouseOptions} placeholder="Tự động khi chọn khách hàng" disabled />
               </Form.Item>
             </Col>
           </Row>
