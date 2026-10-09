@@ -502,6 +502,20 @@ Build frontend sạch, compile-check qua dev server OK. Không có thay đổi b
 
 **Lưu ý vận hành phát hiện lúc "chạy web" hôm 2026-10-08/09**: Docker Desktop đôi lúc khởi động rất chậm hoặc tự crash-rồi-tự-phục-hồi (quan sát thấy `com.docker.backend` chết rồi `wslrelay` tự khởi động lại sau ~3-6 phút) — không phải mất dữ liệu (container/volume vẫn giữ nguyên, đã xác minh dữ liệu còn đủ sau khi Docker lên lại). Nếu `docker ps` báo lỗi "failed to connect to the docker API", cứ đợi thêm (tới ~5-6 phút) thay vì nghi ngờ mất dữ liệu ngay — PowerShell script `dev-start.ps1` tự có bug nhỏ (lỗi `NativeCommandError` làm thoát sớm khi Docker còn đang khởi động) nên nhiều lúc phải tự chạy tay `docker compose up -d` + `mvnw spring-boot:run` + `npm run dev` thay vì chạy thẳng script.
 
+## 💰 Chuyển hiệu lực giá từ Bảng giá xuống từng dòng giá sản phẩm (2026-10-09)
+
+**Vấn đề phát hiện**: `PriceList` (bảng giá) có 2 trường "Ngày hiệu lực"/"Ngày hết hiệu lực" nhưng kiểm tra code thì `PriceListService.lookupPrice` **chưa bao giờ đọc 2 trường này** — chỉ mang tính trang trí, không có tác dụng lọc giá thật. Yêu cầu: hiệu lực phải nằm ở **từng dòng giá sản phẩm** (PriceListItem, tức SP + ĐVT) để 1 sản phẩm có thể có nhiều mức giá theo từng giai đoạn khác nhau (lịch sử giá), và `lookupPrice` phải thực sự lọc theo ngày chứng từ.
+
+**Đã làm (V41)**:
+- Thêm `start_date` (NOT NULL, backfill từ `price_list.start_date` hoặc `2026-01-01` nếu trống) + `end_date` vào `price_list_item`; bỏ ràng buộc UNIQUE (price_list_id, product_id, uom_id) — giờ 1 SP+ĐVT được phép có nhiều dòng giá miễn không chồng lặp hiệu lực. Bỏ 2 cột start_date/end_date khỏi `price_list`.
+- *Lưu ý kỹ thuật*: migration suýt lỗi vì MySQL không cho xóa index đang làm chỗ dựa cho khóa ngoại (`FK price_list_id`) — phải tạo index thay thế trước khi xóa UNIQUE cũ.
+- `addItem()`: chặn thêm dòng giá nếu khoảng hiệu lực chồng lặp với dòng giá khác cùng SP+ĐVT (tái dùng đúng pattern `validateNoOverlap` của Khung tuyến).
+- `lookupPrice()`/`pickPrice()`: thêm tham số `date`, lọc dòng giá theo hiệu lực tại ngày đó trước khi chọn ĐVT — không tìm được dòng hợp lệ thì báo lỗi rõ ràng (không có giá fallback).
+- 3 nơi gọi tra giá (Đơn hàng bán, Yêu cầu bán hàng, Phiếu nhập hàng) đều truyền thêm `date` = ngày chứng từ đang lập (docDate).
+- Trang Bảng giá: bỏ 2 trường Ngày hiệu lực/hết hiệu lực ở form Bảng giá (header), thêm 2 trường đó vào form "Thêm giá sản phẩm" (dòng giá).
+
+**Đã test qua API (sạch, dữ liệu demo cũ không bị ảnh hưởng)**: tạo 2 dòng giá nối tiếp cho 1 SP+ĐVT mới (100.000đ hiệu lực 01/01→30/06, 120.000đ từ 01/07 không giới hạn) → thêm dòng thứ 3 chồng lặp (01/03) bị từ chối đúng như kỳ vọng → tra giá ngày 02/2026 ra 100.000, ngày 08/2026 ra 120.000, ngày trước 01/01/2026 báo lỗi "không tìm thấy giá hợp lệ" → dòng giá cũ có sẵn (backfill start_date=2026-01-01, end_date=NULL) vẫn tra đúng giá cũ bình thường. Sau test đã xóa sạch 2 dòng giá test, bảng giá BG-DAILY-C1 về lại đúng 11 dòng ban đầu.
+
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
 **Phân trang (pagination) cho các trang danh sách** — nguyên nhân: Nhi (thành viên 2, làm ETL/DW/AI/BI nhánh `feature/data-ai`) đẩy lên 1 bộ dữ liệu khá lớn, làm các trang danh sách (Đơn hàng bán...) load chậm hẳn mỗi lần bấm, vì hiện tại mọi trang đều gọi API tải **toàn bộ** bảng 1 lần (không giới hạn số dòng, JSON lồng sâu), lọc/tìm kiếm làm phía trình duyệt. Đã phân tích trong phiên và người dùng **xác nhận hoãn lại**, đợi làm xong hết các yêu cầu hiện tại mới quay lại làm. Hướng giải quyết đã thống nhất: phân trang phía Server (Spring Data `Pageable` + AntD `Table` pagination gọi lại API theo trang), làm thí điểm ở trang Đơn hàng bán trước — nhớ vẫn cần hỏi xác nhận lại trước khi code theo đúng quy tắc chung.
