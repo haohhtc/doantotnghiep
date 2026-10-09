@@ -473,3 +473,31 @@ Trước đây 2 trang riêng (mô phỏng đúng pattern DMS thật: người l
 - **Xóa hẳn** trang/route/menu "Xác nhận giao hàng" (`/sales/delivery-confirm`) — menu Bán hàng còn 11 mục thay vì 12.
 
 Build frontend sạch, compile-check qua dev server OK. Không có thay đổi backend/database nào trong đợt này.
+
+## 🧭 4 cải tiến Khung tuyến + khóa Chi nhánh Khách hàng + dọn & dựng dữ liệu mẫu 2 khu vực (2026-10-08 → 2026-10-09)
+
+**A. 4 cải tiến Khung tuyến (migration V40)**:
+1. **Lọc Khách hàng theo Vùng bán hàng**: dropdown "Khách hàng" khi thêm vào tuyến chỉ hiện khách có địa chỉ khớp đúng Vùng bán hàng của tuyến (khớp đến cấp Vùng bán hàng ĐÃ khai báo — set tới Tỉnh thì khớp cả tỉnh, set thêm Huyện thì khớp đúng huyện). Dùng field FK `regionRef/provinceRef/districtRef/wardRef` của SellingZone so với `region/province/district/ward` của Customer.
+2. **Lịch ghé thăm đổi từ "tuần 1-4 trong tháng" (4 cột boolean) sang "tuần cụ thể trong năm"** (cột mới `visit_weeks`, chuỗi số tuần 1-53 cách nhau dấu phẩy, tự reset mỗi năm vì không lưu năm). Sửa đồng bộ: `RouteMasterOutlet` entity/DTO, `CustomerRouteInfoDto`, công thức "Đúng tuyến/Trái tuyến" ở Đơn hàng bán (đổi sang tính ISO week number chuẩn thay vì `Math.ceil(ngày/7)`). Form đổi 4 checkbox thành 1 ô chọn nhiều (multi-select) tuần 1→53.
+3. **Thêm nút Sửa lịch ghé thăm** cho khách hàng đã có trong tuyến (API `PUT /route-masters/{id}/outlets/{outletId}` mới) — đổi Thứ tự/Thứ/Tuần mà không cần gỡ rồi thêm lại, không cho đổi khách hàng lúc sửa.
+4. **Sửa lỗi canh chỉnh nút "Thêm" ở tab Nhân sự bị lệch** — do dòng ghi chú dưới ô "Ngày kết thúc" làm ô đó cao hơn trong layout inline, đã chuyển ghi chú ra ngoài hàng.
+
+**B. Khóa cứng "Chi nhánh" ở form Khách hàng** (giống Kho xuất/Chi nhánh quản lý Kho/Chi nhánh Khung tuyến trước đó) — không cho chọn tay sang chi nhánh khác, luôn đúng chi nhánh đang chọn ở Header (tạo mới) hoặc đúng chi nhánh hiện tại của khách (sửa).
+
+**C. Dọn dữ liệu Vùng bán hàng + Chi nhánh rác, dựng lại 2 Vùng chuẩn**:
+- Xóa Route rác "123" + Vùng bán hàng rác "ádas" (id=2).
+- Sửa Vùng id=1 thành **"Vùng Miền Bắc"** (Chi nhánh Hà Nội, gán cấp Tỉnh = Hà Nội).
+- Tạo mới **"Vùng Miền Nam"** (Chi nhánh Bình Dương, gán cấp Vùng = Miền Nam — bao TP.HCM + Bình Dương + Đồng Nai, vì 1 Vùng bán hàng chỉ gán được 1 cấp địa chỉ nên không tách riêng được 2 tỉnh).
+- Chuyển **RT-001** ("Tuyến siêu thị Bình Dương") sang Vùng Miền Nam, giữ nguyên không xóa.
+- Gán lại địa chỉ cho 2 khách hàng cũ **WinMart** (→ Bình Dương) và **Co.opmart** (→ TP.HCM, khớp đúng địa chỉ chữ cũ "Quận 3, TP.HCM") để khớp Vùng Miền Nam.
+- **Xóa 3 chi nhánh rác** (HCM, MN-miennam, sada-ádsada, do người dùng tự tạo lúc test trước đó) cùng 9 kho tự sinh + 2 khách hàng test ("abc", "213") + 1 đơn hàng test ("abca", đơn CONFIRMED từ trước lúc tính năng tự tạo Đơn giao hàng chưa deploy).
+- Sau dọn: hệ thống chỉ còn đúng 2 chi nhánh sạch (CN-BD, CN_HN).
+
+**D. Dựng đầy đủ dữ liệu mẫu cho khu vực Hà Nội** (trước đó chỉ có Kho/Bảng giá/4 SP phân bổ/2 khách hàng, CHƯA có Khung tuyến):
+- Tạo **Khung tuyến "RT-HN01"** (Tuyến nội thành Hà Nội), gán đúng Vùng Miền Bắc + Chi nhánh Hà Nội.
+- Gán KH-HN01 (Thứ Hai, tuần 1-4) và KH-HN02 (Thứ Năm, tuần 1-4) vào tuyến.
+- **Test trực tiếp toàn bộ chuỗi bán hàng thật tại Hà Nội**: SO0013 (KH-HN01, 2 Hộp CP001) → Xác nhận (tự tạo DO0008) → Xác nhận giao hàng (Kho Chính HN 10.000→9.976, Kho Van HN 0→24) → Xuất hóa đơn HD0004 (88.000đ gồm thuế, Kho Van về lại 0) — **chạy đúng 100%, 0 lỗi**.
+- Tạo thêm **KH-HN03** (chưa gán tuyến nào) để minh họa dropdown "Khách hàng" trong tuyến load được khách mới (trước đó dropdown hiện "No data" vì cả 2 khách Hà Nội đã gán hết rồi — **không phải lỗi**, chỉ là hết khách khả dụng).
+- Chạy lại 22 kiểm tra toàn vẹn dữ liệu cho toàn hệ thống sau tất cả thay đổi trên — **sạch 0 lỗi**.
+
+**Lưu ý vận hành phát hiện lúc "chạy web" hôm 2026-10-08/09**: Docker Desktop đôi lúc khởi động rất chậm hoặc tự crash-rồi-tự-phục-hồi (quan sát thấy `com.docker.backend` chết rồi `wslrelay` tự khởi động lại sau ~3-6 phút) — không phải mất dữ liệu (container/volume vẫn giữ nguyên, đã xác minh dữ liệu còn đủ sau khi Docker lên lại). Nếu `docker ps` báo lỗi "failed to connect to the docker API", cứ đợi thêm (tới ~5-6 phút) thay vì nghi ngờ mất dữ liệu ngay — PowerShell script `dev-start.ps1` tự có bug nhỏ (lỗi `NativeCommandError` làm thoát sớm khi Docker còn đang khởi động) nên nhiều lúc phải tự chạy tay `docker compose up -d` + `mvnw spring-boot:run` + `npm run dev` thay vì chạy thẳng script.
