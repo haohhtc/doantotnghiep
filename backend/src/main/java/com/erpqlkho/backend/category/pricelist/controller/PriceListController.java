@@ -66,6 +66,11 @@ public class PriceListController {
         return ApiResponse.ok("Da them gia san pham", priceListService.addItem(id, dto));
     }
 
+    @PutMapping("/{id}/items/{itemId}")
+    public ApiResponse<PriceListItem> updateItem(@PathVariable Long id, @PathVariable Long itemId, @Valid @RequestBody PriceListItemDto dto) {
+        return ApiResponse.ok("Da sua gia san pham", priceListService.updateItem(id, itemId, dto));
+    }
+
     @DeleteMapping("/{id}/items/{itemId}")
     public ApiResponse<Void> removeItem(@PathVariable Long id, @PathVariable Long itemId) {
         priceListService.removeItem(id, itemId);

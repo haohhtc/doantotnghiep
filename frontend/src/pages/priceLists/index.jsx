@@ -48,6 +48,7 @@ export default function PriceListsPage() {
   const [newPrice, setNewPrice] = useState(null);
   const [newStartDate, setNewStartDate] = useState(null);
   const [newEndDate, setNewEndDate] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
 
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
   const uomOptions = uoms.map((u) => ({ value: u.id, label: `${u.code} - ${u.name}` }));
@@ -114,13 +115,27 @@ export default function PriceListsPage() {
 
   function openItemModal(record) {
     setItemPriceList(record);
+    resetItemForm();
+    setItemModalOpen(true);
+    loadItems(record.id);
+  }
+
+  function resetItemForm() {
+    setEditingItem(null);
     setNewProductId(null);
     setNewUomId(null);
     setNewPrice(null);
     setNewStartDate(null);
     setNewEndDate(null);
-    setItemModalOpen(true);
-    loadItems(record.id);
+  }
+
+  function openEditItemForm(item) {
+    setEditingItem(item);
+    setNewProductId(item.product.id);
+    setNewUomId(item.uom.id);
+    setNewPrice(Number(item.price));
+    setNewStartDate(item.startDate);
+    setNewEndDate(item.endDate || null);
   }
 
   function loadItems(priceListId) {
@@ -132,29 +147,28 @@ export default function PriceListsPage() {
       .finally(() => setItemsLoading(false));
   }
 
-  function handleAddItem() {
+  function handleSubmitItem() {
     if (!newProductId || !newUomId || newPrice == null || !newStartDate) {
       message.warning('Chọn sản phẩm, đơn vị tính, nhập giá và ngày hiệu lực');
       return;
     }
-    axiosClient
-      .post(`/price-lists/${itemPriceList.id}/items`, {
-        productId: newProductId,
-        uomId: newUomId,
-        price: newPrice,
-        startDate: newStartDate,
-        endDate: newEndDate || null,
-      })
+    const payload = {
+      productId: newProductId,
+      uomId: newUomId,
+      price: newPrice,
+      startDate: newStartDate,
+      endDate: newEndDate || null,
+    };
+    const request = editingItem
+      ? axiosClient.put(`/price-lists/${itemPriceList.id}/items/${editingItem.id}`, payload)
+      : axiosClient.post(`/price-lists/${itemPriceList.id}/items`, payload);
+    request
       .then(() => {
-        message.success('Đã thêm giá sản phẩm');
-        setNewProductId(null);
-        setNewUomId(null);
-        setNewPrice(null);
-        setNewStartDate(null);
-        setNewEndDate(null);
+        message.success(editingItem ? 'Đã sửa giá sản phẩm' : 'Đã thêm giá sản phẩm');
+        resetItemForm();
         loadItems(itemPriceList.id);
       })
-      .catch((err) => message.error(err.response?.data?.message || 'Thêm thất bại'));
+      .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
   }
 
   function handleRemoveItem(itemId) {
@@ -249,6 +263,9 @@ export default function PriceListsPage() {
       >
         {canWrite && (
           <Space direction="vertical" style={{ width: '100%', marginBottom: 12 }}>
+            {editingItem && (
+              <Text type="secondary">Đang sửa dòng giá (sản phẩm + đơn vị tính không đổi) - chỉ sửa giá/ngày hiệu lực</Text>
+            )}
             <Row gutter={8}>
               <Col flex="40%">
                 <Select
@@ -259,6 +276,7 @@ export default function PriceListsPage() {
                   onChange={setNewProductId}
                   showSearch
                   optionFilterProp="label"
+                  disabled={!!editingItem}
                 />
               </Col>
               <Col flex="25%">
@@ -268,6 +286,7 @@ export default function PriceListsPage() {
                   options={uomOptions}
                   value={newUomId}
                   onChange={setNewUomId}
+                  disabled={!!editingItem}
                 />
               </Col>
               <Col flex="auto">
@@ -299,9 +318,12 @@ export default function PriceListsPage() {
                 />
               </Col>
               <Col flex="none">
-                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddItem}>
-                  Thêm
-                </Button>
+                <Space>
+                  {editingItem && <Button onClick={resetItemForm}>Hủy</Button>}
+                  <Button type="primary" icon={editingItem ? <EditOutlined /> : <PlusOutlined />} onClick={handleSubmitItem}>
+                    {editingItem ? 'Lưu' : 'Thêm'}
+                  </Button>
+                </Space>
               </Col>
             </Row>
           </Space>
@@ -315,6 +337,7 @@ export default function PriceListsPage() {
               actions={
                 canWrite
                   ? [
+                      <Button key="edit" size="small" icon={<EditOutlined />} onClick={() => openEditItemForm(item)} />,
                       <Popconfirm key="remove" title="Xóa giá sản phẩm này?" onConfirm={() => handleRemoveItem(item.id)}>
                         <Button size="small" icon={<DeleteOutlined />} danger />
                       </Popconfirm>,

@@ -136,6 +136,33 @@ public class PriceListService {
         return priceListItemRepository.save(item);
     }
 
+    // Sua gia/hieu luc cua 1 dong gia da co - KHONG cho doi San pham/DVT (doi 2 truong nay coi nhu
+    // la 1 dong khac, phai xoa/them lai). Dung de sua nhanh gia/ngay hieu luc ma khong can xoa roi
+    // them lai (vd SP da bi phan bo chi nhanh thi khong xoa duoc - xem removeItem).
+    @Transactional
+    public PriceListItem updateItem(Long priceListId, Long itemId, PriceListItemDto dto) {
+        PriceListItem item = priceListItemRepository.findById(itemId)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay dong gia id=" + itemId));
+        if (!item.getPriceList().getId().equals(priceListId)) {
+            throw ApiException.notFound("Dong gia nay khong thuoc bang gia id=" + priceListId);
+        }
+        if (dto.getEndDate() != null && dto.getEndDate().isBefore(dto.getStartDate())) {
+            throw new ApiException("Ngay het hieu luc khong duoc truoc ngay hieu luc");
+        }
+
+        List<PriceListItem> existing = priceListItemRepository
+                .findByPriceListIdAndProductIdAndUomId(priceListId, item.getProduct().getId(), item.getUom().getId());
+        for (PriceListItem other : existing) {
+            if (other.getId().equals(itemId)) continue;
+            validateNoOverlap(other.getStartDate(), other.getEndDate(), dto.getStartDate(), dto.getEndDate());
+        }
+
+        item.setPrice(dto.getPrice());
+        item.setStartDate(dto.getStartDate());
+        item.setEndDate(dto.getEndDate());
+        return priceListItemRepository.save(item);
+    }
+
     // Giong RouteMasterService.validateNoOverlap(): cho phep nhieu dong gia cung SP+DVT nhung
     // khoang hieu luc khong duoc giao nhau, de lookupPrice luon tim duoc toi da 1 dong hop le.
     private void validateNoOverlap(LocalDate existingStart, LocalDate existingEnd, LocalDate newStart, LocalDate newEnd) {
