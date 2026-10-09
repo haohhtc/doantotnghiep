@@ -41,8 +41,11 @@ export default function PurchaseGoodsReturnPage() {
   const [detailForm] = Form.useForm();
 
   const supplierOptions = suppliers.map((s) => ({ value: s.id, label: `${s.code} - ${s.name}` }));
+  // Kho xuat tra gio khong cho chon tay nua - tu dong la Kho hu (DAMAGE) cua chi nhanh dang chon
+  // (hang tra NCC thuong la hang loi/hu dang nam o kho DAMAGE) - xem openCreateModal. Van giu rieng
+  // kho cua ban ghi dang sua (editingReturn) de khong mat label, giong cac trang khac.
   const warehouseOptions = warehouses
-    .filter((w) => !selectedBranchId || w.branch?.id === selectedBranchId || w.id === editingReturn?.warehouse?.id)
+    .filter((w) => w.id === editingReturn?.warehouse?.id || (!selectedBranchId || w.branch?.id === selectedBranchId))
     .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
   const goodsReceiptOptions = goodsReceipts.map((g) => ({ value: g.id, label: g.docNumber }));
@@ -76,6 +79,7 @@ export default function PurchaseGoodsReturnPage() {
   }, []);
 
   const filteredReturns = returns.filter((r) => {
+    if (selectedBranchId && r.warehouse?.branch?.id !== selectedBranchId) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return r.docNumber.toLowerCase().includes(keyword) || (r.supplier?.name || '').toLowerCase().includes(keyword);
@@ -84,7 +88,11 @@ export default function PurchaseGoodsReturnPage() {
   function openCreateModal() {
     setEditingReturn(null);
     form.resetFields();
-    form.setFieldsValue({ docDate: new Date().toISOString().slice(0, 10) });
+    const damageWarehouse = warehouses.find((w) => w.branch?.id === selectedBranchId && w.warehouseType === 'DAMAGE');
+    if (!damageWarehouse) {
+      message.error('Chi nhánh này chưa có Kho hư (DAMAGE) - vui lòng cấu hình kho trước');
+    }
+    form.setFieldsValue({ docDate: new Date().toISOString().slice(0, 10), warehouseId: damageWarehouse?.id });
     setDetailRows([]);
     setModalOpen(true);
   }
@@ -262,8 +270,13 @@ export default function PurchaseGoodsReturnPage() {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Kho xuất trả" name="warehouseId" rules={[{ required: true, message: 'Kho không được để trống' }]}>
-                <Select options={warehouseOptions} placeholder="Chọn kho" />
+              <Form.Item
+                label="Kho xuất trả"
+                name="warehouseId"
+                rules={[{ required: true, message: 'Chi nhánh chưa có Kho hư (DAMAGE)' }]}
+                extra="Tự động là Kho hư (DAMAGE) của chi nhánh đang chọn"
+              >
+                <Select options={warehouseOptions} placeholder="Chưa xác định được Kho hư" disabled />
               </Form.Item>
             </Col>
             <Col span={8}>
