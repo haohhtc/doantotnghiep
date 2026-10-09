@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -80,7 +81,8 @@ public class PriceListController {
             @RequestParam(required = false) Long customerId,
             @RequestParam(required = false) Long warehouseId,
             @RequestParam String purpose,
-            @RequestParam(required = false) Long uomId) {
-        return ApiResponse.ok(priceListService.lookupPrice(productId, customerId, warehouseId, purpose, uomId));
+            @RequestParam(required = false) Long uomId,
+            @RequestParam(required = false) LocalDate date) {
+        return ApiResponse.ok(priceListService.lookupPrice(productId, customerId, warehouseId, purpose, uomId, date));
     }
 }

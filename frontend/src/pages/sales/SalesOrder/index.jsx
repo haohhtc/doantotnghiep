@@ -279,8 +279,9 @@ export default function SalesOrderPage() {
     detailForm.setFieldsValue({ unitPrice: undefined });
     const customerId = form.getFieldValue('customerId');
     const warehouseId = form.getFieldValue('warehouseId');
+    const date = form.getFieldValue('docDate');
     axiosClient
-      .get('/price-lists/lookup', { params: { productId, customerId, warehouseId, purpose: 'SALE', uomId } })
+      .get('/price-lists/lookup', { params: { productId, customerId, warehouseId, purpose: 'SALE', uomId, date } })
       .then(({ data }) => {
         if (data.data != null) detailForm.setFieldsValue({ unitPrice: data.data });
       })

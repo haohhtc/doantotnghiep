@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -61,8 +62,6 @@ public class PriceListService {
         priceList.setCode(dto.getCode());
         priceList.setName(dto.getName());
         priceList.setType(validateType(dto.getType()));
-        priceList.setStartDate(dto.getStartDate());
-        priceList.setEndDate(dto.getEndDate());
         priceList.setActive(dto.getActive() == null || dto.getActive());
         return priceListRepository.save(priceList);
     }
@@ -76,8 +75,6 @@ public class PriceListService {
         priceList.setCode(dto.getCode());
         priceList.setName(dto.getName());
         priceList.setType(validateType(dto.getType()));
-        priceList.setStartDate(dto.getStartDate());
-        priceList.setEndDate(dto.getEndDate());
         if (dto.getActive() != null) {
             priceList.setActive(dto.getActive());
         }
@@ -118,8 +115,14 @@ public class PriceListService {
         Product product = findProduct(dto.getProductId());
         Uom uom = findUom(dto.getUomId());
 
-        if (priceListItemRepository.existsByPriceListIdAndProductIdAndUomId(priceListId, dto.getProductId(), dto.getUomId())) {
-            throw ApiException.conflict("San pham + don vi tinh nay da co gia trong bang gia");
+        if (dto.getEndDate() != null && dto.getEndDate().isBefore(dto.getStartDate())) {
+            throw new ApiException("Ngay het hieu luc khong duoc truoc ngay hieu luc");
+        }
+
+        List<PriceListItem> existing = priceListItemRepository
+                .findByPriceListIdAndProductIdAndUomId(priceListId, dto.getProductId(), dto.getUomId());
+        for (PriceListItem other : existing) {
+            validateNoOverlap(other.getStartDate(), other.getEndDate(), dto.getStartDate(), dto.getEndDate());
         }
 
         PriceListItem item = new PriceListItem();
@@ -127,8 +130,22 @@ public class PriceListService {
         item.setProduct(product);
         item.setUom(uom);
         item.setPrice(dto.getPrice());
+        item.setStartDate(dto.getStartDate());
+        item.setEndDate(dto.getEndDate());
         item.setCreatedAt(LocalDateTime.now());
         return priceListItemRepository.save(item);
+    }
+
+    // Giong RouteMasterService.validateNoOverlap(): cho phep nhieu dong gia cung SP+DVT nhung
+    // khoang hieu luc khong duoc giao nhau, de lookupPrice luon tim duoc toi da 1 dong hop le.
+    private void validateNoOverlap(LocalDate existingStart, LocalDate existingEnd, LocalDate newStart, LocalDate newEnd) {
+        LocalDate existingEndOrMax = existingEnd != null ? existingEnd : LocalDate.MAX;
+        LocalDate newEndOrMax = newEnd != null ? newEnd : LocalDate.MAX;
+        boolean overlap = !newStart.isAfter(existingEndOrMax) && !existingStart.isAfter(newEndOrMax);
+        if (overlap) {
+            throw ApiException.conflict("Khoang hieu luc bi chong lap voi 1 dong gia khac cua san pham + don vi tinh nay (hieu luc "
+                    + existingStart + " den " + (existingEnd != null ? existingEnd : "chua ket thuc") + ")");
+        }
     }
 
     @Transactional
@@ -152,13 +169,14 @@ public class PriceListService {
     // xoa cot o V19) - khong tim duoc gia hop le thi nem loi ro rang, chan tao/xac nhan phieu.
     // Xem tonghop.md muc "Nhi dat hang lon" Nhom 4.
 
-    public BigDecimal lookupPrice(Long productId, Long customerId, Long warehouseId, String purpose, Long uomId) {
+    public BigDecimal lookupPrice(Long productId, Long customerId, Long warehouseId, String purpose, Long uomId, LocalDate date) {
         Product product = findProduct(productId);
+        LocalDate effectiveDate = date != null ? date : LocalDate.now();
 
         if (customerId != null) {
             Customer customer = customerRepository.findById(customerId).orElse(null);
             if (customer != null && customer.getPriceList() != null && purpose.equals(customer.getPriceList().getType())) {
-                Optional<BigDecimal> price = pickPrice(customer.getPriceList().getId(), productId, product, purpose, uomId);
+                Optional<BigDecimal> price = pickPrice(customer.getPriceList().getId(), productId, product, purpose, uomId, effectiveDate);
                 if (price.isPresent()) return price.get();
             }
         }
@@ -167,21 +185,24 @@ public class PriceListService {
             Warehouse warehouse = warehouseRepository.findById(warehouseId).orElse(null);
             if (warehouse != null && warehouse.getBranch() != null && warehouse.getBranch().getPriceList() != null
                     && purpose.equals(warehouse.getBranch().getPriceList().getType())) {
-                Optional<BigDecimal> price = pickPrice(warehouse.getBranch().getPriceList().getId(), productId, product, purpose, uomId);
+                Optional<BigDecimal> price = pickPrice(warehouse.getBranch().getPriceList().getId(), productId, product, purpose, uomId, effectiveDate);
                 if (price.isPresent()) return price.get();
             }
         }
 
         throw new ApiException("Không tìm thấy giá " + ("SALE".equals(purpose) ? "bán" : "mua")
-                + " hợp lệ cho sản phẩm \"" + product.getName() + "\" - vui lòng cấu hình bảng giá trước");
+                + " hợp lệ cho sản phẩm \"" + product.getName() + "\" vào ngày " + effectiveDate
+                + " - vui lòng cấu hình bảng giá trước");
     }
 
     // DVT can gia: uomId nguoi dung chon -> (khong co) sale_uom/purchase_uom cua san pham. Co dong gia
     // dung DVT do thi lay thang; khong co thi SUY RA tu 1 dong gia khac: gia co so = gia / he so cua dong
     // do, roi nhan he so DVT can tim (VD co gia HOP 40.000, he so 12 -> gia GOI = 3.333,33, THUNG x144).
     // Khong chon DVT nao va san pham cung khong co DVT mac dinh -> lay dong dau (nhu truoc).
-    private Optional<BigDecimal> pickPrice(Long priceListId, Long productId, Product product, String purpose, Long uomId) {
-        List<PriceListItem> items = priceListItemRepository.findByPriceListIdAndProductId(priceListId, productId);
+    private Optional<BigDecimal> pickPrice(Long priceListId, Long productId, Product product, String purpose, Long uomId, LocalDate date) {
+        List<PriceListItem> items = priceListItemRepository.findByPriceListIdAndProductId(priceListId, productId).stream()
+                .filter(i -> !i.getStartDate().isAfter(date) && (i.getEndDate() == null || !i.getEndDate().isBefore(date)))
+                .toList();
         if (items.isEmpty()) return Optional.empty();
         Uom defaultUom = "SALE".equals(purpose) ? product.getSaleUom() : product.getPurchaseUom();
         Long targetUomId = uomId != null ? uomId : (defaultUom != null ? defaultUom.getId() : null);

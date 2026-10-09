@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -20,4 +21,9 @@ public class PriceListItemDto {
     @NotNull(message = "Gia khong duoc de trong")
     @DecimalMin(value = "0", message = "Gia khong duoc am")
     private BigDecimal price;
+
+    @NotNull(message = "Ngay hieu luc khong duoc de trong")
+    private LocalDate startDate;
+
+    private LocalDate endDate;
 }

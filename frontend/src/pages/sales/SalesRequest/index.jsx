@@ -140,8 +140,9 @@ export default function SalesRequestPage() {
   function lookupPrice(productId, uomId) {
     detailForm.setFieldsValue({ unitPrice: undefined });
     const customerId = form.getFieldValue('customerId');
+    const date = form.getFieldValue('docDate');
     axiosClient
-      .get('/price-lists/lookup', { params: { productId, customerId, purpose: 'SALE', uomId } })
+      .get('/price-lists/lookup', { params: { productId, customerId, purpose: 'SALE', uomId, date } })
       .then(({ data }) => {
         if (data.data != null) detailForm.setFieldsValue({ unitPrice: data.data });
       })

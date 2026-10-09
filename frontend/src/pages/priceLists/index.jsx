@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Checkbox,
-  Popconfirm, message, List, Empty,
+  Popconfirm, message, List, Empty, Row, Col,
 } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
@@ -46,6 +46,8 @@ export default function PriceListsPage() {
   const [newProductId, setNewProductId] = useState(null);
   const [newUomId, setNewUomId] = useState(null);
   const [newPrice, setNewPrice] = useState(null);
+  const [newStartDate, setNewStartDate] = useState(null);
+  const [newEndDate, setNewEndDate] = useState(null);
 
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
   const uomOptions = uoms.map((u) => ({ value: u.id, label: `${u.code} - ${u.name}` }));
@@ -115,6 +117,8 @@ export default function PriceListsPage() {
     setNewProductId(null);
     setNewUomId(null);
     setNewPrice(null);
+    setNewStartDate(null);
+    setNewEndDate(null);
     setItemModalOpen(true);
     loadItems(record.id);
   }
@@ -129,17 +133,25 @@ export default function PriceListsPage() {
   }
 
   function handleAddItem() {
-    if (!newProductId || !newUomId || newPrice == null) {
-      message.warning('Chọn sản phẩm, đơn vị tính và nhập giá');
+    if (!newProductId || !newUomId || newPrice == null || !newStartDate) {
+      message.warning('Chọn sản phẩm, đơn vị tính, nhập giá và ngày hiệu lực');
       return;
     }
     axiosClient
-      .post(`/price-lists/${itemPriceList.id}/items`, { productId: newProductId, uomId: newUomId, price: newPrice })
+      .post(`/price-lists/${itemPriceList.id}/items`, {
+        productId: newProductId,
+        uomId: newUomId,
+        price: newPrice,
+        startDate: newStartDate,
+        endDate: newEndDate || null,
+      })
       .then(() => {
         message.success('Đã thêm giá sản phẩm');
         setNewProductId(null);
         setNewUomId(null);
         setNewPrice(null);
+        setNewStartDate(null);
+        setNewEndDate(null);
         loadItems(itemPriceList.id);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Thêm thất bại'));
@@ -159,11 +171,6 @@ export default function PriceListsPage() {
     { title: 'Mã bảng giá', dataIndex: 'code', key: 'code' },
     { title: 'Tên bảng giá', dataIndex: 'name', key: 'name' },
     { title: 'Loại', dataIndex: 'type', key: 'type', render: (v) => typeTag(v) },
-    {
-      title: 'Hiệu lực',
-      key: 'effective',
-      render: (_, r) => `${r.startDate || '?'} → ${r.endDate || '?'}`,
-    },
     {
       title: 'Trạng thái',
       dataIndex: 'active',
@@ -226,12 +233,6 @@ export default function PriceListsPage() {
           <Form.Item label="Loại" name="type" rules={[{ required: true, message: 'Loại bảng giá không được để trống' }]}>
             <Select options={TYPE_OPTIONS} />
           </Form.Item>
-          <Form.Item label="Ngày hiệu lực" name="startDate">
-            <Input type="date" />
-          </Form.Item>
-          <Form.Item label="Ngày hết hiệu lực" name="endDate">
-            <Input type="date" />
-          </Form.Item>
           <Form.Item name="active" valuePropName="checked">
             <Checkbox>Đang áp dụng</Checkbox>
           </Form.Item>
@@ -247,35 +248,63 @@ export default function PriceListsPage() {
         destroyOnHidden
       >
         {canWrite && (
-          <Space.Compact style={{ width: '100%', marginBottom: 12 }}>
-            <Select
-              style={{ width: '40%' }}
-              placeholder="Chọn sản phẩm"
-              options={productOptions}
-              value={newProductId}
-              onChange={setNewProductId}
-              showSearch
-              optionFilterProp="label"
-            />
-            <Select
-              style={{ width: '25%' }}
-              placeholder="Đơn vị"
-              options={uomOptions}
-              value={newUomId}
-              onChange={setNewUomId}
-            />
-            <InputNumber
-              style={{ width: '20%' }}
-              placeholder="Giá"
-              min={0}
-              step={1000}
-              value={newPrice}
-              onChange={setNewPrice}
-            />
-            <Button type="primary" icon={<PlusOutlined />} onClick={handleAddItem} style={{ width: '15%' }}>
-              Thêm
-            </Button>
-          </Space.Compact>
+          <Space direction="vertical" style={{ width: '100%', marginBottom: 12 }}>
+            <Row gutter={8}>
+              <Col flex="40%">
+                <Select
+                  style={{ width: '100%' }}
+                  placeholder="Chọn sản phẩm"
+                  options={productOptions}
+                  value={newProductId}
+                  onChange={setNewProductId}
+                  showSearch
+                  optionFilterProp="label"
+                />
+              </Col>
+              <Col flex="25%">
+                <Select
+                  style={{ width: '100%' }}
+                  placeholder="Đơn vị"
+                  options={uomOptions}
+                  value={newUomId}
+                  onChange={setNewUomId}
+                />
+              </Col>
+              <Col flex="auto">
+                <InputNumber
+                  style={{ width: '100%' }}
+                  placeholder="Giá"
+                  min={0}
+                  step={1000}
+                  value={newPrice}
+                  onChange={setNewPrice}
+                />
+              </Col>
+            </Row>
+            <Row gutter={8}>
+              <Col flex="auto">
+                <Input
+                  type="date"
+                  placeholder="Ngày hiệu lực"
+                  value={newStartDate || ''}
+                  onChange={(e) => setNewStartDate(e.target.value || null)}
+                />
+              </Col>
+              <Col flex="auto">
+                <Input
+                  type="date"
+                  placeholder="Ngày hết hiệu lực (để trống = vô thời hạn)"
+                  value={newEndDate || ''}
+                  onChange={(e) => setNewEndDate(e.target.value || null)}
+                />
+              </Col>
+              <Col flex="none">
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleAddItem}>
+                  Thêm
+                </Button>
+              </Col>
+            </Row>
+          </Space>
         )}
         <List
           loading={itemsLoading}
@@ -295,6 +324,7 @@ export default function PriceListsPage() {
             >
               <Text>
                 {item.product.code} - {item.product.name} ({item.uom.code}): {Number(item.price).toLocaleString('vi-VN')} đ
+                {' '}— hiệu lực {item.startDate} → {item.endDate || 'vô thời hạn'}
               </Text>
             </List.Item>
           )}

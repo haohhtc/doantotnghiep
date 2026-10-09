@@ -16,6 +16,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 // 1 dong gia trong 1 Price List: gia cua 1 san pham theo 1 don vi tinh cu the.
@@ -45,6 +46,14 @@ public class PriceListItem {
 
     @Column(nullable = false, precision = 18, scale = 2)
     private BigDecimal price;
+
+    // Hieu luc cua dong gia nay - cho phep nhieu dong gia cung SP+DVT theo tung khoang thoi gian
+    // khac nhau (lich su gia) - xem V41__price_list_item_validity.sql.
+    @Column(name = "start_date", nullable = false)
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

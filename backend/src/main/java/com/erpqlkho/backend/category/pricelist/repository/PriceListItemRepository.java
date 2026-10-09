@@ -8,5 +8,5 @@ import java.util.List;
 public interface PriceListItemRepository extends JpaRepository<PriceListItem, Long> {
     List<PriceListItem> findByPriceListId(Long priceListId);
     List<PriceListItem> findByPriceListIdAndProductId(Long priceListId, Long productId);
-    boolean existsByPriceListIdAndProductIdAndUomId(Long priceListId, Long productId, Long uomId);
+    List<PriceListItem> findByPriceListIdAndProductIdAndUomId(Long priceListId, Long productId, Long uomId);
 }

@@ -126,8 +126,9 @@ export default function GoodsReceiptPage() {
   function handleProductSelect(productId) {
     detailForm.setFieldsValue({ unitPrice: undefined });
     const warehouseId = form.getFieldValue('warehouseId');
+    const date = form.getFieldValue('docDate');
     axiosClient
-      .get('/price-lists/lookup', { params: { productId, warehouseId, purpose: 'PURCHASE' } })
+      .get('/price-lists/lookup', { params: { productId, warehouseId, purpose: 'PURCHASE', date } })
       .then(({ data }) => {
         if (data.data != null) {
           detailForm.setFieldsValue({ unitPrice: data.data });

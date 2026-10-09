@@ -7,10 +7,10 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDate;
-
 // type: hard-code 2 gia tri PURCHASE (Bang gia mua) / SALE (Bang gia ban) - PriceListService.lookupPrice
 // chi xet dung loai bang gia tuong ung voi muc dich tra gia (mua/ban) - xem V19__product_tabs_price_list_type.sql.
+// Hieu luc (start_date/end_date) nam o tung dong gia (PriceListItem), khong con o bang gia - xem
+// V41__price_list_item_validity.sql.
 @Getter
 @Setter
 @Entity
@@ -25,12 +25,6 @@ public class PriceList extends BaseEntity {
 
     @Column(nullable = false, length = 20)
     private String type = "SALE";
-
-    @Column(name = "start_date")
-    private LocalDate startDate;
-
-    @Column(name = "end_date")
-    private LocalDate endDate;
 
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
