@@ -203,15 +203,15 @@ public class SecurityConfig {
                         // voi rule POST duoi day) chi ADMIN + WAREHOUSE_MANAGER duoc lam. Khop dung pattern
                         // goods-receipts/stock-takes.
                         .requestMatchers(HttpMethod.GET,
-                                "/api/goods-issues/**", "/api/inventory-transfers/**", "/api/purchase-returns/**").authenticated()
+                                "/api/goods-issues/**", "/api/stock-receipts/**", "/api/inventory-transfers/**", "/api/purchase-returns/**").authenticated()
                         .requestMatchers(HttpMethod.POST,
-                                "/api/goods-issues/**", "/api/inventory-transfers/**", "/api/purchase-returns/**")
+                                "/api/goods-issues/**", "/api/stock-receipts/**", "/api/inventory-transfers/**", "/api/purchase-returns/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
                         .requestMatchers(HttpMethod.PUT,
-                                "/api/goods-issues/**", "/api/inventory-transfers/**", "/api/purchase-returns/**")
+                                "/api/goods-issues/**", "/api/stock-receipts/**", "/api/inventory-transfers/**", "/api/purchase-returns/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
                         .requestMatchers(HttpMethod.DELETE,
-                                "/api/goods-issues/**", "/api/inventory-transfers/**", "/api/purchase-returns/**")
+                                "/api/goods-issues/**", "/api/stock-receipts/**", "/api/inventory-transfers/**", "/api/purchase-returns/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
 
                         .anyRequest().authenticated())

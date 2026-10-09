@@ -27,12 +27,10 @@ import SalesRequestPage from '../pages/sales/SalesRequest';
 import SalesOrderPage from '../pages/sales/SalesOrder';
 import SalesReturnPage from '../pages/sales/SalesReturn';
 import InvoicePage from '../pages/sales/Invoice';
-import PickingListPage from '../pages/sales/PickingList';
 import DeliveryOrderPage from '../pages/sales/DeliveryOrder';
-import DeliveryResultsPage from '../pages/sales/DeliveryResults';
-import CreditMemoInfoPage from '../pages/sales/CreditMemoInfo';
 import InventoriesPage from '../pages/inventory/Inventories';
 import GoodsIssuePage from '../pages/inventory/GoodsIssue';
+import StockReceiptPage from '../pages/inventory/StockReceipt';
 import TransferPage from '../pages/inventory/Transfer';
 import TransferConfirmationPage from '../pages/inventory/TransferConfirmation';
 import StockCountingPage from '../pages/inventory/StockCounting';
@@ -83,20 +81,16 @@ export default function AppRoutes() {
             <Route path="/goods-receipts" element={<GoodsReceiptPage />} />
             <Route path="/purchase/goods-return" element={<PurchaseGoodsReturnPage />} />
             <Route path="/purchase/purchase-request" element={<PlaceholderPage title="Yêu cầu mua hàng" />} />
-            <Route path="/purchase/auto-rpo" element={<PlaceholderPage title="Nhật ký tự động đặt hàng / Thiết lập chỉ tiêu SP" />} />
 
             <Route path="/sales/sales-request" element={<SalesRequestPage />} />
             <Route path="/sales-orders" element={<SalesOrderPage />} />
             <Route path="/sales/returns" element={<SalesReturnPage />} />
             <Route path="/sales/invoices" element={<InvoicePage />} />
-            <Route path="/sales/picking-list" element={<PickingListPage />} />
-            <Route path="/sales/delivery-results" element={<DeliveryResultsPage />} />
             <Route path="/sales/delivery-orders" element={<DeliveryOrderPage />} />
-            <Route path="/sales/credit-memos" element={<CreditMemoInfoPage />} />
             <Route path="/sales/printed-note" element={<PlaceholderPage title="Phiếu in nhanh" />} />
-            <Route path="/sales/upload-vat-pit" element={<PlaceholderPage title="Khai thuế TNCN hoa hồng" />} />
             <Route path="/inventory/inventories" element={<InventoriesPage />} />
             <Route path="/inventory/goods-issue" element={<GoodsIssuePage />} />
+            <Route path="/inventory/stock-receipt" element={<StockReceiptPage />} />
             <Route path="/inventory/transfer" element={<TransferPage />} />
             <Route path="/inventory/transfer-confirmation" element={<TransferConfirmationPage />} />
             <Route path="/inventory/stock-counting" element={<StockCountingPage />} />
