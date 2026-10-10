@@ -48,7 +48,11 @@ export default function PurchaseGoodsReturnPage() {
     .filter((w) => w.id === editingReturn?.warehouse?.id || (!selectedBranchId || w.branch?.id === selectedBranchId))
     .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
-  const goodsReceiptOptions = goodsReceipts.map((g) => ({ value: g.id, label: g.docNumber }));
+  // Loc theo dung Chi nhanh dang chon o Header - truoc day thieu dieu kien nay nen Phieu nhap cua
+  // chi nhanh khac van lot vao dropdown (giong bug da gap o Don giao hang/Don hang ban).
+  const goodsReceiptOptions = goodsReceipts
+    .filter((g) => g.id === editingReturn?.goodsReceipt?.id || !selectedBranchId || g.warehouse?.branch?.id === selectedBranchId)
+    .map((g) => ({ value: g.id, label: g.docNumber }));
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';

@@ -4,6 +4,7 @@ import { CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { hasAnyRole } from '../../../utils/auth';
+import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title } = Typography;
 
@@ -21,6 +22,7 @@ function statusTag(status) {
 // canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function TransferConfirmationPage() {
   const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
+  const { selectedBranchId } = useBranch();
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -38,7 +40,10 @@ export default function TransferConfirmationPage() {
     loadData();
   }, []);
 
+  // Trang nay la buoc "kho dich xac nhan nhan" nen loc theo dung Kho den thuoc Chi nhanh dang
+  // chon o Header (nguoc voi trang /inventory/transfer loc theo Kho di).
   const filteredTransfers = transfers.filter((t) => {
+    if (selectedBranchId && t.toWarehouse?.branch?.id !== selectedBranchId) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return t.docNumber.toLowerCase().includes(keyword);

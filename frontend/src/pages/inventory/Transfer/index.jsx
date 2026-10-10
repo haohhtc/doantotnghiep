@@ -6,6 +6,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { hasAnyRole } from '../../../utils/auth';
+import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
 
@@ -34,6 +35,7 @@ function statusTag(status) {
 // canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function TransferPage() {
   const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
+  const { selectedBranchId } = useBranch();
   const [transfers, setTransfers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
@@ -81,7 +83,11 @@ export default function TransferPage() {
     loadData();
   }, []);
 
+  // Trang nay la buoc "kho nguon xac nhan xuat" nen loc theo dung Kho di thuoc Chi nhanh dang
+  // chon o Header - truoc day thieu loc, thay het phieu cua moi chi nhanh (Kho di/Kho den van
+  // khong loc branch, dung vi ban chat la chuyen GIUA 2 chi nhanh).
   const filteredTransfers = transfers.filter((t) => {
+    if (selectedBranchId && t.fromWarehouse?.branch?.id !== selectedBranchId) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return t.docNumber.toLowerCase().includes(keyword);

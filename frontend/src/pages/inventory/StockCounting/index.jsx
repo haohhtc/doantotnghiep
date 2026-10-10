@@ -58,6 +58,7 @@ export default function StockCountingPage() {
   }, []);
 
   const filteredCounts = counts.filter((c) => {
+    if (selectedBranchId && c.warehouse?.branch?.id !== selectedBranchId) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return c.code.toLowerCase().includes(keyword);
