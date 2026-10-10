@@ -100,12 +100,31 @@ export default function DeliveryOrderPage() {
       warehouseId: record.warehouse.id,
       remarks: record.remarks,
     });
-    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, uomId: d.uom?.id, uomName: d.uom?.name, quantity: d.quantity, orderedQty: d.quantity, note: d.note })));
+    // Don gia chi de XEM (khong luu o DeliveryOrderItem) - lay lai tu dung dong trong Don hang ban
+    // goc theo San pham+DVT, giong cach handleSalesOrderSelect lam.
+    setDetailRows(
+      record.items.map((d) => {
+        const soLine = record.salesOrder.details?.find(
+          (sd) => sd.product.id === d.product.id && (sd.uom?.id || null) === (d.uom?.id || null)
+        );
+        return {
+          id: d.id,
+          productId: d.product.id,
+          uomId: d.uom?.id,
+          uomName: d.uom?.name,
+          quantity: d.quantity,
+          orderedQty: d.quantity,
+          unitPrice: soLine?.unitPrice,
+          note: d.note,
+        };
+      })
+    );
     setModalOpen(true);
   }
 
-  // Chon Don hang ban goc -> tu dong dien San pham + kho xuat + so luong DA DAT, cho sua lai
-  // truoc khi Luu de phan anh so luong giao thuc te (VD giao thieu do het hang).
+  // Chon Don hang ban goc -> tu dong dien San pham + kho xuat + so luong DA DAT + Don gia (chi de
+  // xem, giong bang Chi tiet don hang cua Don hang ban), cho sua lai so luong truoc khi Luu de
+  // phan anh so luong giao thuc te (VD giao thieu do het hang).
   function handleSalesOrderSelect(salesOrderId) {
     const order = salesOrders.find((o) => o.id === salesOrderId);
     if (!order) return;
@@ -118,6 +137,7 @@ export default function DeliveryOrderPage() {
         uomName: d.uom?.name,
         quantity: d.quantity,
         orderedQty: d.quantity,
+        unitPrice: d.unitPrice,
       }))
     );
   }
@@ -206,6 +226,21 @@ export default function DeliveryOrderPage() {
     },
   ];
 
+  // Uoc tinh thue o Frontend - chi de xem truoc, KHONG luu gi xuong DB, giong y het Don hang ban
+  // (tonghop.md muc 5) - so lieu thue chinh thuc chi chot that luc "Xuat hoa don".
+  function taxRateOf(productId) {
+    const product = products.find((p) => p.id === productId);
+    return product?.saleTaxGroup ? Number(product.saleTaxGroup.ratePercent) : 0;
+  }
+
+  const totalQty = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0), 0);
+  const subtotalAmount = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0) * Number(d.unitPrice || 0), 0);
+  const estimatedTax = detailRows.reduce(
+    (sum, d) => sum + (Number(d.quantity || 0) * Number(d.unitPrice || 0) * taxRateOf(d.productId)) / 100,
+    0
+  );
+  const totalAmount = subtotalAmount + estimatedTax;
+
   const detailColumns = [
     { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
     { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
@@ -222,6 +257,17 @@ export default function DeliveryOrderPage() {
           style={{ width: '100%' }}
         />
       ),
+    },
+    { title: 'Đơn giá', dataIndex: 'unitPrice', key: 'unitPrice', render: (v) => v?.toLocaleString('vi-VN') + ' đ' },
+    {
+      title: 'Thành tiền',
+      key: 'amount',
+      render: (_, d) => (Number(d.quantity || 0) * Number(d.unitPrice || 0)).toLocaleString('vi-VN') + ' đ',
+    },
+    {
+      title: 'Thuế (ước tính)',
+      key: 'tax',
+      render: (_, d) => `${taxRateOf(d.productId)}%`,
     },
   ];
 
@@ -309,6 +355,19 @@ export default function DeliveryOrderPage() {
           style={{ marginTop: 8 }}
           locale={{ emptyText: 'Chọn đơn hàng bán ở trên để hiện danh sách sản phẩm' }}
         />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 24, marginTop: 12 }}>
+          <Text>
+            Tổng số lượng: <Text strong>{totalQty.toLocaleString('vi-VN')}</Text>
+          </Text>
+          <Text>Tiền hàng: <Text strong>{subtotalAmount.toLocaleString('vi-VN')} đ</Text></Text>
+          <Text>Thuế ước tính: <Text strong>{estimatedTax.toLocaleString('vi-VN')} đ</Text></Text>
+          <Text>
+            Tổng cộng ước tính: <Text strong>{totalAmount.toLocaleString('vi-VN')} đ</Text>
+          </Text>
+        </div>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          * Số liệu thuế chỉ là ước tính hiển thị trước, không lưu gì xuống DB - chốt chính thức khi bấm "Xuất hóa đơn" sau khi đơn đã xác nhận.
+        </Text>
       </Modal>
 
       <Modal
