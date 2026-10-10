@@ -569,6 +569,18 @@ Xác nhận lại 2 phần không cần sửa (đã đúng sẵn từ trước):
 
 **B. Hoàn thiện lịch ghé thăm + NVBH còn thiếu, dựng đơn demo trải dài 10/10-30/10/2026**: phát hiện WinMart/Co.opmart (RT-001) chưa từng có lịch ghé thăm (toàn bộ thứ + tuần đều trống) và tuyến RT-HN01 chưa có NVBH - bổ sung: WinMart → Thứ Ba, Co.opmart → Thứ Năm (tuần ISO 40-43, tháng 10/2026); KH-HN01/KH-HN02 mở rộng thêm tuần 40-43 (giữ nguyên tuần 1-4 cũ); gán NVBH "Nguyễn Văn Test" cho RT-HN01. Tạo 6 đơn hàng bán demo (SO0021-SO0026) trải từ 10/10 đến 30/10/2026, cố ý mix cả "Đúng tuyến" và "Trái tuyến", cả 2 chi nhánh - đã verify bằng cách tính lại y hệt công thức `computeVisitType` ở Frontend, khớp đúng 100% cả 6 đơn. Xác nhận Kho xuất/Tuyến/NVBH tự suy đúng cho tất cả.
 
+## 🔍 Rà soát toàn hệ thống: lọc theo Chi nhánh còn thiếu ở 5 chỗ (2026-10-10)
+
+Người dùng phát hiện bug trực tiếp trên web: đang xem Chi nhánh Hà Nội nhưng dropdown "Đơn hàng bán" ở "+Tạo đơn giao hàng" vẫn hiện đơn của Bình Dương (SO0002). Từ đó rà soát lại **toàn bộ** các trang có dùng `useBranch` (14 trang) + 2 trang Điều chuyển kho (vốn không dùng `useBranch`), tìm thấy tổng cộng **5 chỗ** thiếu lọc đúng Chi nhánh:
+
+1. **Đơn giao hàng** - dropdown "Đơn hàng bán" trong "+Tạo đơn giao hàng" (đã sửa, xem mục trước).
+2. **Trả hàng NCC** - dropdown "Phiếu nhập gốc" (`goodsReceiptOptions`) chưa lọc Chi nhánh.
+3. **Kiểm kê kho** - danh sách chính (`filteredCounts`) chưa lọc Chi nhánh (riêng ô chọn Kho thì đã lọc sẵn từ trước, chỉ sót bảng danh sách).
+4. **Chuyển hàng tồn kho** (bước 1, kho nguồn xác nhận xuất) - trang này **chưa từng dùng `useBranch`** - danh sách phiếu hiện hết, không lọc gì. Quyết định thiết kế: "Kho đi"/"Kho đến" vẫn giữ KHÔNG lọc (đúng bản chất là chuyển *giữa* 2 chi nhánh, cần thấy hết để chọn), nhưng **danh sách phiếu** thì lọc theo đúng **Kho đi** thuộc chi nhánh đang xem (vì đây là màn hình của kho nguồn).
+5. **Xác nhận di chuyển hàng tồn kho** (bước 2, kho đích xác nhận nhận) - tương tự, lọc danh sách theo **Kho đến** (màn hình của kho đích).
+
+Đã build sạch, kiểm tra lại dữ liệu qua API xác nhận đủ trường `warehouse.branch`/`fromWarehouse.branch`/`toWarehouse.branch` để bộ lọc hoạt động đúng. Các trang còn lại đã rà soát đều lọc đúng từ trước (Đơn hàng bán, Yêu cầu bán hàng, Trả hàng, Hóa đơn, Nhập hàng, Phiếu xuất/nhập kho, Khách hàng, Kho, Khung tuyến).
+
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
 **Phân trang (pagination) cho các trang danh sách** — nguyên nhân: Nhi (thành viên 2, làm ETL/DW/AI/BI nhánh `feature/data-ai`) đẩy lên 1 bộ dữ liệu khá lớn, làm các trang danh sách (Đơn hàng bán...) load chậm hẳn mỗi lần bấm, vì hiện tại mọi trang đều gọi API tải **toàn bộ** bảng 1 lần (không giới hạn số dòng, JSON lồng sâu), lọc/tìm kiếm làm phía trình duyệt. Đã phân tích trong phiên và người dùng **xác nhận hoãn lại**, đợi làm xong hết các yêu cầu hiện tại mới quay lại làm. Hướng giải quyết đã thống nhất: phân trang phía Server (Spring Data `Pageable` + AntD `Table` pagination gọi lại API theo trang), làm thí điểm ở trang Đơn hàng bán trước — nhớ vẫn cần hỏi xác nhận lại trước khi code theo đúng quy tắc chung.
