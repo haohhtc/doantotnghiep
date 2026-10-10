@@ -23,6 +23,7 @@ export default function StockCountingPage() {
   const [counts, setCounts] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -36,6 +37,7 @@ export default function StockCountingPage() {
     .filter((w) => !selectedBranchId || w.branch?.id === selectedBranchId || w.id === editingCount?.warehouse?.id)
     .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
+  const employeeOptions = employees.map((e) => ({ value: e.id, label: `${e.code} - ${e.fullName}` }));
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';
@@ -43,11 +45,17 @@ export default function StockCountingPage() {
 
   function loadData() {
     setLoading(true);
-    Promise.all([axiosClient.get('/stock-takes'), axiosClient.get('/warehouses'), axiosClient.get('/products')])
-      .then(([countsRes, warehousesRes, productsRes]) => {
+    Promise.all([
+      axiosClient.get('/stock-takes'),
+      axiosClient.get('/warehouses'),
+      axiosClient.get('/products'),
+      axiosClient.get('/employees'),
+    ])
+      .then(([countsRes, warehousesRes, productsRes, employeesRes]) => {
         setCounts(countsRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setProducts(productsRes.data.data);
+        setEmployees(employeesRes.data.data);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu kiểm kê'))
       .finally(() => setLoading(false));
@@ -73,7 +81,7 @@ export default function StockCountingPage() {
 
   function openEditModal(record) {
     setEditingCount(record);
-    form.setFieldsValue({ code: record.code, warehouseId: record.warehouse?.id });
+    form.setFieldsValue({ code: record.code, warehouseId: record.warehouse?.id, employeeId: record.employee?.id });
     setDetailRows(
       record.details.map((d) => ({
         id: d.id,
@@ -151,6 +159,7 @@ export default function StockCountingPage() {
   const columns = [
     { title: 'Mã đợt kiểm kê', dataIndex: 'code', key: 'code' },
     { title: 'Kho', key: 'warehouse', render: (_, r) => r.warehouse?.name },
+    { title: 'Nhân viên', key: 'employee', render: (_, r) => r.employee?.fullName || '-' },
     { title: 'Số dòng sản phẩm', key: 'lineCount', render: (_, r) => (r.details || []).length },
     {
       title: 'Trạng thái',
@@ -244,6 +253,9 @@ export default function StockCountingPage() {
           </Form.Item>
           <Form.Item label="Kho kiểm kê" name="warehouseId" rules={[{ required: true, message: 'Kho kiểm kê không được để trống' }]}>
             <Select options={warehouseOptions} placeholder="Chọn kho" disabled={!!editingCount} />
+          </Form.Item>
+          <Form.Item label="Nhân viên kiểm kê" name="employeeId">
+            <Select options={employeeOptions} placeholder="Chọn nhân viên (không bắt buộc)" allowClear showSearch optionFilterProp="label" />
           </Form.Item>
         </Form>
 

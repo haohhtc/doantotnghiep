@@ -21,6 +21,9 @@ public class StockTakeDto {
     @NotNull(message = "Kho kiem ke khong duoc de trong")
     private Long warehouseId;
 
+    // Tuy chon - nhan vien thuc hien kiem ke, chon tu danh sach Nhan vien (V47)
+    private Long employeeId;
+
     @NotEmpty(message = "Dot kiem ke phai co it nhat 1 dong san pham")
     private List<@Valid DetailDto> details;
 

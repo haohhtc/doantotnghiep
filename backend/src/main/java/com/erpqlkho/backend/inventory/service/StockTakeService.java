@@ -1,5 +1,7 @@
 package com.erpqlkho.backend.inventory.service;
 
+import com.erpqlkho.backend.category.employee.entity.Employee;
+import com.erpqlkho.backend.category.employee.repository.EmployeeRepository;
 import com.erpqlkho.backend.category.product.entity.Product;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
@@ -29,6 +31,7 @@ public class StockTakeService {
     private final StockTakeRepository stockTakeRepository;
     private final WarehouseRepository warehouseRepository;
     private final ProductRepository productRepository;
+    private final EmployeeRepository employeeRepository;
     private final UserRepository userRepository;
     private final StockService stockService;
     private final NumberingConfigService numberingConfigService;
@@ -86,6 +89,7 @@ public class StockTakeService {
     private void applyDto(StockTake stockTake, StockTakeDto dto) {
         Warehouse warehouse = findWarehouse(dto.getWarehouseId());
         stockTake.setWarehouse(warehouse);
+        stockTake.setEmployee(dto.getEmployeeId() != null ? findEmployee(dto.getEmployeeId()) : null);
 
         stockTake.getDetails().clear();
         List<StockTakeDetail> details = new ArrayList<>();
@@ -128,6 +132,11 @@ public class StockTakeService {
     private Product findProduct(Long id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay san pham id=" + id));
+    }
+
+    private Employee findEmployee(Long id) {
+        return employeeRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay nhan vien id=" + id));
     }
 
     private User currentUser() {

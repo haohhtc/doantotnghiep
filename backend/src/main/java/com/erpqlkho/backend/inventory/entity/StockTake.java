@@ -1,5 +1,6 @@
 package com.erpqlkho.backend.inventory.entity;
 
+import com.erpqlkho.backend.category.employee.entity.Employee;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.common.base.BaseEntity;
 import com.erpqlkho.backend.user.entity.User;
@@ -34,6 +35,12 @@ public class StockTake extends BaseEntity {
     // DRAFT: dang kiem | APPROVED: da duyet, da ghi nhan chenh lech vao stock_transaction
     @Column(nullable = false, length = 20)
     private String status = "DRAFT";
+
+    // Nhan vien thuc hien kiem ke (tuy chon, load tu trang Nhan vien - V47). Khac voi createdBy
+    // (tai khoan dang nhap tao chung tu) - day la NGUOI THAT su kiem dem, co the khac tai khoan.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "employee_id")
+    private Employee employee;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "created_by", nullable = false)
