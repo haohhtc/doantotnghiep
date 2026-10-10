@@ -154,9 +154,16 @@ public class DeliveryOrderService {
         // ton thuc te (cung luc "Da dat hang" cua don het tinh vi Don giao hang da CLOSED), Van tang. Ton
         // thuc te chi giam han o Kho Van khi xuat Hoa don. Don xuat thang tu Kho Van thi hang da nam san
         // o do, khong chuyen kho.
+        //
+        // RE-CONFIRM sau khi Huy Hoa don (InvoiceService.cancel() dua DO nay ve DRAFT nhung KHONG xoa
+        // vanWarehouse - hang that su van dang nam o Van, chua tung chuyen nguoc ve Main): neu
+        // vanWarehouse DA CO SAN (!= null) tuc la lan Xac nhan truoc do da chuyen kho that roi, KHONG
+        // duoc chuyen kho lan 2 (se tru/cong trung) - chi can mo lai trang thai CLOSED de xuat hoa don
+        // lai duoc. Chi chuyen kho that khi day la lan Xac nhan DAU TIEN (vanWarehouse con null).
         Warehouse source = order.getWarehouse();
         Warehouse van = resolveVanWarehouse(source);
-        if (!"VAN".equals(source.getWarehouseType())) {
+        boolean alreadyMoved = order.getVanWarehouse() != null;
+        if (!"VAN".equals(source.getWarehouseType()) && !alreadyMoved) {
             for (DeliveryOrderItem item : order.getItems()) {
                 stockService.assertSufficientStock(item.getProduct(), source, item.getBaseQuantity());
             }
@@ -187,15 +194,18 @@ public class DeliveryOrderService {
                             + ") - phai huy Hoa don truoc khi huy Don giao hang");
                 });
 
-        if ("CLOSED".equals(order.getStatus())) {
-            Warehouse source = order.getWarehouse();
-            Warehouse van = order.getVanWarehouse();
-            if (!"VAN".equals(source.getWarehouseType()) && van != null) {
-                for (DeliveryOrderItem item : order.getItems()) {
-                    stockService.decrease(item.getProduct(), van, item.getBaseQuantity(), "DELIVERY_ORDER_CANCEL", order.getId());
-                    stockService.increase(item.getProduct(), source, item.getBaseQuantity(), "DELIVERY_ORDER_CANCEL", order.getId());
-                }
+        // Dung "vanWarehouse != null" (khong phai status==CLOSED) de biet hang co dang that su nam o
+        // Van hay khong - vi sau khi Huy Hoa don, DO co the dang DRAFT nhung vanWarehouse VAN CON (xem
+        // InvoiceService.cancel()), tuc hang van nam o Van, phai hoan kho dung cach du dang o trang
+        // thai nao.
+        Warehouse source = order.getWarehouse();
+        Warehouse van = order.getVanWarehouse();
+        if (!"VAN".equals(source.getWarehouseType()) && van != null) {
+            for (DeliveryOrderItem item : order.getItems()) {
+                stockService.decrease(item.getProduct(), van, item.getBaseQuantity(), "DELIVERY_ORDER_CANCEL", order.getId());
+                stockService.increase(item.getProduct(), source, item.getBaseQuantity(), "DELIVERY_ORDER_CANCEL", order.getId());
             }
+            order.setVanWarehouse(null);
         }
 
         order.setStatus("CANCELLED");

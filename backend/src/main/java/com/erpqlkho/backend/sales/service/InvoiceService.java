@@ -122,8 +122,11 @@ public class InvoiceService {
     }
 
     // Huy hoa don - hoan tra lai Kho Van (dung so da tru luc xuat hoa don), mo lai Don giao hang ve
-    // DRAFT (go confirmedBy/vanWarehouse de co the Xac nhan giao lai tu dau). Chan neu khach da tra
-    // hang dua tren hoa don nay (co phieu Tra hang dang hieu luc, chua bi huy) - nguoc logic nghiep vu.
+    // DRAFT de co the Xac nhan lai (hien lai nut "Xuat hoa don" o Don hang ban). KHONG duoc xoa
+    // vanWarehouse: hang VAT LY van dang nam o Van (chua tung chuyen nguoc ve Main) - giu lai de
+    // DeliveryOrderService.confirm() biet ma KHONG chuyen kho Main->Van lan 2 khi Xac nhan lai (se
+    // tru/cong trung neu xoa). Chan neu khach da tra hang dua tren hoa don nay (co phieu Tra hang
+    // dang hieu luc, chua bi huy) - nguoc logic nghiep vu.
     @Transactional
     public Invoice cancel(Long id) {
         Invoice invoice = findById(id);
@@ -146,7 +149,6 @@ public class InvoiceService {
         }
         deliveryOrder.setStatus("DRAFT");
         deliveryOrder.setConfirmedBy(null);
-        deliveryOrder.setVanWarehouse(null);
         deliveryOrderRepository.save(deliveryOrder);
 
         invoice.setStatus("CANCELLED");
