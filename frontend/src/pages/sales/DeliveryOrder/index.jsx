@@ -100,31 +100,12 @@ export default function DeliveryOrderPage() {
       warehouseId: record.warehouse.id,
       remarks: record.remarks,
     });
-    // Don gia/Thanh tien chi de XEM (khong luu o DeliveryOrderItem) - lay lai tu dung dong trong
-    // Don hang ban goc theo San pham+DVT, giong cach handleSalesOrderSelect lam.
-    setDetailRows(
-      record.items.map((d) => {
-        const soLine = record.salesOrder.details?.find(
-          (sd) => sd.product.id === d.product.id && (sd.uom?.id || null) === (d.uom?.id || null)
-        );
-        return {
-          id: d.id,
-          productId: d.product.id,
-          uomId: d.uom?.id,
-          uomName: d.uom?.name,
-          quantity: d.quantity,
-          orderedQty: d.quantity,
-          unitPrice: soLine?.unitPrice,
-          note: d.note,
-        };
-      })
-    );
+    setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, uomId: d.uom?.id, uomName: d.uom?.name, quantity: d.quantity, orderedQty: d.quantity, note: d.note })));
     setModalOpen(true);
   }
 
-  // Chon Don hang ban goc -> tu dong dien San pham + kho xuat + so luong DA DAT + Don gia (chi de
-  // xem, giong bang chi tiet cua Don hang ban), cho sua lai so luong truoc khi Luu de phan anh so
-  // luong giao thuc te (VD giao thieu do het hang).
+  // Chon Don hang ban goc -> tu dong dien San pham + kho xuat + so luong DA DAT, cho sua lai
+  // truoc khi Luu de phan anh so luong giao thuc te (VD giao thieu do het hang).
   function handleSalesOrderSelect(salesOrderId) {
     const order = salesOrders.find((o) => o.id === salesOrderId);
     if (!order) return;
@@ -137,7 +118,6 @@ export default function DeliveryOrderPage() {
         uomName: d.uom?.name,
         quantity: d.quantity,
         orderedQty: d.quantity,
-        unitPrice: d.unitPrice,
       }))
     );
   }
@@ -243,21 +223,7 @@ export default function DeliveryOrderPage() {
         />
       ),
     },
-    {
-      title: 'Đơn giá',
-      dataIndex: 'unitPrice',
-      key: 'unitPrice',
-      align: 'right',
-      render: (v) => (v != null ? Number(v).toLocaleString('vi-VN') + ' đ' : '-'),
-    },
-    {
-      title: 'Thành tiền',
-      key: 'amount',
-      align: 'right',
-      render: (_, d) => (d.unitPrice != null ? (Number(d.quantity || 0) * Number(d.unitPrice)).toLocaleString('vi-VN') + ' đ' : '-'),
-    },
   ];
-  const detailTotalAmount = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0) * Number(d.unitPrice || 0), 0);
 
   return (
     <div>
@@ -343,13 +309,6 @@ export default function DeliveryOrderPage() {
           style={{ marginTop: 8 }}
           locale={{ emptyText: 'Chọn đơn hàng bán ở trên để hiện danh sách sản phẩm' }}
         />
-        {detailRows.length > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-            <Text>
-              Tổng tiền: <Text strong>{detailTotalAmount.toLocaleString('vi-VN')} đ</Text>
-            </Text>
-          </div>
-        )}
       </Modal>
 
       <Modal
