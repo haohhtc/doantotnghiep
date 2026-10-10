@@ -313,22 +313,22 @@ export default function DeliveryOrderPage() {
         onCancel={() => setModalOpen(false)}
         okText="Lưu"
         cancelText="Hủy"
-        width={720}
+        width={1000}
         destroyOnHidden
       >
         <Form form={form} layout="vertical">
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item label="Số đơn giao" name="docNumber" extra={editingOrder ? undefined : 'Để trống để tự sinh số'}>
                 <Input disabled={!!editingOrder} placeholder="Tự sinh nếu để trống" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item label="Ngày lập" name="docDate" rules={[{ required: true, message: 'Ngày lập không được để trống' }]}>
                 <Input type="date" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item label="Đơn hàng bán" name="salesOrderId" rules={[{ required: true, message: 'Chọn đơn hàng bán không được để trống' }]}>
                 <Select
                   options={salesOrderOptions}
@@ -343,27 +343,27 @@ export default function DeliveryOrderPage() {
             {/* Cac truong duoi day chi hien THAM KHAO, lay nguyen tu Don hang ban goc da chon o
                 tren - khong dang ky name nen khong gui len server, giong het cac truong tren man
                 Don hang ban (xem pages/sales/SalesOrder/index.jsx). */}
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item label="Loại đơn" extra="Lấy từ Đơn hàng bán gốc">
                 <Input disabled value={selectedSalesOrder ? orderTypeLabel(selectedSalesOrder.orderType) : ''} placeholder="Chọn Đơn hàng bán trước" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item label="Ngày đặt hàng" extra="Lấy từ Đơn hàng bán gốc">
                 <Input disabled value={selectedSalesOrder?.docDate || ''} placeholder="Chọn Đơn hàng bán trước" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item label="Ngày giao hàng" extra="Lấy từ Đơn hàng bán gốc">
                 <Input disabled value={selectedSalesOrder?.deliveryDate || ''} placeholder="Không có (đơn Van-Sales/Hàng mẫu)" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item label="Khách hàng" extra="Lấy từ Đơn hàng bán gốc">
                 <Input disabled value={selectedSalesOrder?.customer?.name || ''} placeholder="Chọn Đơn hàng bán trước" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item
                 label="Kho xuất"
                 name="warehouseId"
@@ -373,17 +373,17 @@ export default function DeliveryOrderPage() {
                 <Select options={warehouseOptions} placeholder="Chọn Đơn hàng bán trước" disabled />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item label="Tuyến" extra="Lấy từ Đơn hàng bán gốc">
                 <Input disabled value={selectedSalesOrder?.routeMaster?.name || ''} placeholder="Khách hàng chưa gán tuyến" />
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item label="NV bán hàng" extra="Lấy từ Đơn hàng bán gốc">
                 <Input disabled value={selectedSalesOrder?.salesman?.fullName || ''} placeholder="Tuyến chưa có NVBH tại ngày đặt hàng" />
               </Form.Item>
             </Col>
-            <Col span={24}>
+            <Col span={8}>
               <Form.Item label="Ghi chú" name="remarks">
                 <Input />
               </Form.Item>
