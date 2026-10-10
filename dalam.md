@@ -581,6 +581,14 @@ Người dùng phát hiện bug trực tiếp trên web: đang xem Chi nhánh H�
 
 Đã build sạch, kiểm tra lại dữ liệu qua API xác nhận đủ trường `warehouse.branch`/`fromWarehouse.branch`/`toWarehouse.branch` để bộ lọc hoạt động đúng. Các trang còn lại đã rà soát đều lọc đúng từ trước (Đơn hàng bán, Yêu cầu bán hàng, Trả hàng, Hóa đơn, Nhập hàng, Phiếu xuất/nhập kho, Khách hàng, Kho, Khung tuyến).
 
+## ↩️ Hóa đơn: nút "Trả hàng" tạo nhanh Phiếu trả hàng (2026-10-10)
+
+Thêm nút **Trả hàng** (icon, đầu tiên trong cột Thao tác) ở trang Hóa đơn. Bấm vào → popup nhập Lý do trả hàng → OK → tạo 1 Phiếu trả hàng (Nháp) copy nguyên dòng sản phẩm từ hóa đơn, **Kho luôn là Kho Main** của chi nhánh (không phải kho Van), NVBH lấy từ NVBH của Đơn hàng bán gốc. Không tự Duyệt — vẫn phải qua trang "Trả hàng" để Duyệt (cộng thật vào tồn kho), giữ đúng quy trình Nháp→Đã duyệt sẵn có. Tái dùng nguyên API `POST /sales-returns`, không sửa backend.
+
+**Giới hạn đã biết**: nếu đơn hàng gốc của hóa đơn chưa có NVBH (đơn cũ, tạo trước V42) thì nút này báo lỗi và chặn — phải dùng "+Thêm phiếu trả hàng" thủ công thay thế (NVBH là trường bắt buộc ở Phiếu trả hàng).
+
+Đã test qua API (mô phỏng đúng payload nút sẽ gửi): đẩy SO0022 qua hết chuỗi Xác nhận giao hàng → Xuất hóa đơn (HD0006) → tạo Phiếu trả hàng → Duyệt → tồn kho Main tăng đúng 24 Gói (2 Hộp × hệ số 12). Đã xóa phiếu trả hàng test, **giữ lại chuỗi SO0022→DO0011→HD0006** làm ví dụ demo hoàn chỉnh thêm. Đã xác nhận chặn đúng khi đơn gốc chưa có NVBH (HD0001).
+
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
 **Phân trang (pagination) cho các trang danh sách** — nguyên nhân: Nhi (thành viên 2, làm ETL/DW/AI/BI nhánh `feature/data-ai`) đẩy lên 1 bộ dữ liệu khá lớn, làm các trang danh sách (Đơn hàng bán...) load chậm hẳn mỗi lần bấm, vì hiện tại mọi trang đều gọi API tải **toàn bộ** bảng 1 lần (không giới hạn số dòng, JSON lồng sâu), lọc/tìm kiếm làm phía trình duyệt. Đã phân tích trong phiên và người dùng **xác nhận hoãn lại**, đợi làm xong hết các yêu cầu hiện tại mới quay lại làm. Hướng giải quyết đã thống nhất: phân trang phía Server (Spring Data `Pageable` + AntD `Table` pagination gọi lại API theo trang), làm thí điểm ở trang Đơn hàng bán trước — nhớ vẫn cần hỏi xác nhận lại trước khi code theo đúng quy tắc chung.
