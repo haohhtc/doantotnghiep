@@ -627,6 +627,16 @@ Người dùng tự test trên UI (chi nhánh Bình Dương, đơn SO0026): Xu�
 
 **Tiện thể thêm nút Xem (👁️, chỉ đọc, dùng được mọi trạng thái)** ở trang Trả hàng và Đơn giao hàng — trước đây nút Sửa bị khóa khi không còn Nháp/Chờ giao nên không có cách nào xem lại nội dung chứng từ đã Duyệt/Đã hủy.
 
+## 🐛 Nút "Xuất hóa đơn" bị ẩn vĩnh viễn sau khi Hủy hóa đơn cũ (2026-10-10)
+
+Sau khi sửa lỗi chuyển kho trùng (mục trên), người dùng tiếp tục tự test trên UI: đi hết 1 vòng Xuất hóa đơn → Hủy → Xác nhận lại Đơn giao hàng cho SO0026, rồi hỏi "nút xuất hóa đơn đâu" — vào đúng trang Đơn hàng bán nhưng **không thấy nút** dù đơn đã đủ điều kiện (đã giao xong, không còn hóa đơn hiệu lực). Kiểm tra lộ ra lỗi thật ở **3 chỗ cùng 1 gốc**: biến `invoicedOrderIds`/điều kiện `not exists (Invoice...)` được xây dựng từ **toàn bộ hóa đơn kể cả đã Hủy**, nên hễ 1 đơn hàng từng có hóa đơn bị Hủy thì bị coi là "đã có hóa đơn" **vĩnh viễn**, không bao giờ cho xuất lại được nữa (dù V45/V46 đã cho phép ở tầng backend) — lỗi mới phát sinh từ chính tính năng Hủy hóa đơn, các trang sau chưa được cập nhật theo:
+
+1. `SalesOrder/index.jsx` — nút "Xuất hóa đơn" không hiện lại được.
+2. `Inventories/index.jsx` (trang Tồn kho, cột "Đã đặt hàng") — đơn có hóa đơn đã Hủy bị loại oan khỏi tính "đang giữ chỗ", có thể làm tròn sai "Sẵn sàng bán" cao hơn thực tế.
+3. `SalesOrderRepository.sumCommittedBase` (**backend**, dùng để CHẶN đặt vượt tồn khi tạo/duyệt đơn) — lỗi nặng nhất vì ảnh hưởng thẳng vào validation, không chỉ hiển thị.
+
+**Sửa cả 3 chỗ**: đổi điều kiện từ "có hóa đơn nào đó" sang "có hóa đơn **còn hiệu lực** (status != CANCELLED)". Đã test lại: SO0026 sau khi Hủy hóa đơn và xác nhận lại Đơn giao hàng, nút Xuất hóa đơn hiện lại đúng.
+
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
 **Phân trang (pagination) cho các trang danh sách** — nguyên nhân: Nhi (thành viên 2, làm ETL/DW/AI/BI nhánh `feature/data-ai`) đẩy lên 1 bộ dữ liệu khá lớn, làm các trang danh sách (Đơn hàng bán...) load chậm hẳn mỗi lần bấm, vì hiện tại mọi trang đều gọi API tải **toàn bộ** bảng 1 lần (không giới hạn số dòng, JSON lồng sâu), lọc/tìm kiếm làm phía trình duyệt. Đã phân tích trong phiên và người dùng **xác nhận hoãn lại**, đợi làm xong hết các yêu cầu hiện tại mới quay lại làm. Hướng giải quyết đã thống nhất: phân trang phía Server (Spring Data `Pageable` + AntD `Table` pagination gọi lại API theo trang), làm thí điểm ở trang Đơn hàng bán trước — nhớ vẫn cần hỏi xác nhận lại trước khi code theo đúng quy tắc chung.
