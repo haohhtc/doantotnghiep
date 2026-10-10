@@ -60,7 +60,7 @@ public class DeliveryOrderService {
         if (!"CONFIRMED".equals(salesOrder.getStatus())) {
             throw ApiException.conflict("Chi tao duoc Don giao hang tu Don hang ban da duyet (CONFIRMED)");
         }
-        if (deliveryOrderRepository.existsBySalesOrderId(salesOrder.getId())) {
+        if (deliveryOrderRepository.existsBySalesOrderIdAndStatusNot(salesOrder.getId(), "CANCELLED")) {
             throw ApiException.conflict("Don hang nay da co Don giao hang roi");
         }
 

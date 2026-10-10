@@ -7,6 +7,6 @@ import java.util.Optional;
 
 public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, Long> {
     boolean existsByDocNumber(String docNumber);
-    boolean existsBySalesOrderId(Long salesOrderId);
-    Optional<DeliveryOrder> findBySalesOrderId(Long salesOrderId);
+    boolean existsBySalesOrderIdAndStatusNot(Long salesOrderId, String status);
+    Optional<DeliveryOrder> findBySalesOrderIdAndStatusNot(Long salesOrderId, String status);
 }

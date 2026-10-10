@@ -60,7 +60,7 @@ public class InvoiceService {
 
         // Chi xuat hoa don SAU KHI da giao hang xong (Don giao hang da Xac nhan) - dung chuoi
         // DMS goc SO -> DO -> IN, va chot dung so luong GIAO THUC TE (co the khac so luong dat).
-        DeliveryOrder deliveryOrder = deliveryOrderRepository.findBySalesOrderId(salesOrderId)
+        DeliveryOrder deliveryOrder = deliveryOrderRepository.findBySalesOrderIdAndStatusNot(salesOrderId, "CANCELLED")
                 .orElseThrow(() -> ApiException.conflict("Don hang nay chua co Don giao hang - phai tao va Xac nhan giao hang truoc khi xuat hoa don"));
         if (!"CLOSED".equals(deliveryOrder.getStatus())) {
             throw ApiException.conflict("Don giao hang cua don hang nay chua duoc Xac nhan - phai giao hang xong moi xuat duoc hoa don");
@@ -136,7 +136,7 @@ public class InvoiceService {
             throw ApiException.conflict("Khach da tra hang dua tren hoa don nay - phai huy phieu Tra hang truoc khi huy Hoa don");
         }
 
-        DeliveryOrder deliveryOrder = deliveryOrderRepository.findBySalesOrderId(invoice.getSalesOrder().getId())
+        DeliveryOrder deliveryOrder = deliveryOrderRepository.findBySalesOrderIdAndStatusNot(invoice.getSalesOrder().getId(), "CANCELLED")
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay Don giao hang cua hoa don nay"));
         if (deliveryOrder.getVanWarehouse() != null) {
             for (DeliveryOrderItem item : deliveryOrder.getItems()) {

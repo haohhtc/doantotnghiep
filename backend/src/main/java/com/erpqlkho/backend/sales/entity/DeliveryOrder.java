@@ -10,7 +10,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -36,9 +35,10 @@ public class DeliveryOrder extends BaseEntity {
     @Column(name = "doc_date", nullable = false)
     private LocalDate docDate;
 
-    // 1 SO chi tao duoc toi da 1 DO (unique) - dung pham vi don gian cho do an.
-    @OneToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "sales_order_id", nullable = false, unique = true)
+    // 1 SO toi da 1 DO dang hoat dong (khong CANCELLED) cung luc - khong con UNIQUE cung o DB (V46)
+    // vi SO co the duoc tao DO MOI sau khi DO cu bi Huy (xem DeliveryOrderService).
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "sales_order_id", nullable = false)
     private SalesOrder salesOrder;
 
     @ManyToOne(fetch = FetchType.EAGER)

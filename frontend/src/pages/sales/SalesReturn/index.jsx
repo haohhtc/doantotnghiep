@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
 } from 'antd';
-import { PlusOutlined, EditOutlined, StopOutlined, CheckOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, StopOutlined, CheckOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { fetchUomOptions, defaultUomId } from '../../../utils/uom';
