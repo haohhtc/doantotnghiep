@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message, Tooltip,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, StopOutlined, UserOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, EyeOutlined, DeleteOutlined, CheckOutlined, StopOutlined, UserOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { useBranch } from '../../../contexts/BranchContext';
@@ -39,6 +39,7 @@ export default function DeliveryOrderPage() {
   const [detailRows, setDetailRows] = useState([]);
   const [confirmingId, setConfirmingId] = useState(null);
   const [confirmedByModalOpen, setConfirmedByModalOpen] = useState(false);
+  const [viewingOrder, setViewingOrder] = useState(null);
   const [form] = Form.useForm();
 
   const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
@@ -136,6 +137,29 @@ export default function DeliveryOrderPage() {
       })
     );
     setModalOpen(true);
+  }
+
+  // Xem thong tin don (chi doc) - dung duoc moi trang thai, luc Sua bi khoa (khong DRAFT) thi day
+  // la cach duy nhat xem lai noi dung don.
+  function openViewModal(record) {
+    setViewingOrder(record);
+  }
+
+  function viewingItems() {
+    if (!viewingOrder) return [];
+    return viewingOrder.items.map((d) => {
+      const soLine = viewingOrder.salesOrder.details?.find(
+        (sd) => sd.product.id === d.product.id && (sd.uom?.id || null) === (d.uom?.id || null)
+      );
+      return {
+        id: d.id,
+        productId: d.product.id,
+        productLabel: `${d.product.code} - ${d.product.name}`,
+        uomName: d.uom?.name,
+        quantity: d.quantity,
+        unitPrice: soLine?.unitPrice,
+      };
+    });
   }
 
   // Chon Don hang ban goc -> tu dong dien San pham + kho xuat + so luong DA DAT + Don gia (chi de
@@ -244,6 +268,7 @@ export default function DeliveryOrderPage() {
                 <Button icon={<CheckOutlined />} type="primary" ghost loading={confirmingId === record.id} />
               </Popconfirm>
             )}
+            <Button icon={<EyeOutlined />} onClick={() => openViewModal(record)} />
             <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
             <Popconfirm title="Xóa đơn giao hàng này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
               <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
@@ -441,6 +466,54 @@ export default function DeliveryOrderPage() {
         <Text type="secondary" style={{ fontSize: 12 }}>
           * Số liệu thuế chỉ là ước tính hiển thị trước, không lưu gì xuống DB - chốt chính thức khi bấm "Xuất hóa đơn" sau khi đơn đã xác nhận.
         </Text>
+      </Modal>
+
+      <Modal
+        title={viewingOrder ? `Xem đơn giao hàng ${viewingOrder.docNumber}` : ''}
+        open={!!viewingOrder}
+        onCancel={() => setViewingOrder(null)}
+        footer={null}
+        width={900}
+        destroyOnHidden
+      >
+        {viewingOrder && (
+          <>
+            <Row gutter={16}>
+              <Col span={8}><Text>Ngày lập: {viewingOrder.docDate}</Text></Col>
+              <Col span={8}><Text>Trạng thái: </Text>{statusTag(viewingOrder.status)}</Col>
+              <Col span={8}><Text>Đơn hàng bán: {viewingOrder.salesOrder?.docNumber}</Text></Col>
+              <Col span={8}><Text>Khách hàng: {viewingOrder.salesOrder?.customer?.name || '-'}</Text></Col>
+              <Col span={8}><Text>Kho xuất: {viewingOrder.warehouse?.name}</Text></Col>
+              <Col span={8}><Text>Tuyến: {viewingOrder.salesOrder?.routeMaster?.name || '-'}</Text></Col>
+              <Col span={8}><Text>NV bán hàng: {viewingOrder.salesOrder?.salesman?.fullName || '-'}</Text></Col>
+              <Col span={8}><Text>Loại đơn: {orderTypeLabel(viewingOrder.salesOrder?.orderType)}</Text></Col>
+              <Col span={8}><Text>Người xác nhận: {viewingOrder.confirmedBy?.fullName || viewingOrder.confirmedBy?.username || '-'}</Text></Col>
+            </Row>
+            {viewingOrder.remarks && <div style={{ marginTop: 8 }}><Text>Ghi chú: {viewingOrder.remarks}</Text></div>}
+
+            <div style={{ marginTop: 16, marginBottom: 8 }}>
+              <Text strong>Chi tiết hàng giao</Text>
+            </div>
+            <Table
+              rowKey="id"
+              size="small"
+              pagination={false}
+              dataSource={viewingItems()}
+              columns={[
+                { title: 'Sản phẩm', dataIndex: 'productLabel', key: 'productLabel' },
+                { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
+                { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity', align: 'right' },
+                { title: 'Đơn giá', dataIndex: 'unitPrice', key: 'unitPrice', render: (v) => (v != null ? Number(v).toLocaleString('vi-VN') + ' đ' : '-') },
+                {
+                  title: 'Thành tiền',
+                  key: 'amount',
+                  align: 'right',
+                  render: (_, d) => (Number(d.quantity || 0) * Number(d.unitPrice || 0)).toLocaleString('vi-VN') + ' đ',
+                },
+              ]}
+            />
+          </>
+        )}
       </Modal>
 
       <Modal

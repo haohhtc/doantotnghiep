@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
 } from 'antd';
-import { PlusOutlined, EditOutlined, StopOutlined, CheckOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, EyeOutlined, StopOutlined, CheckOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { fetchUomOptions, defaultUomId } from '../../../utils/uom';
@@ -34,6 +34,7 @@ export default function SalesReturnPage() {
   const [editingReturn, setEditingReturn] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [viewingReturn, setViewingReturn] = useState(null);
   const [uomOptions, setUomOptions] = useState([]);
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
@@ -109,6 +110,12 @@ export default function SalesReturnPage() {
     });
     setDetailRows(record.items.map((d) => ({ id: d.id, productId: d.product.id, uomId: d.uom?.id, uomName: d.uom?.name, quantity: d.quantity, note: d.note })));
     setModalOpen(true);
+  }
+
+  // Xem thong tin phieu (chi doc) - dung duoc ca khi da Duyet/Huy, luc Sua bi khoa khong xem lai
+  // duoc noi dung nua.
+  function openViewModal(record) {
+    setViewingReturn(record);
   }
 
   // Chon Hoa don goc (tuy chon) -> goi y dien san Kho/NVBH/dong hang tu hoa don do, nguoi dung van
@@ -219,6 +226,7 @@ export default function SalesReturnPage() {
       key: 'actions',
       render: (_, record) => (
         <Space>
+          <Button icon={<EyeOutlined />} onClick={() => openViewModal(record)} />
           <Button icon={<EditOutlined />} disabled={record.status !== 'DRAFT'} onClick={() => openEditModal(record)} />
           {record.status === 'DRAFT' && (
             <Popconfirm
@@ -343,6 +351,45 @@ export default function SalesReturnPage() {
           pagination={false}
           locale={{ emptyText: 'Không có dữ liệu' }}
         />
+      </Modal>
+
+      <Modal
+        title={viewingReturn ? `Xem phiếu trả hàng ${viewingReturn.docNumber}` : ''}
+        open={!!viewingReturn}
+        onCancel={() => setViewingReturn(null)}
+        footer={null}
+        width={700}
+        destroyOnHidden
+      >
+        {viewingReturn && (
+          <>
+            <Row gutter={16}>
+              <Col span={8}><Text>Ngày chứng từ: {viewingReturn.docDate}</Text></Col>
+              <Col span={8}><Text>Trạng thái: </Text>{statusTag(viewingReturn.status)}</Col>
+              <Col span={8}><Text>Đơn hàng gốc: {viewingReturn.salesOrder?.docNumber || '-'}</Text></Col>
+              <Col span={8}><Text>Nhân viên bán hàng: {viewingReturn.salesman?.fullName || '-'}</Text></Col>
+              <Col span={8}><Text>Kho nhận trả: {viewingReturn.warehouse?.name || '-'}</Text></Col>
+              <Col span={8}><Text>Lý do trả: {viewingReturn.reason || '-'}</Text></Col>
+            </Row>
+            <div style={{ marginTop: 8 }}><Text>Ghi chú: {viewingReturn.remarks || '-'}</Text></div>
+
+            <div style={{ marginTop: 16, marginBottom: 8 }}>
+              <Text strong>Chi tiết hàng trả</Text>
+            </div>
+            <Table
+              rowKey="id"
+              size="small"
+              pagination={false}
+              dataSource={viewingReturn.items}
+              columns={[
+                { title: 'Sản phẩm', key: 'product', render: (_, d) => `${d.product?.code} - ${d.product?.name}` },
+                { title: 'ĐVT', key: 'uom', render: (_, d) => d.uom?.name || '-' },
+                { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity' },
+                { title: 'Ghi chú', dataIndex: 'note', key: 'note' },
+              ]}
+            />
+          </>
+        )}
       </Modal>
 
       <Modal
