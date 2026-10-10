@@ -48,7 +48,11 @@ export default function InventoriesPage() {
         //  2) Dat thang tu kho Van (van sale truc tiep) - tinh den khi xuat Hoa don.
         //  3) Da co Don giao hang CLOSED -> hang da nam o kho Van do, van phai tinh la "giu cho"
         //     tai dung kho Van ay cho den khi xuat Hoa don (truoc day bi bo sot, hien 0 sai).
-        const invoicedOrderIds = new Set(invoicesRes.data.data.map((i) => i.salesOrder.id));
+        // Chi tinh hoa don CON HIEU LUC (status != CANCELLED) - don co hoa don da Huy van phai tinh
+        // la dang "giu cho" cho den khi xuat hoa don MOI thanh cong.
+        const invoicedOrderIds = new Set(
+          invoicesRes.data.data.filter((i) => i.status !== 'CANCELLED').map((i) => i.salesOrder.id)
+        );
         const vanIdByOrderId = {};
         deliveryRes.data.data
           .filter((d) => d.status === 'CLOSED' && d.vanWarehouse)

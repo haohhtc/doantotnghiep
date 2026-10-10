@@ -14,12 +14,14 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     //      cho xuat hoa don, phai tinh la "da dat hang" tai Van de khong bi ban trung cho don khac.
     // excludeOrderId: bo qua chinh don dang sua/duyet (truyen -1 neu khong co) de khong tu cong don voi
     // chinh no. Cung cong thuc voi cot "Da dat hang" o trang Ton kho (frontend Inventories/index.jsx).
+    // Chi loai don co hoa don CON HIEU LUC (status <> CANCELLED) - don co hoa don da Huy (xem
+    // InvoiceService.cancel(), V45) van phai tinh la dang giu cho cho den khi xuat hoa don MOI.
     @org.springframework.data.jpa.repository.Query("""
             select coalesce(sum(d.baseQuantity), 0) from SalesOrderDetail d
             where d.product.id = :productId
               and d.salesOrder.status in ('PENDING', 'CONFIRMED')
               and d.salesOrder.id <> :excludeOrderId
-              and not exists (select 1 from Invoice i where i.salesOrder = d.salesOrder)
+              and not exists (select 1 from Invoice i where i.salesOrder = d.salesOrder and i.status <> 'CANCELLED')
               and (
                 (d.salesOrder.warehouse.id = :warehouseId
                   and d.salesOrder.warehouse.warehouseType <> 'VAN'

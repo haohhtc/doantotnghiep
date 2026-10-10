@@ -189,7 +189,11 @@ export default function SalesOrderPage() {
         setCustomers(customersRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setProducts(productsRes.data.data);
-        setInvoicedOrderIds(new Set(invoicesRes.data.data.map((i) => i.salesOrder.id)));
+        // Chi tinh hoa don CON HIEU LUC (status != CANCELLED) - sau V45 1 don hang co the co hoa don
+        // da Huy van giu lai lich su nhung van xuat duoc hoa don MOI, khong duoc an nut vinh vien.
+        setInvoicedOrderIds(
+          new Set(invoicesRes.data.data.filter((i) => i.status !== 'CANCELLED').map((i) => i.salesOrder.id))
+        );
         setDeliveredOrderIds(
           new Set(deliveryOrdersRes.data.data.filter((d) => d.status === 'CLOSED').map((d) => d.salesOrder.id))
         );
