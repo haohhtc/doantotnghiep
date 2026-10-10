@@ -617,6 +617,16 @@ Khi test tiếp "làm lại từ đầu sau khi đã hủy" (xác nhận lại �
 
 **Tiện phát hiện thêm lỗi nhỏ không liên quan**: trang Trả hàng thiếu import icon `DeleteOutlined` (dùng trong bảng chi tiết dòng hàng ở modal Sửa) — gây crash khi bấm nút Sửa. Đã rà soát lại toàn bộ 61 file frontend, xác nhận đây là lỗi duy nhất loại này trong toàn hệ thống.
 
+## 🐛 Lỗi thật: Xác nhận lại Đơn giao hàng sau khi Hủy Hóa đơn làm kho bị trừ/cộng trùng 2 lần + thêm nút Xem (2026-10-10)
+
+Người dùng tự test trên UI (chi nhánh Bình Dương, đơn SO0026): Xuất hóa đơn → Hủy hóa đơn (Đơn giao hàng về "Chờ giao") → Xác nhận lại Đơn giao hàng đó để hiện lại nút "Xuất hóa đơn" — hỏi "nếu làm vậy nó có bị lỗi +/- kho không chính xác không". Kiểm tra kỹ phát hiện **đúng là có lỗi thật**: `InvoiceService.cancel()` xóa luôn `vanWarehouse` của Đơn giao hàng khi mở lại DRAFT, nên `DeliveryOrderService.confirm()` (vốn luôn chuyển kho Main→Van mỗi khi DRAFT→CLOSED, không phân biệt lần đầu hay xác nhận lại) chạy **lại từ đầu** dù hàng chưa từng thật sự quay về Main — tồn kho Main bị trừ dư, Van bị cộng dư đúng 1 lần (xác minh qua số liệu thật: Main dư −24, Van dư +24 trên đơn SO0026/DO0021/HD0013).
+
+**Sửa**: `InvoiceService.cancel()` không còn xóa `vanWarehouse` (hàng vẫn đang thật sự nằm ở Van, chỉ là chưa xuất hóa đơn) → `DeliveryOrderService.confirm()` đổi điều kiện: chỉ chuyển kho thật khi `vanWarehouse` đang **null** (lần xác nhận đầu tiên); nếu đã có sẵn thì chỉ đổi trạng thái về CLOSED, không chuyển kho lần 2. `DeliveryOrderService.cancel()` cũng đổi điều kiện hoàn kho từ `status==CLOSED` sang `vanWarehouse != null` (tín hiệu đúng hơn, phòng trường hợp Hủy ngay lúc DO đang DRAFT nhưng vanWarehouse vẫn còn do vừa Hủy Hóa đơn trước đó).
+
+Đã chỉnh lại đúng số liệu kho Bình Dương bị lệch do lỗi này trước khi sửa (Main 9846→9870, Van 10052→10028) và test lại đúng kịch bản gây lỗi (Xuất hóa đơn → Hủy → Xác nhận lại → kho giữ nguyên không đổi → Xuất hóa đơn lại lần nữa → OK).
+
+**Tiện thể thêm nút Xem (👁️, chỉ đọc, dùng được mọi trạng thái)** ở trang Trả hàng và Đơn giao hàng — trước đây nút Sửa bị khóa khi không còn Nháp/Chờ giao nên không có cách nào xem lại nội dung chứng từ đã Duyệt/Đã hủy.
+
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
 **Phân trang (pagination) cho các trang danh sách** — nguyên nhân: Nhi (thành viên 2, làm ETL/DW/AI/BI nhánh `feature/data-ai`) đẩy lên 1 bộ dữ liệu khá lớn, làm các trang danh sách (Đơn hàng bán...) load chậm hẳn mỗi lần bấm, vì hiện tại mọi trang đều gọi API tải **toàn bộ** bảng 1 lần (không giới hạn số dòng, JSON lồng sâu), lọc/tìm kiếm làm phía trình duyệt. Đã phân tích trong phiên và người dùng **xác nhận hoãn lại**, đợi làm xong hết các yêu cầu hiện tại mới quay lại làm. Hướng giải quyết đã thống nhất: phân trang phía Server (Spring Data `Pageable` + AntD `Table` pagination gọi lại API theo trang), làm thí điểm ở trang Đơn hàng bán trước — nhớ vẫn cần hỏi xác nhận lại trước khi code theo đúng quy tắc chung.
