@@ -43,10 +43,12 @@ export default function DeliveryOrderPage() {
   const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
 
-  // Chi cho tao DO tu don da duyet (CONFIRMED) va chua co DO nao - danh sach nay tu dong loai bo
-  // dan cac don da co DO khi bam Them.
+  // Chi cho tao DO tu don da duyet (CONFIRMED), chua co DO nao, VA dung Chi nhanh dang chon o
+  // Header (thieu dieu kien nay truoc day la bug - don cua chi nhanh khac van lot vao dropdown).
   const usedSalesOrderIds = new Set(deliveryOrders.map((d) => d.salesOrder.id));
-  const availableSalesOrders = salesOrders.filter((o) => o.status === 'CONFIRMED' && !usedSalesOrderIds.has(o.id));
+  const availableSalesOrders = salesOrders.filter(
+    (o) => o.status === 'CONFIRMED' && !usedSalesOrderIds.has(o.id) && (!selectedBranchId || o.warehouse?.branch?.id === selectedBranchId)
+  );
   // Khi sua DO da co, Don hang ban cua no bi loai khoi availableSalesOrders (vi da "used") nen
   // phai them rieng option cua chinh no vao, khong thi Select khong tra duoc label va hien thang ID so.
   const editingSalesOrderOption = editingOrder
