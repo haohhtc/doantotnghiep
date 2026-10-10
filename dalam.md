@@ -637,6 +637,10 @@ Sau khi sửa lỗi chuyển kho trùng (mục trên), người dùng tiếp t�
 
 **Sửa cả 3 chỗ**: đổi điều kiện từ "có hóa đơn nào đó" sang "có hóa đơn **còn hiệu lực** (status != CANCELLED)". Đã test lại: SO0026 sau khi Hủy hóa đơn và xác nhận lại Đơn giao hàng, nút Xuất hóa đơn hiện lại đúng.
 
+## 🧑‍🔧 Kiểm kê kho: thêm trường "Nhân viên kiểm kê" (V47, 2026-10-10)
+
+Thêm trường **Nhân viên kiểm kê** (tùy chọn) vào form Thêm/Sửa đợt kiểm kê, load danh sách từ trang Nhân viên (`/employees`, không giới hạn NVBH hay NV quản lý). Migration V47 thêm cột `stock_take.employee_id` (nullable, FK) — khác với `created_by` sẵn có (tài khoản đăng nhập tạo chứng từ), đây là người **thật sự thực hiện kiểm đếm**, có thể khác tài khoản. Thêm cột "Nhân viên" vào bảng danh sách. Đã test tạo qua API có gán nhân viên thành công, đã xóa dữ liệu test.
+
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
 **Phân trang (pagination) cho các trang danh sách** — nguyên nhân: Nhi (thành viên 2, làm ETL/DW/AI/BI nhánh `feature/data-ai`) đẩy lên 1 bộ dữ liệu khá lớn, làm các trang danh sách (Đơn hàng bán...) load chậm hẳn mỗi lần bấm, vì hiện tại mọi trang đều gọi API tải **toàn bộ** bảng 1 lần (không giới hạn số dòng, JSON lồng sâu), lọc/tìm kiếm làm phía trình duyệt. Đã phân tích trong phiên và người dùng **xác nhận hoãn lại**, đợi làm xong hết các yêu cầu hiện tại mới quay lại làm. Hướng giải quyết đã thống nhất: phân trang phía Server (Spring Data `Pageable` + AntD `Table` pagination gọi lại API theo trang), làm thí điểm ở trang Đơn hàng bán trước — nhớ vẫn cần hỏi xác nhận lại trước khi code theo đúng quy tắc chung.
