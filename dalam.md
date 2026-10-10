@@ -589,6 +589,22 @@ Thêm nút **Trả hàng** (icon, đầu tiên trong cột Thao tác) ở trang 
 
 Đã test qua API (mô phỏng đúng payload nút sẽ gửi): đẩy SO0022 qua hết chuỗi Xác nhận giao hàng → Xuất hóa đơn (HD0006) → tạo Phiếu trả hàng → Duyệt → tồn kho Main tăng đúng 24 Gói (2 Hộp × hệ số 12). Đã xóa phiếu trả hàng test, **giữ lại chuỗi SO0022→DO0011→HD0006** làm ví dụ demo hoàn chỉnh thêm. Đã xác nhận chặn đúng khi đơn gốc chưa có NVBH (HD0001).
 
+## 🚫 Thêm nút "Hủy" cho Trả hàng / Đơn giao hàng / Hóa đơn + liên kết Hóa đơn gốc ở Trả hàng (2026-10-10)
+
+**1. Trả hàng**: nút "Xóa" đổi thành **"Hủy"** (soft-cancel, giữ lại bản ghi) — dùng được cả khi còn Nháp và khi đã Duyệt (CLOSED): nếu đã Duyệt thì trừ lại đúng số đã cộng vào Kho chính trước khi chuyển CANCELLED; nếu còn Nháp thì không đụng gì đến kho. Nút ✓ Duyệt (ngoài danh sách) và nút Lưu (trong modal sửa) giữ nguyên như cũ, không đổi. Thêm trường **"Hóa đơn gốc"** (tùy chọn) khi tạo/sửa phiếu trả hàng — chọn 1 hóa đơn sẽ tự gợi ý Kho/NVBH/sản phẩm theo hóa đơn đó (không khóa cứng, vẫn sửa được).
+
+**2. Đơn giao hàng**: thêm nút **"Hủy"** — mở lại Đơn hàng bán gốc về "Chờ xác nhận" (PENDING); nếu đơn giao đã Xác nhận (CLOSED, đã chuyển kho Main→Van) thì hoàn kho Van→Main trước khi chuyển CANCELLED. **Bị chặn** nếu đơn hàng đó đã có Hóa đơn còn hiệu lực (chưa bị Hủy) — phải Hủy Hóa đơn trước.
+
+**3. Hóa đơn**: trước đây hoàn toàn không có trạng thái (không sửa/xóa được). Thêm cột `status` (migration **V44**, mặc định `ACTIVE`) + nút **"Hủy"** — hoàn lại kho Van (đúng số đã trừ lúc xuất hóa đơn), mở lại Đơn giao hàng về "Chờ giao" (DRAFT, gỡ `confirmedBy`/`vanWarehouse`). **Bị chặn** nếu khách đã tạo phiếu Trả hàng còn hiệu lực dựa trên hóa đơn này — phải Hủy phiếu Trả hàng trước. Hóa đơn cũng tự hiện tag **"Trả hàng"** (tím, chỉ tính ở frontend, không phải trạng thái lưu DB) khi có phiếu Trả hàng đã Duyệt (CLOSED) còn hiệu lực gắn với đúng đơn hàng gốc của hóa đơn đó — hủy phiếu trả thì tự quay lại "Đã duyệt".
+
+**Lỗi phát hiện khi test trực tiếp (đã sửa ngay, migration V45)**: cột `invoice.sales_order_id` có khóa **UNIQUE** thật trong DB — nên sau khi Hủy 1 hóa đơn, không bao giờ xuất được hóa đơn **mới** cho đúng đơn hàng đó nữa (dù Đơn giao hàng đã mở lại để giao lại được), mâu thuẫn với đúng mục đích của tính năng Hủy. V45: bỏ UNIQUE đó (vẫn giữ index thường để FK hoạt động), đổi điều kiện kiểm tra "đơn hàng đã xuất hóa đơn chưa" từ `existsBySalesOrderId` sang `existsBySalesOrderIdAndStatusNot(id, "CANCELLED")` (bỏ qua các hóa đơn đã Hủy). Entity `Invoice.salesOrder` đổi từ `@OneToOne` sang `@ManyToOne` (1 đơn hàng giờ có thể có nhiều hóa đơn theo thời gian, nhưng chỉ tối đa 1 đang ACTIVE cùng lúc).
+
+**Đã test trực tiếp đầy đủ (API thật, sau khi restart backend áp dụng V44+V45)**:
+- Hủy hóa đơn HD0006 (chuỗi demo SO0022→DO0011) → kho Van hoàn đúng +24, Đơn giao hàng DO0011 mở lại về DRAFT.
+- Tạo/Duyệt/Hủy 1 phiếu Trả hàng test (RT0005) → kho Main cộng đúng +12 khi Duyệt, trừ đúng lại −12 khi Hủy (về đúng số gốc) — đã xóa phiếu test sau khi xác nhận.
+- Hủy Đơn giao hàng: thử Hủy DO0012 (có Hóa đơn HD0008 còn hiệu lực) → bị chặn đúng (409, không đụng gì đến dữ liệu); thử Hủy DO0011 thật (không còn hóa đơn chặn) → kho Main +24 / Van −24 đúng, Đơn hàng bán mở lại PENDING — sau đó khôi phục lại đúng trạng thái gốc (CLOSED/CONFIRMED) bằng tay vì API không có đường "un-cancel" cho Đơn giao hàng.
+- Sau khi sửa V45: xuất hóa đơn **mới** (HD0010) cho đúng SO0022 vừa bị hủy hóa đơn trước đó → thành công, kho Van trừ đúng −24. **Giữ lại chuỗi SO0022→DO0011→HD0010 làm demo cho tính năng Hủy** (HD0006 cũ vẫn còn trong lịch sử ở trạng thái CANCELLED).
+
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
 **Phân trang (pagination) cho các trang danh sách** — nguyên nhân: Nhi (thành viên 2, làm ETL/DW/AI/BI nhánh `feature/data-ai`) đẩy lên 1 bộ dữ liệu khá lớn, làm các trang danh sách (Đơn hàng bán...) load chậm hẳn mỗi lần bấm, vì hiện tại mọi trang đều gọi API tải **toàn bộ** bảng 1 lần (không giới hạn số dòng, JSON lồng sâu), lọc/tìm kiếm làm phía trình duyệt. Đã phân tích trong phiên và người dùng **xác nhận hoãn lại**, đợi làm xong hết các yêu cầu hiện tại mới quay lại làm. Hướng giải quyết đã thống nhất: phân trang phía Server (Spring Data `Pageable` + AntD `Table` pagination gọi lại API theo trang), làm thí điểm ở trang Đơn hàng bán trước — nhớ vẫn cần hỏi xác nhận lại trước khi code theo đúng quy tắc chung.
