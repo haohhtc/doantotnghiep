@@ -557,6 +557,12 @@ Xác nhận lại 2 phần không cần sửa (đã đúng sẵn từ trước):
 
 Đã test qua API: tạo phiếu trả hàng → tự nhận đúng Kho hư vừa tạo; xác nhận bị chặn đúng vì kho hư mới tạo chưa có tồn (guard có sẵn, không cần sửa thêm).
 
+## 📦 Dữ liệu mua hàng cho Hà Nội + Test chuỗi Điều chuyển kho → Trả hàng NCC qua Kho hư (2026-10-10)
+
+**A. Bổ sung dữ liệu mua hàng cho khu vực Hà Nội** (trước đó khu vực này có đủ bên Bán hàng nhưng thiếu hẳn bên Mua hàng): tạo Nhà cung cấp mới **NCC-HANOI** ("Công ty TNHH Phân phối Thực phẩm Miền Bắc"), 2 phiếu Nhập hàng vào Kho Chính Hà Nội: **PN0006** (đã xác nhận, 50 Gói CP001 + 30 Gói CP002) và **PN0007** (còn nháp, để test trạng thái "Nháp"). Đã test tồn kho cộng đúng: CP001 9976→10026, CP002 10000→10030, phiếu nháp không ảnh hưởng tồn. (Lưu ý: Nhà cung cấp là dữ liệu dùng chung toàn hệ thống, không ràng buộc theo chi nhánh trong thiết kế DB - chỉ đặt tên gợi ý vùng miền cho dễ hiểu.)
+
+**B. Test đầy đủ chuỗi "Kho xuất trả = Kho hư" cho Trả hàng NCC** (tính năng đã làm trước đó, lần này test thật với dữ liệu thật chứ không chỉ test API suông): vì Kho hư 2 chi nhánh ban đầu trống (0 tồn) nên phải tạo chuỗi dữ liệu thật để xác nhận Duyệt phiếu thành công: Điều chuyển kho 10 Gói CP001 từ Kho Main → Kho hư (CN-BDDWH01, phiếu **DC0002**) → Trả hàng NCC 5 Gói từ đúng Kho hư đó (phiếu **PRT0004**, tự động khóa đúng kho, Duyệt thành công). Số liệu khớp đúng từng bước: Main 9976→9966, Kho hư 0→10→5. **Giữ lại chuỗi này làm dữ liệu demo minh họa, không xóa.**
+
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
 **Phân trang (pagination) cho các trang danh sách** — nguyên nhân: Nhi (thành viên 2, làm ETL/DW/AI/BI nhánh `feature/data-ai`) đẩy lên 1 bộ dữ liệu khá lớn, làm các trang danh sách (Đơn hàng bán...) load chậm hẳn mỗi lần bấm, vì hiện tại mọi trang đều gọi API tải **toàn bộ** bảng 1 lần (không giới hạn số dòng, JSON lồng sâu), lọc/tìm kiếm làm phía trình duyệt. Đã phân tích trong phiên và người dùng **xác nhận hoãn lại**, đợi làm xong hết các yêu cầu hiện tại mới quay lại làm. Hướng giải quyết đã thống nhất: phân trang phía Server (Spring Data `Pageable` + AntD `Table` pagination gọi lại API theo trang), làm thí điểm ở trang Đơn hàng bán trước — nhớ vẫn cần hỏi xác nhận lại trước khi code theo đúng quy tắc chung.
