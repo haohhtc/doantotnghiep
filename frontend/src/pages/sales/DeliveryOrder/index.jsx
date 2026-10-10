@@ -14,6 +14,13 @@ function statusTag(status) {
   return <Tag color="gold">Chờ giao</Tag>;
 }
 
+// Khop y het nhan cua ORDER_TYPE_OPTIONS ben Don hang ban (xem pages/sales/SalesOrder/index.jsx).
+function orderTypeLabel(type) {
+  if (type === 'PRE_ORDER') return 'Pre-order (đặt trước giao sau)';
+  if (type === 'SAMPLE') return 'Đơn hàng mẫu (miễn phí)';
+  return 'Đơn Van-Sales';
+}
+
 // Don giao hang (DO) - tach rieng khoi Don hang ban (SO) theo dung chuoi DMS goc SO -> DO -> Xac
 // nhan DO. Trang nay gop ca tao/sua/xoa lenh giao (chi khi con DRAFT) LAN Xac nhan giao hang (tru
 // kho that, DRAFT -> CLOSED) - truoc day la 2 trang rieng, da gop lam 1 theo yeu cau nguoi dung -
@@ -49,6 +56,12 @@ export default function DeliveryOrderPage() {
     ...availableSalesOrders.map((o) => ({ value: o.id, label: `${o.docNumber} - ${o.customer?.name || ''}` })),
     ...(editingSalesOrderOption ? [editingSalesOrderOption] : []),
   ];
+  // Don hang ban dang duoc chon (tao moi: theo dung Select dang chon; sua don cu: luon la don goc
+  // cua chinh no) - dung de hien lai cac truong tham khao (Loai don, Ngay dat, Ngay giao, Khach
+  // hang, Tuyen, NVBH...) y het ben Don hang ban, KHONG luu/gui lai len server - chi la man anh
+  // cua du lieu da chot san tren Don hang ban goc.
+  const watchedSalesOrderId = Form.useWatch('salesOrderId', form);
+  const selectedSalesOrder = editingOrder?.salesOrder || salesOrders.find((o) => o.id === watchedSalesOrderId) || null;
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';
@@ -327,6 +340,29 @@ export default function DeliveryOrderPage() {
                 />
               </Form.Item>
             </Col>
+            {/* Cac truong duoi day chi hien THAM KHAO, lay nguyen tu Don hang ban goc da chon o
+                tren - khong dang ky name nen khong gui len server, giong het cac truong tren man
+                Don hang ban (xem pages/sales/SalesOrder/index.jsx). */}
+            <Col span={12}>
+              <Form.Item label="Loại đơn" extra="Lấy từ Đơn hàng bán gốc">
+                <Input disabled value={selectedSalesOrder ? orderTypeLabel(selectedSalesOrder.orderType) : ''} placeholder="Chọn Đơn hàng bán trước" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Ngày đặt hàng" extra="Lấy từ Đơn hàng bán gốc">
+                <Input disabled value={selectedSalesOrder?.docDate || ''} placeholder="Chọn Đơn hàng bán trước" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Ngày giao hàng" extra="Lấy từ Đơn hàng bán gốc">
+                <Input disabled value={selectedSalesOrder?.deliveryDate || ''} placeholder="Không có (đơn Van-Sales/Hàng mẫu)" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Khách hàng" extra="Lấy từ Đơn hàng bán gốc">
+                <Input disabled value={selectedSalesOrder?.customer?.name || ''} placeholder="Chọn Đơn hàng bán trước" />
+              </Form.Item>
+            </Col>
             <Col span={12}>
               <Form.Item
                 label="Kho xuất"
@@ -335,6 +371,16 @@ export default function DeliveryOrderPage() {
                 extra="Luôn lấy đúng kho của Đơn hàng bán gốc - không chọn kho khác được"
               >
                 <Select options={warehouseOptions} placeholder="Chọn Đơn hàng bán trước" disabled />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Tuyến" extra="Lấy từ Đơn hàng bán gốc">
+                <Input disabled value={selectedSalesOrder?.routeMaster?.name || ''} placeholder="Khách hàng chưa gán tuyến" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="NV bán hàng" extra="Lấy từ Đơn hàng bán gốc">
+                <Input disabled value={selectedSalesOrder?.salesman?.fullName || ''} placeholder="Tuyến chưa có NVBH tại ngày đặt hàng" />
               </Form.Item>
             </Col>
             <Col span={24}>
