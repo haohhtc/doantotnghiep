@@ -35,4 +35,9 @@ public class InvoiceController {
     public ApiResponse<Invoice> create(@RequestParam Long salesOrderId) {
         return ApiResponse.ok("Xuat hoa don thanh cong", invoiceService.createFromSalesOrder(salesOrderId));
     }
+
+    @PostMapping("/{id}/cancel")
+    public ApiResponse<Invoice> cancel(@PathVariable Long id) {
+        return ApiResponse.ok("Da huy hoa don - mo lai Don giao hang", invoiceService.cancel(id));
+    }
 }

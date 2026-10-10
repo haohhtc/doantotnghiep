@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, StopOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { fetchUomOptions, defaultUomId } from '../../../utils/uom';
@@ -13,6 +13,7 @@ const { TextArea } = Input;
 
 function statusTag(status) {
   if (status === 'CLOSED') return <Tag color="green">Đã duyệt</Tag>;
+  if (status === 'CANCELLED') return <Tag color="red">Đã hủy</Tag>;
   return <Tag color="gold">Nháp</Tag>;
 }
 
@@ -26,6 +27,7 @@ export default function SalesReturnPage() {
   const [salesmen, setSalesmen] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -41,6 +43,12 @@ export default function SalesReturnPage() {
     .filter((w) => !selectedBranchId || w.branch?.id === selectedBranchId || w.id === editingReturn?.warehouse?.id)
     .map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
+  // Hoa don goc chi de THAM KHAO + tu dien goi y dong hang (xem handleInvoiceSelect) - khong khoa
+  // Kho/NVBH vi form nay chinh la loi thoat khi auto-dien o man Hoa don khong lam duoc (VD don
+  // goc chua co NVBH). Giu rieng hoa don cua phieu dang sua de khong mat label.
+  const invoiceOptions = invoices
+    .filter((i) => i.id === editingReturn?._invoiceId || !selectedBranchId || i.salesOrder?.warehouse?.branch?.id === selectedBranchId)
+    .map((i) => ({ value: i.id, label: `${i.invoiceNumber} - ${i.salesOrder?.customer?.name || ''}` }));
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';
@@ -53,12 +61,14 @@ export default function SalesReturnPage() {
       axiosClient.get('/employees'),
       axiosClient.get('/warehouses'),
       axiosClient.get('/products'),
+      axiosClient.get('/invoices'),
     ])
-      .then(([retRes, employeesRes, warehousesRes, productsRes]) => {
+      .then(([retRes, employeesRes, warehousesRes, productsRes, invoicesRes]) => {
         setReturns(retRes.data.data);
         setSalesmen(employeesRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setProducts(productsRes.data.data);
+        setInvoices(invoicesRes.data.data);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu phiếu trả hàng'))
       .finally(() => setLoading(false));
@@ -84,10 +94,14 @@ export default function SalesReturnPage() {
   }
 
   function openEditModal(record) {
-    setEditingReturn(record);
+    // sales_order chi duoc gan lai qua invoiceId (khong co salesOrderId rieng trong DTO) - suy
+    // nguoc lai hoa don tuong ung bang cach doi chieu salesOrder.id, de hien dung lua chon cu.
+    const matchedInvoice = invoices.find((i) => i.salesOrder?.id === record.salesOrder?.id);
+    setEditingReturn({ ...record, _invoiceId: matchedInvoice?.id });
     form.setFieldsValue({
       docNumber: record.docNumber,
       docDate: record.docDate,
+      invoiceId: matchedInvoice?.id,
       salesmanId: record.salesman?.id,
       warehouseId: record.warehouse?.id,
       reason: record.reason,
@@ -97,14 +111,43 @@ export default function SalesReturnPage() {
     setModalOpen(true);
   }
 
-  function handleDelete(record) {
+  // Chon Hoa don goc (tuy chon) -> goi y dien san Kho/NVBH/dong hang tu hoa don do, nguoi dung van
+  // sua lai thoai mai (khong khoa) - dac biet huu ich khi don hang goc CHUA co NVBH, luc do chi
+  // gan San pham/So luong con NVBH nguoi dung tu chon tay.
+  function handleInvoiceSelect(invoiceId) {
+    if (!invoiceId) return;
+    const invoice = invoices.find((i) => i.id === invoiceId);
+    if (!invoice) return;
+    const mainWarehouse = warehouses.find(
+      (w) => w.branch?.id === invoice.salesOrder?.warehouse?.branch?.id && w.warehouseType === 'MAIN'
+    );
+    form.setFieldsValue({
+      warehouseId: mainWarehouse?.id,
+      salesmanId: invoice.salesOrder?.salesman?.id,
+      remarks: `Trả hàng từ hóa đơn ${invoice.invoiceNumber}`,
+    });
+    setDetailRows(
+      invoice.items.map((i) => ({
+        id: Date.now() + i.id,
+        productId: i.product.id,
+        uomId: i.uom?.id,
+        uomName: i.uom?.name,
+        quantity: i.quantity,
+        note: `Trả từ hóa đơn ${invoice.invoiceNumber}`,
+      }))
+    );
+  }
+
+  // Huy phieu tra hang - thay cho Xoa cung (giu lai ban ghi). Hoat dong duoc ca khi da Duyet
+  // (CLOSED) - luc do se tu dong tru lai dung so da cong vao kho.
+  function handleCancel(record) {
     axiosClient
-      .delete(`/sales-returns/${record.id}`)
+      .post(`/sales-returns/${record.id}/cancel`)
       .then(() => {
-        message.success('Đã xóa phiếu trả hàng');
+        message.success('Đã hủy phiếu trả hàng');
         loadData();
       })
-      .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
+      .catch((err) => message.error(err.response?.data?.message || 'Hủy thất bại'));
   }
 
   function handleConfirmReturn(record) {
@@ -176,7 +219,7 @@ export default function SalesReturnPage() {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button icon={<EditOutlined />} disabled={record.status === 'CLOSED'} onClick={() => openEditModal(record)} />
+          <Button icon={<EditOutlined />} disabled={record.status !== 'DRAFT'} onClick={() => openEditModal(record)} />
           {record.status === 'DRAFT' && (
             <Popconfirm
               title="Duyệt phiếu trả hàng này?"
@@ -186,8 +229,13 @@ export default function SalesReturnPage() {
               <Button icon={<CheckOutlined />} type="primary" ghost />
             </Popconfirm>
           )}
-          <Popconfirm title="Xóa phiếu trả hàng này?" disabled={record.status === 'CLOSED'} onConfirm={() => handleDelete(record)}>
-            <Button icon={<DeleteOutlined />} danger disabled={record.status === 'CLOSED'} />
+          <Popconfirm
+            title="Hủy phiếu trả hàng này?"
+            description={record.status === 'CLOSED' ? 'Sẽ trừ lại đúng số đã cộng vào tồn kho.' : undefined}
+            disabled={record.status === 'CANCELLED'}
+            onConfirm={() => handleCancel(record)}
+          >
+            <Button icon={<StopOutlined />} danger disabled={record.status === 'CANCELLED'} />
           </Popconfirm>
         </Space>
       ),
@@ -246,6 +294,18 @@ export default function SalesReturnPage() {
             <Col span={8}>
               <Form.Item label="Ngày chứng từ" name="docDate" rules={[{ required: true, message: 'Ngày chứng từ không được để trống' }]}>
                 <Input type="date" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Hóa đơn gốc" name="invoiceId" extra="Chọn để tự gợi ý Kho/NVBH/dòng hàng từ hóa đơn (không bắt buộc)">
+                <Select
+                  options={invoiceOptions}
+                  placeholder="Chọn hóa đơn (nếu có)"
+                  allowClear
+                  showSearch
+                  optionFilterProp="label"
+                  onChange={handleInvoiceSelect}
+                />
               </Form.Item>
             </Col>
             <Col span={8}>

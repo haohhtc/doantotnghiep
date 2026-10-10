@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message, Tooltip,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, UserOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, StopOutlined, UserOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { useBranch } from '../../../contexts/BranchContext';
@@ -11,6 +11,7 @@ const { Title, Text } = Typography;
 
 function statusTag(status) {
   if (status === 'CLOSED') return <Tag color="green">Đã giao (đã xuất kho)</Tag>;
+  if (status === 'CANCELLED') return <Tag color="red">Đã hủy</Tag>;
   return <Tag color="gold">Chờ giao</Tag>;
 }
 
@@ -171,6 +172,18 @@ export default function DeliveryOrderPage() {
       .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
 
+  // Huy don giao hang - mo lai Don hang ban goc ve "Cho xac nhan". Neu dang CLOSED thi backend se
+  // tu dao lai kho (Van giam, Main cong lai) truoc khi huy. Bi chan neu da co Hoa don dang hieu luc.
+  function handleCancel(record) {
+    axiosClient
+      .post(`/delivery-orders/${record.id}/cancel`)
+      .then(() => {
+        message.success('Đã hủy đơn giao hàng - đã mở lại Đơn hàng bán về "Chờ xác nhận"');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Hủy thất bại'));
+  }
+
   // Xac nhan giao hang (DRAFT -> CLOSED) - gop tu trang "Xac nhan giao hang" cu theo yeu cau nguoi
   // dung, dung lai nguyen API /delivery-orders/{id}/confirm da co san.
   function handleConfirm(record) {
@@ -234,6 +247,18 @@ export default function DeliveryOrderPage() {
             <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
             <Popconfirm title="Xóa đơn giao hàng này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
               <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
+            </Popconfirm>
+            <Popconfirm
+              title="Hủy đơn giao hàng này?"
+              description={
+                record.status === 'CLOSED'
+                  ? 'Sẽ đảo lại kho (Kho xe tải giảm, Kho chính cộng lại) rồi mở lại Đơn hàng bán về "Chờ xác nhận".'
+                  : 'Sẽ mở lại Đơn hàng bán về "Chờ xác nhận".'
+              }
+              disabled={record.status === 'CANCELLED'}
+              onConfirm={() => handleCancel(record)}
+            >
+              <Button icon={<StopOutlined />} danger disabled={record.status === 'CANCELLED'} />
             </Popconfirm>
           </Space>
         );

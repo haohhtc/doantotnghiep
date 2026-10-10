@@ -26,6 +26,10 @@ public class SalesReturnDto {
     @NotNull(message = "Kho khong duoc de trong")
     private Long warehouseId;
 
+    // Hoa don goc (nullable) - de nguoi dung biet dang tra hang cho hoa don nao, tu dong gan lai
+    // dung Don hang ban cua hoa don do vao cot sales_order_id da co san (xem SalesReturnService).
+    private Long invoiceId;
+
     private String reason;
     private String remarks;
 

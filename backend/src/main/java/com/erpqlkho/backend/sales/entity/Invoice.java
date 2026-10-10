@@ -8,7 +8,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -19,8 +18,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-// Hoa don xuat tu 1 Sales Order da CONFIRMED - FK UNIQUE chan xuat trung. Khong sua gi den
-// SalesOrder/SalesOrderDetail (xem tonghop.md) - thue chot cung 1 lan tai day, khong tinh lai.
+// Hoa don xuat tu 1 Sales Order da CONFIRMED - khong con UNIQUE tren sales_order_id (V45), vi 1
+// don hang co the duoc xuat lai hoa don MOI sau khi hoa don cu bi Huy (xem InvoiceService). Khong
+// sua gi den SalesOrder/SalesOrderDetail (xem tonghop.md) - thue chot cung 1 lan tai day, khong tinh lai.
 // Khong extends BaseEntity: bang chi co created_at, khong co updated_at (hoa don khong sua duoc).
 @Getter
 @Setter
@@ -38,9 +38,14 @@ public class Invoice {
     @Column(name = "invoice_date", nullable = false)
     private LocalDate invoiceDate;
 
-    @OneToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "sales_order_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "sales_order_id", nullable = false)
     private SalesOrder salesOrder;
+
+    // ACTIVE: dang hieu luc | CANCELLED: da huy (hoan tra Kho Van, mo lai Don giao hang ve DRAFT) -
+    // xem InvoiceService.cancel(). Hoa don van giu lai ban ghi (khong xoa) de giu lich su.
+    @Column(nullable = false, length = 20)
+    private String status = "ACTIVE";
 
     @Column(name = "subtotal_amount", nullable = false, precision = 18, scale = 2)
     private BigDecimal subtotalAmount;

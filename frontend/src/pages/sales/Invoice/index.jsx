@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Typography, Table, Space, Button, Modal, List, Input, message } from 'antd';
-import { EyeOutlined, RollbackOutlined } from '@ant-design/icons';
+import { Typography, Table, Tag, Space, Button, Modal, List, Input, Popconfirm, message } from 'antd';
+import { EyeOutlined, RollbackOutlined, StopOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { useBranch } from '../../../contexts/BranchContext';
@@ -9,12 +9,13 @@ const { Title, Text } = Typography;
 const { TextArea } = Input;
 
 // Danh sach Hoa don - xuat tu 1 Sales Order da CONFIRMED (nut "Xuat hoa don" nam tren trang Sales
-// Order, khong phai o day - xem tonghop.md). Trang nay chi xem lai, khong tao/sua duoc (hoa don
-// bat bien sau khi xuat) - xem backend/.../sales/controller/InvoiceController.java.
+// Order, khong phai o day - xem tonghop.md). Hoa don van co the Huy (V44) - KHONG sua/xoa duoc noi
+// dung, chi doi status - xem backend/.../sales/controller/InvoiceController.java.
 export default function InvoicePage() {
   const { selectedBranchId } = useBranch();
   const [invoices, setInvoices] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
+  const [salesReturns, setSalesReturns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [detailInvoice, setDetailInvoice] = useState(null);
@@ -24,13 +25,37 @@ export default function InvoicePage() {
 
   function loadData() {
     setLoading(true);
-    Promise.all([axiosClient.get('/invoices'), axiosClient.get('/warehouses')])
-      .then(([invoicesRes, warehousesRes]) => {
+    Promise.all([axiosClient.get('/invoices'), axiosClient.get('/warehouses'), axiosClient.get('/sales-returns')])
+      .then(([invoicesRes, warehousesRes, returnsRes]) => {
         setInvoices(invoicesRes.data.data);
         setWarehouses(warehousesRes.data.data);
+        setSalesReturns(returnsRes.data.data);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách hóa đơn'))
       .finally(() => setLoading(false));
+  }
+
+  // Trang thai hien thi: Da huy (that, status=CANCELLED) > Tra hang (co phieu Tra hang DANG hieu
+  // luc - CLOSED, chua bi huy - gan voi dung Don hang goc cua hoa don nay) > Da duyet (mac dinh).
+  function invoiceStatusTag(invoice) {
+    if (invoice.status === 'CANCELLED') return <Tag color="red">Đã hủy</Tag>;
+    const hasActiveReturn = salesReturns.some(
+      (r) => r.status === 'CLOSED' && r.salesOrder?.id === invoice.salesOrder?.id
+    );
+    if (hasActiveReturn) return <Tag color="purple">Trả hàng</Tag>;
+    return <Tag color="green">Đã duyệt</Tag>;
+  }
+
+  // Huy hoa don - hoan tra Kho xe tai, mo lai Don giao hang ve "Cho giao". Backend tu chan neu
+  // khach da tra hang dua tren hoa don nay (phai Huy phieu Tra hang truoc).
+  function handleCancelInvoice(record) {
+    axiosClient
+      .post(`/invoices/${record.id}/cancel`)
+      .then(() => {
+        message.success('Đã hủy hóa đơn - đã mở lại Đơn giao hàng về "Chờ giao"');
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Hủy thất bại'));
   }
 
   useEffect(() => {
@@ -45,6 +70,10 @@ export default function InvoicePage() {
   });
 
   function openReturnModal(record) {
+    if (record.status === 'CANCELLED') {
+      message.error('Hóa đơn này đã bị hủy - không thể tạo phiếu trả hàng.');
+      return;
+    }
     if (!record.salesOrder?.salesman) {
       message.error(
         'Đơn hàng gốc của hóa đơn này chưa có NVBH (đơn cũ, tạo trước khi có tính năng gán NVBH) - không tự tạo được phiếu trả hàng. Vui lòng dùng "+Thêm phiếu trả hàng" ở trang Trả hàng để tự chọn NVBH.'
@@ -105,13 +134,27 @@ export default function InvoicePage() {
     { title: 'Tiền hàng', dataIndex: 'subtotalAmount', key: 'subtotalAmount', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
     { title: 'Tiền thuế', dataIndex: 'taxAmount', key: 'taxAmount', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
     { title: 'Tổng tiền', dataIndex: 'totalAmount', key: 'totalAmount', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
+    { title: 'Trạng thái', key: 'status', render: (_, record) => invoiceStatusTag(record) },
     {
       title: 'Thao tác',
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button icon={<RollbackOutlined />} title="Trả hàng" onClick={() => openReturnModal(record)} />
+          <Button
+            icon={<RollbackOutlined />}
+            title="Trả hàng"
+            disabled={record.status === 'CANCELLED'}
+            onClick={() => openReturnModal(record)}
+          />
           <Button icon={<EyeOutlined />} onClick={() => setDetailInvoice(record)} />
+          <Popconfirm
+            title="Hủy hóa đơn này?"
+            description='Sẽ hoàn trả lại Kho xe tải và mở lại Đơn giao hàng về "Chờ giao".'
+            disabled={record.status === 'CANCELLED'}
+            onConfirm={() => handleCancelInvoice(record)}
+          >
+            <Button icon={<StopOutlined />} danger disabled={record.status === 'CANCELLED'} />
+          </Popconfirm>
         </Space>
       ),
     },

@@ -49,6 +49,11 @@ public class DeliveryOrderController {
         return ApiResponse.ok("Da xac nhan giao hang - hang da chuyen sang Kho xe tai", deliveryOrderService.confirm(id));
     }
 
+    @PostMapping("/{id}/cancel")
+    public ApiResponse<DeliveryOrder> cancel(@PathVariable Long id) {
+        return ApiResponse.ok("Da huy don giao hang - mo lai Don hang ban", deliveryOrderService.cancel(id));
+    }
+
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         deliveryOrderService.delete(id);

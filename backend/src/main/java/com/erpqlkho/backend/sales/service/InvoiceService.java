@@ -13,6 +13,7 @@ import com.erpqlkho.backend.sales.entity.SalesOrder;
 import com.erpqlkho.backend.sales.repository.DeliveryOrderRepository;
 import com.erpqlkho.backend.sales.repository.InvoiceRepository;
 import com.erpqlkho.backend.sales.repository.SalesOrderRepository;
+import com.erpqlkho.backend.sales.repository.SalesReturnRepository;
 import com.erpqlkho.backend.system.service.NumberingConfigService;
 import com.erpqlkho.backend.user.entity.User;
 import com.erpqlkho.backend.user.repository.UserRepository;
@@ -37,6 +38,7 @@ public class InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final SalesOrderRepository salesOrderRepository;
     private final DeliveryOrderRepository deliveryOrderRepository;
+    private final SalesReturnRepository salesReturnRepository;
     private final UserRepository userRepository;
     private final NumberingConfigService numberingConfigService;
     private final UomConversionService uomConversionService;
@@ -63,7 +65,7 @@ public class InvoiceService {
         if (!"CLOSED".equals(deliveryOrder.getStatus())) {
             throw ApiException.conflict("Don giao hang cua don hang nay chua duoc Xac nhan - phai giao hang xong moi xuat duoc hoa don");
         }
-        if (invoiceRepository.existsBySalesOrderId(salesOrderId)) {
+        if (invoiceRepository.existsBySalesOrderIdAndStatusNot(salesOrderId, "CANCELLED")) {
             throw ApiException.conflict("Don hang nay da duoc xuat hoa don roi");
         }
 
@@ -117,6 +119,38 @@ public class InvoiceService {
             }
         }
         return saved;
+    }
+
+    // Huy hoa don - hoan tra lai Kho Van (dung so da tru luc xuat hoa don), mo lai Don giao hang ve
+    // DRAFT (go confirmedBy/vanWarehouse de co the Xac nhan giao lai tu dau). Chan neu khach da tra
+    // hang dua tren hoa don nay (co phieu Tra hang dang hieu luc, chua bi huy) - nguoc logic nghiep vu.
+    @Transactional
+    public Invoice cancel(Long id) {
+        Invoice invoice = findById(id);
+        if ("CANCELLED".equals(invoice.getStatus())) {
+            throw ApiException.conflict("Hoa don da bi huy roi");
+        }
+        boolean hasActiveReturn = salesReturnRepository.findBySalesOrderId(invoice.getSalesOrder().getId()).stream()
+                .anyMatch(r -> !"CANCELLED".equals(r.getStatus()));
+        if (hasActiveReturn) {
+            throw ApiException.conflict("Khach da tra hang dua tren hoa don nay - phai huy phieu Tra hang truoc khi huy Hoa don");
+        }
+
+        DeliveryOrder deliveryOrder = deliveryOrderRepository.findBySalesOrderId(invoice.getSalesOrder().getId())
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay Don giao hang cua hoa don nay"));
+        if (deliveryOrder.getVanWarehouse() != null) {
+            for (DeliveryOrderItem item : deliveryOrder.getItems()) {
+                stockService.increase(item.getProduct(), deliveryOrder.getVanWarehouse(), item.getBaseQuantity(),
+                        "INVOICE_CANCEL", invoice.getId());
+            }
+        }
+        deliveryOrder.setStatus("DRAFT");
+        deliveryOrder.setConfirmedBy(null);
+        deliveryOrder.setVanWarehouse(null);
+        deliveryOrderRepository.save(deliveryOrder);
+
+        invoice.setStatus("CANCELLED");
+        return invoiceRepository.save(invoice);
     }
 
     // Don gia chot hoa don lay theo gia da thoa thuan luc dat hang (SalesOrderDetail); Don giao hang chi

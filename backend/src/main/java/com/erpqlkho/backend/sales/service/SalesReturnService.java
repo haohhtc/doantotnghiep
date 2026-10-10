@@ -11,8 +11,10 @@ import com.erpqlkho.backend.category.uomgroup.service.UomConversionService;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.inventory.service.StockService;
 import com.erpqlkho.backend.sales.dto.SalesReturnDto;
+import com.erpqlkho.backend.sales.entity.Invoice;
 import com.erpqlkho.backend.sales.entity.SalesReturn;
 import com.erpqlkho.backend.sales.entity.SalesReturnItem;
+import com.erpqlkho.backend.sales.repository.InvoiceRepository;
 import com.erpqlkho.backend.sales.repository.SalesReturnRepository;
 import com.erpqlkho.backend.system.service.NumberingConfigService;
 import com.erpqlkho.backend.user.entity.User;
@@ -32,6 +34,7 @@ import java.util.List;
 public class SalesReturnService {
 
     private final SalesReturnRepository salesReturnRepository;
+    private final InvoiceRepository invoiceRepository;
     private final EmployeeRepository employeeRepository;
     private final WarehouseRepository warehouseRepository;
     private final ProductRepository productRepository;
@@ -75,6 +78,24 @@ public class SalesReturnService {
         salesReturnRepository.delete(ret);
     }
 
+    // Huy phieu tra hang - thay cho Xoa cung (giu lai ban ghi). Neu dang CLOSED (da cong kho) thi
+    // tru lai dung so da cong truoc khi chuyen CANCELLED; neu con DRAFT thi khong dung gi den kho.
+    @Transactional
+    public SalesReturn cancel(Long id) {
+        SalesReturn ret = findById(id);
+        if ("CANCELLED".equals(ret.getStatus())) {
+            throw ApiException.conflict("Phieu tra hang da bi huy roi");
+        }
+        if ("CLOSED".equals(ret.getStatus())) {
+            for (SalesReturnItem item : ret.getItems()) {
+                stockService.decrease(item.getProduct(), ret.getWarehouse(), item.getBaseQuantity(),
+                        "SALES_RETURN_CANCEL", ret.getId());
+            }
+        }
+        ret.setStatus("CANCELLED");
+        return salesReturnRepository.save(ret);
+    }
+
     // Duyet phieu tra hang - cong ton kho + ghi stock_transaction cho tung dong.
     @Transactional
     public SalesReturn confirm(Long id) {
@@ -94,6 +115,7 @@ public class SalesReturnService {
         ret.setDocDate(dto.getDocDate());
         ret.setSalesman(findSalesman(dto.getSalesmanId()));
         ret.setWarehouse(findWarehouse(dto.getWarehouseId()));
+        ret.setSalesOrder(dto.getInvoiceId() != null ? findInvoice(dto.getInvoiceId()).getSalesOrder() : null);
         ret.setReason(dto.getReason());
         ret.setRemarks(dto.getRemarks());
 
@@ -142,6 +164,11 @@ public class SalesReturnService {
     private Warehouse findWarehouse(Long id) {
         return warehouseRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay kho id=" + id));
+    }
+
+    private Invoice findInvoice(Long id) {
+        return invoiceRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay hoa don id=" + id));
     }
 
     private Product findProduct(Long id) {

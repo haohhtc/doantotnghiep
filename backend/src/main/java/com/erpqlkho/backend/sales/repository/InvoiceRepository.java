@@ -7,6 +7,6 @@ import java.util.Optional;
 
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     boolean existsByInvoiceNumber(String invoiceNumber);
-    boolean existsBySalesOrderId(Long salesOrderId);
-    Optional<Invoice> findBySalesOrderId(Long salesOrderId);
+    boolean existsBySalesOrderIdAndStatusNot(Long salesOrderId, String status);
+    Optional<Invoice> findBySalesOrderIdAndStatusNot(Long salesOrderId, String status);
 }

@@ -49,6 +49,11 @@ public class SalesReturnController {
         return ApiResponse.ok("Da duyet phieu tra hang - da cong ton kho", salesReturnService.confirm(id));
     }
 
+    @PostMapping("/{id}/cancel")
+    public ApiResponse<SalesReturn> cancel(@PathVariable Long id) {
+        return ApiResponse.ok("Da huy phieu tra hang", salesReturnService.cancel(id));
+    }
+
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         salesReturnService.delete(id);

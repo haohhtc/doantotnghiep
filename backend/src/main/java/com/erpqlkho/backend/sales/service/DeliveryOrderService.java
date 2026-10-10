@@ -14,6 +14,7 @@ import com.erpqlkho.backend.sales.entity.DeliveryOrderItem;
 import com.erpqlkho.backend.sales.entity.SalesOrder;
 import com.erpqlkho.backend.sales.entity.SalesOrderDetail;
 import com.erpqlkho.backend.sales.repository.DeliveryOrderRepository;
+import com.erpqlkho.backend.sales.repository.InvoiceRepository;
 import com.erpqlkho.backend.sales.repository.SalesOrderRepository;
 import com.erpqlkho.backend.system.service.NumberingConfigService;
 import com.erpqlkho.backend.user.entity.User;
@@ -36,6 +37,7 @@ public class DeliveryOrderService {
 
     private final DeliveryOrderRepository deliveryOrderRepository;
     private final SalesOrderRepository salesOrderRepository;
+    private final InvoiceRepository invoiceRepository;
     private final WarehouseRepository warehouseRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
@@ -168,6 +170,43 @@ public class DeliveryOrderService {
         order.setStatus("CLOSED");
         order.setConfirmedBy(currentUser());
         return deliveryOrderRepository.save(order);
+    }
+
+    // Huy Don giao hang - mo lai Don hang ban goc ve PENDING. Chan neu da co Hoa don dang hieu luc
+    // (chua bi huy) cho don nay - phai huy Hoa don truoc (xem InvoiceService.cancel()). Neu DO dang
+    // CLOSED (da xac nhan giao, da chuyen kho Main->Van) thi dao lai dung so da chuyen truoc khi huy.
+    @Transactional
+    public DeliveryOrder cancel(Long id) {
+        DeliveryOrder order = findById(id);
+        if ("CANCELLED".equals(order.getStatus())) {
+            throw ApiException.conflict("Don giao hang da bi huy roi");
+        }
+        invoiceRepository.findBySalesOrderIdAndStatusNot(order.getSalesOrder().getId(), "CANCELLED")
+                .ifPresent(inv -> {
+                    throw ApiException.conflict("Don hang nay da co Hoa don (" + inv.getInvoiceNumber()
+                            + ") - phai huy Hoa don truoc khi huy Don giao hang");
+                });
+
+        if ("CLOSED".equals(order.getStatus())) {
+            Warehouse source = order.getWarehouse();
+            Warehouse van = order.getVanWarehouse();
+            if (!"VAN".equals(source.getWarehouseType()) && van != null) {
+                for (DeliveryOrderItem item : order.getItems()) {
+                    stockService.decrease(item.getProduct(), van, item.getBaseQuantity(), "DELIVERY_ORDER_CANCEL", order.getId());
+                    stockService.increase(item.getProduct(), source, item.getBaseQuantity(), "DELIVERY_ORDER_CANCEL", order.getId());
+                }
+            }
+        }
+
+        order.setStatus("CANCELLED");
+        deliveryOrderRepository.save(order);
+
+        SalesOrder salesOrder = order.getSalesOrder();
+        salesOrder.setStatus("PENDING");
+        salesOrder.setConfirmedBy(null);
+        salesOrderRepository.save(salesOrder);
+
+        return order;
     }
 
     private Warehouse resolveVanWarehouse(Warehouse source) {
