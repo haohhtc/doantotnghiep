@@ -55,6 +55,13 @@ public class SalesReturn extends BaseEntity {
     @JoinColumn(name = "sales_order_id")
     private SalesOrder salesOrder;
 
+    // Truy vet DUNG hoa don goc (V50, nullable) - khac salesOrder o tren: 1 don hang co the co
+    // NHIEU hoa don (V49, nhieu dot giao), phieu tra phai gan dung 1 hoa don cu the thi moi tinh
+    // chinh xac duoc tag "Tra hang" o man Hoa don (khong bi lan sang cac hoa don khac cung don).
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "invoice_id")
+    private Invoice invoice;
+
     @Column(length = 255)
     private String reason;
 

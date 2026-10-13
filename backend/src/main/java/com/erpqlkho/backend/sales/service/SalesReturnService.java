@@ -115,7 +115,9 @@ public class SalesReturnService {
         ret.setDocDate(dto.getDocDate());
         ret.setSalesman(findSalesman(dto.getSalesmanId()));
         ret.setWarehouse(findWarehouse(dto.getWarehouseId()));
-        ret.setSalesOrder(dto.getInvoiceId() != null ? findInvoice(dto.getInvoiceId()).getSalesOrder() : null);
+        Invoice sourceInvoice = dto.getInvoiceId() != null ? findInvoice(dto.getInvoiceId()) : null;
+        ret.setInvoice(sourceInvoice);
+        ret.setSalesOrder(sourceInvoice != null ? sourceInvoice.getSalesOrder() : null);
         ret.setReason(dto.getReason());
         ret.setRemarks(dto.getRemarks());
 

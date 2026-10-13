@@ -95,14 +95,13 @@ export default function SalesReturnPage() {
   }
 
   function openEditModal(record) {
-    // sales_order chi duoc gan lai qua invoiceId (khong co salesOrderId rieng trong DTO) - suy
-    // nguoc lai hoa don tuong ung bang cach doi chieu salesOrder.id, de hien dung lua chon cu.
-    const matchedInvoice = invoices.find((i) => i.salesOrder?.id === record.salesOrder?.id);
-    setEditingReturn({ ...record, _invoiceId: matchedInvoice?.id });
+    // record.invoice la dung hoa don goc da luu san (V50) - truoc day phai doan lai qua
+    // salesOrder.id (de nham sang hoa don khac cung don neu don co nhieu hoa don - V49).
+    setEditingReturn({ ...record, _invoiceId: record.invoice?.id });
     form.setFieldsValue({
       docNumber: record.docNumber,
       docDate: record.docDate,
-      invoiceId: matchedInvoice?.id,
+      invoiceId: record.invoice?.id,
       salesmanId: record.salesman?.id,
       warehouseId: record.warehouse?.id,
       reason: record.reason,

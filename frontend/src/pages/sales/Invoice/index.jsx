@@ -36,11 +36,15 @@ export default function InvoicePage() {
   }
 
   // Trang thai hien thi: Da huy (that, status=CANCELLED) > Tra hang (co phieu Tra hang DANG hieu
-  // luc - CLOSED, chua bi huy - gan voi dung Don hang goc cua hoa don nay) > Da duyet (mac dinh).
+  // luc - CLOSED, chua bi huy - gan voi DUNG hoa don nay qua r.invoice.id, V50) > Da duyet (mac dinh).
+  // Phieu tra rat cu (truoc V50) khong co invoice.id rieng - fallback so theo salesOrder.id nhu
+  // cu, chi dung khi phieu khong co invoice (r.invoice == null).
   function invoiceStatusTag(invoice) {
     if (invoice.status === 'CANCELLED') return <Tag color="red">Đã hủy</Tag>;
     const hasActiveReturn = salesReturns.some(
-      (r) => r.status === 'CLOSED' && r.salesOrder?.id === invoice.salesOrder?.id
+      (r) =>
+        r.status === 'CLOSED' &&
+        (r.invoice ? r.invoice.id === invoice.id : r.salesOrder?.id === invoice.salesOrder?.id)
     );
     if (hasActiveReturn) return <Tag color="purple">Trả hàng</Tag>;
     return <Tag color="green">Đã duyệt</Tag>;
