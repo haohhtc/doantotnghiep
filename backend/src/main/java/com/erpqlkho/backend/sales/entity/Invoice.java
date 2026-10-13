@@ -18,9 +18,11 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
-// Hoa don xuat tu 1 Sales Order da CONFIRMED - khong con UNIQUE tren sales_order_id (V45), vi 1
-// don hang co the duoc xuat lai hoa don MOI sau khi hoa don cu bi Huy (xem InvoiceService). Khong
-// sua gi den SalesOrder/SalesOrderDetail (xem tonghop.md) - thue chot cung 1 lan tai day, khong tinh lai.
+// Hoa don xuat tu DUNG 1 dot giao hang cu the (deliveryOrder, V49) - 1 Don hang ban co the co nhieu
+// dot giao, 1 dot giao co the tach thanh nhieu hoa don (xuat tung phan) nen khong con suy duoc
+// "dot giao" tu rieng salesOrderId nhu truoc. Khong con UNIQUE tren sales_order_id (V45), vi 1 don
+// hang co the duoc xuat nhieu hoa don (nhieu dot giao, hoac xuat lai sau khi huy). Khong sua gi den
+// SalesOrder/SalesOrderDetail (xem tonghop.md) - thue chot cung 1 lan tai day, khong tinh lai.
 // Khong extends BaseEntity: bang chi co created_at, khong co updated_at (hoa don khong sua duoc).
 @Getter
 @Setter
@@ -42,7 +44,14 @@ public class Invoice {
     @JoinColumn(name = "sales_order_id", nullable = false)
     private SalesOrder salesOrder;
 
-    // ACTIVE: dang hieu luc | CANCELLED: da huy (hoan tra Kho Van, mo lai Don giao hang ve DRAFT) -
+    // Dot giao hang cu the ma hoa don nay xuat tu do (V49) - 1 Don hang ban co the co nhieu dot
+    // giao, hoa don phai gan dung 1 dot thi moi tinh duoc "da xuat hoa don bao nhieu" cho dot do.
+    // Nullable vi hoa don cu (truoc V49) chua tung gan - code moi luon set gia tri nay.
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "delivery_order_id")
+    private DeliveryOrder deliveryOrder;
+
+    // ACTIVE: dang hieu luc | CANCELLED: da huy (hoan tra Kho Van theo dung so cua hoa don nay) -
     // xem InvoiceService.cancel(). Hoa don van giu lai ban ghi (khong xoa) de giu lich su.
     @Column(nullable = false, length = 20)
     private String status = "ACTIVE";

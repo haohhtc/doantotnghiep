@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message, Tooltip,
 } from 'antd';
-import { PlusOutlined, EditOutlined, EyeOutlined, DeleteOutlined, CheckOutlined, StopOutlined, UserOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, EyeOutlined, DeleteOutlined, CheckOutlined, StopOutlined, UserOutlined, FileTextOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { useBranch } from '../../../contexts/BranchContext';
@@ -32,6 +32,7 @@ export default function DeliveryOrderPage() {
   const [salesOrders, setSalesOrders] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
@@ -40,17 +41,41 @@ export default function DeliveryOrderPage() {
   const [confirmingId, setConfirmingId] = useState(null);
   const [confirmedByModalOpen, setConfirmedByModalOpen] = useState(false);
   const [viewingOrder, setViewingOrder] = useState(null);
+  const [invoicingOrder, setInvoicingOrder] = useState(null);
+  const [invoiceRows, setInvoiceRows] = useState([]);
   const [form] = Form.useForm();
 
   const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
   const productOptions = products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
 
-  // Chi cho tao DO tu don da duyet (CONFIRMED), chua co DO nao, VA dung Chi nhanh dang chon o
-  // Header (thieu dieu kien nay truoc day la bug - don cua chi nhanh khac van lot vao dropdown).
-  const usedSalesOrderIds = new Set(deliveryOrders.map((d) => d.salesOrder.id));
-  const availableSalesOrders = salesOrders.filter(
-    (o) => o.status === 'CONFIRMED' && !usedSalesOrderIds.has(o.id) && (!selectedBranchId || o.warehouse?.branch?.id === selectedBranchId)
-  );
+  // V49: 1 Don hang ban co the tao NHIEU Don giao hang (giao nhieu dot) - khong con loai bo don
+  // "da co DGH" nhu truoc, thay bang tinh CON LAI chua giao theo tung san pham (xem
+  // remainingBaseByProduct), chi loai don da giao HET (khong con gi de tao them).
+  function remainingBaseByProduct(order, excludeDeliveryOrderId) {
+    const orderedByProduct = {};
+    order.details.forEach((d) => {
+      orderedByProduct[d.product.id] = (orderedByProduct[d.product.id] || 0) + Number(d.baseQuantity);
+    });
+    const deliveredByProduct = {};
+    deliveryOrders.forEach((d) => {
+      if (d.salesOrder.id !== order.id || d.status === 'CANCELLED' || d.id === excludeDeliveryOrderId) return;
+      d.items.forEach((item) => {
+        deliveredByProduct[item.product.id] = (deliveredByProduct[item.product.id] || 0) + Number(item.baseQuantity);
+      });
+    });
+    const remaining = {};
+    Object.keys(orderedByProduct).forEach((pid) => {
+      remaining[pid] = orderedByProduct[pid] - (deliveredByProduct[pid] || 0);
+    });
+    return remaining;
+  }
+
+  const availableSalesOrders = salesOrders.filter((o) => {
+    if (o.status !== 'CONFIRMED') return false;
+    if (selectedBranchId && o.warehouse?.branch?.id !== selectedBranchId) return false;
+    const remaining = remainingBaseByProduct(o, null);
+    return Object.values(remaining).some((v) => v > 0.0001);
+  });
   // Khi sua DO da co, Don hang ban cua no bi loai khoi availableSalesOrders (vi da "used") nen
   // phai them rieng option cua chinh no vao, khong thi Select khong tra duoc label va hien thang ID so.
   const editingSalesOrderOption = editingOrder
@@ -78,12 +103,14 @@ export default function DeliveryOrderPage() {
       axiosClient.get('/sales-orders'),
       axiosClient.get('/warehouses'),
       axiosClient.get('/products'),
+      axiosClient.get('/invoices'),
     ])
-      .then(([doRes, soRes, whRes, prodRes]) => {
+      .then(([doRes, soRes, whRes, prodRes, invRes]) => {
         setDeliveryOrders(doRes.data.data);
         setSalesOrders(soRes.data.data);
         setWarehouses(whRes.data.data);
         setProducts(prodRes.data.data);
+        setInvoices(invRes.data.data);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu đơn giao hàng'))
       .finally(() => setLoading(false));
@@ -118,19 +145,23 @@ export default function DeliveryOrderPage() {
       remarks: record.remarks,
     });
     // Don gia chi de XEM (khong luu o DeliveryOrderItem) - lay lai tu dung dong trong Don hang ban
-    // goc theo San pham+DVT, giong cach handleSalesOrderSelect lam.
+    // goc theo San pham+DVT, giong cach handleSalesOrderSelect lam. "Con lai" tinh LOAI TRU chinh
+    // DGH dang sua (excludeDeliveryOrderId) de khong tu tru nham voi chinh so luong cua no.
+    const remaining = remainingBaseByProduct(record.salesOrder, record.id);
     setDetailRows(
       record.items.map((d) => {
         const soLine = record.salesOrder.details?.find(
           (sd) => sd.product.id === d.product.id && (sd.uom?.id || null) === (d.uom?.id || null)
         );
+        const factor = soLine && Number(soLine.quantity) > 0 ? Number(soLine.baseQuantity) / Number(soLine.quantity) : 1;
+        const remainingInUom = factor > 0 ? (remaining[d.product.id] || 0) / factor : (remaining[d.product.id] || 0);
         return {
           id: d.id,
           productId: d.product.id,
           uomId: d.uom?.id,
           uomName: d.uom?.name,
           quantity: d.quantity,
-          orderedQty: d.quantity,
+          remainingQty: Math.max(0, Math.round(remainingInUom * 1000) / 1000),
           unitPrice: soLine?.unitPrice,
           note: d.note,
         };
@@ -143,6 +174,85 @@ export default function DeliveryOrderPage() {
   // la cach duy nhat xem lai noi dung don.
   function openViewModal(record) {
     setViewingOrder(record);
+  }
+
+  // Con lai (don vi co so) CHUA xuat hoa don cua tung san pham trong 1 dot giao hang da Xac nhan -
+  // V49: 1 dot giao co the tach thanh nhieu hoa don, nen phai tru di tong da xuat o cac hoa don
+  // dang hoat dong (khong CANCELLED) cua CHINH dot giao do.
+  function remainingToInvoiceBaseByProduct(deliveryOrder) {
+    const deliveredByProduct = {};
+    deliveryOrder.items.forEach((item) => {
+      deliveredByProduct[item.product.id] = (deliveredByProduct[item.product.id] || 0) + Number(item.baseQuantity);
+    });
+    const invoicedByProduct = {};
+    invoices.forEach((inv) => {
+      if (inv.deliveryOrder?.id !== deliveryOrder.id || inv.status === 'CANCELLED') return;
+      inv.items.forEach((item) => {
+        invoicedByProduct[item.product.id] = (invoicedByProduct[item.product.id] || 0) + Number(item.baseQuantity ?? 0);
+      });
+    });
+    const remaining = {};
+    Object.keys(deliveredByProduct).forEach((pid) => {
+      remaining[pid] = deliveredByProduct[pid] - (invoicedByProduct[pid] || 0);
+    });
+    return remaining;
+  }
+
+  function hasRemainingToInvoice(deliveryOrder) {
+    return Object.values(remainingToInvoiceBaseByProduct(deliveryOrder)).some((v) => v > 0.0001);
+  }
+
+  // Mo modal Xuat hoa don cho DUNG dot giao hang nay - mac dinh dien san "con lai chua xuat hoa
+  // don" (co the sua xuong neu chi muon xuat 1 phan - V49, cho phep tach nhieu hoa don cho cung
+  // 1 dot giao).
+  function openInvoiceModal(record) {
+    const remaining = remainingToInvoiceBaseByProduct(record);
+    const rows = record.items
+      .map((item) => {
+        const factor = Number(item.quantity) > 0 ? Number(item.baseQuantity) / Number(item.quantity) : 1;
+        const remainingBase = remaining[item.product.id] || 0;
+        const remainingInUom = factor > 0 ? remainingBase / factor : remainingBase;
+        const qty = Math.max(0, Math.round(remainingInUom * 1000) / 1000);
+        return {
+          id: item.id,
+          productId: item.product.id,
+          uomId: item.uom?.id,
+          uomName: item.uom?.name,
+          quantity: qty,
+          remainingQty: qty,
+        };
+      })
+      .filter((r) => r.remainingQty > 0.0001);
+    if (rows.length === 0) {
+      message.info('Đợt giao hàng này đã xuất hóa đơn hết, không còn gì để xuất thêm.');
+      return;
+    }
+    setInvoiceRows(rows);
+    setInvoicingOrder(record);
+  }
+
+  function handleInvoiceRowQuantityChange(id, value) {
+    setInvoiceRows((prev) => prev.map((r) => (r.id === id ? { ...r, quantity: value } : r)));
+  }
+
+  function handleConfirmInvoice() {
+    const nonZeroRows = invoiceRows.filter((r) => Number(r.quantity) > 0);
+    if (nonZeroRows.length === 0) {
+      message.error('Chọn ít nhất 1 dòng sản phẩm với số lượng lớn hơn 0');
+      return;
+    }
+    const payload = {
+      deliveryOrderId: invoicingOrder.id,
+      items: nonZeroRows.map((r) => ({ productId: r.productId, uomId: r.uomId, quantity: r.quantity })),
+    };
+    axiosClient
+      .post('/invoices', payload)
+      .then(({ data }) => {
+        message.success(`Đã xuất hóa đơn ${data.data.invoiceNumber}`);
+        setInvoicingOrder(null);
+        loadData();
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Xuất hóa đơn thất bại'));
   }
 
   function viewingItems() {
@@ -162,23 +272,31 @@ export default function DeliveryOrderPage() {
     });
   }
 
-  // Chon Don hang ban goc -> tu dong dien San pham + kho xuat + so luong DA DAT + Don gia (chi de
-  // xem, giong bang Chi tiet don hang cua Don hang ban), cho sua lai so luong truoc khi Luu de
-  // phan anh so luong giao thuc te (VD giao thieu do het hang).
+  // Chon Don hang ban goc -> tu dong dien San pham + kho xuat + so luong CON LAI chua giao (khong
+  // phai nguyen so luong da dat nhu truoc - V49, vi don co the da giao 1 phan o cac dot truoc) +
+  // Don gia (chi de xem), cho sua lai so luong truoc khi Luu neu dot nay giao it hon con lai.
   function handleSalesOrderSelect(salesOrderId) {
     const order = salesOrders.find((o) => o.id === salesOrderId);
     if (!order) return;
     form.setFieldsValue({ warehouseId: order.warehouse?.id });
+    const remaining = remainingBaseByProduct(order, null);
     setDetailRows(
-      order.details.map((d) => ({
-        id: d.id,
-        productId: d.product.id,
-        uomId: d.uom?.id,
-        uomName: d.uom?.name,
-        quantity: d.quantity,
-        orderedQty: d.quantity,
-        unitPrice: d.unitPrice,
-      }))
+      order.details
+        .map((d) => {
+          const factor = Number(d.quantity) > 0 ? Number(d.baseQuantity) / Number(d.quantity) : 1;
+          const remainingInUom = factor > 0 ? (remaining[d.product.id] || 0) / factor : (remaining[d.product.id] || 0);
+          const qty = Math.max(0, Math.round(remainingInUom * 1000) / 1000);
+          return {
+            id: d.id,
+            productId: d.product.id,
+            uomId: d.uom?.id,
+            uomName: d.uom?.name,
+            quantity: qty,
+            remainingQty: qty,
+            unitPrice: d.unitPrice,
+          };
+        })
+        .filter((d) => d.remainingQty > 0.0001)
     );
   }
 
@@ -196,13 +314,14 @@ export default function DeliveryOrderPage() {
       .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
 
-  // Huy don giao hang - mo lai Don hang ban goc ve "Cho xac nhan". Neu dang CLOSED thi backend se
-  // tu dao lai kho (Van giam, Main cong lai) truoc khi huy. Bi chan neu da co Hoa don dang hieu luc.
+  // Huy dot giao hang nay (V49: khong con dung gi den Don hang ban, don co the con cac dot giao
+  // khac). Neu dang CLOSED thi backend se tu dao lai kho (Van giam, Main cong lai) truoc khi huy.
+  // Bi chan neu CHINH dot giao nay da co Hoa don dang hieu luc.
   function handleCancel(record) {
     axiosClient
       .post(`/delivery-orders/${record.id}/cancel`)
       .then(() => {
-        message.success('Đã hủy đơn giao hàng - đã mở lại Đơn hàng bán về "Chờ xác nhận"');
+        message.success('Đã hủy đợt giao hàng này - số lượng đã trở lại "còn lại chưa giao" của đơn hàng');
         loadData();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Hủy thất bại'));
@@ -224,13 +343,14 @@ export default function DeliveryOrderPage() {
 
   function handleSubmit() {
     form.validateFields().then((values) => {
-      if (detailRows.length === 0) {
-        message.error('Đơn giao hàng phải có ít nhất 1 dòng sản phẩm');
+      const nonZeroRows = detailRows.filter((d) => Number(d.quantity) > 0);
+      if (nonZeroRows.length === 0) {
+        message.error('Đơn giao hàng phải có ít nhất 1 dòng sản phẩm với số lượng lớn hơn 0');
         return;
       }
       const payload = {
         ...values,
-        items: detailRows.map((d) => ({ productId: d.productId, uomId: d.uomId, quantity: d.quantity })),
+        items: nonZeroRows.map((d) => ({ productId: d.productId, uomId: d.uomId, quantity: d.quantity })),
       };
       const request = editingOrder
         ? axiosClient.put(`/delivery-orders/${editingOrder.id}`, payload)
@@ -269,16 +389,19 @@ export default function DeliveryOrderPage() {
               </Popconfirm>
             )}
             <Button icon={<EyeOutlined />} onClick={() => openViewModal(record)} />
+            {record.status === 'CLOSED' && hasRemainingToInvoice(record) && (
+              <Button icon={<FileTextOutlined />} title="Xuất hóa đơn" onClick={() => openInvoiceModal(record)} />
+            )}
             <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
             <Popconfirm title="Xóa đơn giao hàng này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
               <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
             </Popconfirm>
             <Popconfirm
-              title="Hủy đơn giao hàng này?"
+              title="Hủy đợt giao hàng này?"
               description={
                 record.status === 'CLOSED'
-                  ? 'Sẽ đảo lại kho (Kho xe tải giảm, Kho chính cộng lại) rồi mở lại Đơn hàng bán về "Chờ xác nhận".'
-                  : 'Sẽ mở lại Đơn hàng bán về "Chờ xác nhận".'
+                  ? 'Sẽ đảo lại kho (Kho xe tải giảm, Kho chính cộng lại). Số lượng đợt này quay lại "còn lại chưa giao" của đơn hàng.'
+                  : 'Số lượng đợt này quay lại "còn lại chưa giao" của đơn hàng.'
               }
               disabled={record.status === 'CANCELLED'}
               onConfirm={() => handleCancel(record)}
@@ -309,14 +432,14 @@ export default function DeliveryOrderPage() {
   const detailColumns = [
     { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
     { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
-    { title: 'Số lượng đặt', dataIndex: 'orderedQty', key: 'orderedQty', align: 'right' },
+    { title: 'Còn lại chưa giao', dataIndex: 'remainingQty', key: 'remainingQty', align: 'right' },
     {
-      title: 'Số lượng giao thực tế',
+      title: 'Số lượng giao đợt này',
       key: 'quantity',
       render: (_, d) => (
         <InputNumber
           min={0}
-          max={d.orderedQty}
+          max={d.remainingQty}
           value={d.quantity}
           onChange={(v) => handleQuantityChange(d.id, v)}
           style={{ width: '100%' }}
@@ -443,7 +566,7 @@ export default function DeliveryOrderPage() {
           </Row>
         </Form>
 
-        <Text strong>Số lượng giao (mặc định lấy theo số lượng đặt - sửa lại nếu giao thiếu)</Text>
+        <Text strong>Số lượng giao (mặc định lấy theo số lượng CÒN LẠI chưa giao - sửa lại nếu đợt này giao ít hơn)</Text>
         <Table
           rowKey="id"
           size="small"
@@ -514,6 +637,46 @@ export default function DeliveryOrderPage() {
             />
           </>
         )}
+      </Modal>
+
+      <Modal
+        title={invoicingOrder ? `Xuất hóa đơn - Đợt giao hàng ${invoicingOrder.docNumber}` : 'Xuất hóa đơn'}
+        open={!!invoicingOrder}
+        onOk={handleConfirmInvoice}
+        onCancel={() => setInvoicingOrder(null)}
+        okText="Xuất hóa đơn"
+        cancelText="Hủy"
+        width={700}
+        destroyOnHidden
+      >
+        <Text type="secondary">
+          Mặc định lấy toàn bộ số lượng còn lại chưa xuất hóa đơn của đợt giao này - sửa lại xuống nếu chỉ muốn xuất 1 phần (phần còn lại có thể xuất hóa đơn riêng sau).
+        </Text>
+        <Table
+          rowKey="id"
+          size="small"
+          style={{ marginTop: 8 }}
+          pagination={false}
+          dataSource={invoiceRows}
+          columns={[
+            { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
+            { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
+            { title: 'Còn lại chưa xuất HĐ', dataIndex: 'remainingQty', key: 'remainingQty', align: 'right' },
+            {
+              title: 'Số lượng xuất hóa đơn',
+              key: 'quantity',
+              render: (_, d) => (
+                <InputNumber
+                  min={0}
+                  max={d.remainingQty}
+                  value={d.quantity}
+                  onChange={(v) => handleInvoiceRowQuantityChange(d.id, v)}
+                  style={{ width: '100%' }}
+                />
+              ),
+            },
+          ]}
+        />
       </Modal>
 
       <Modal

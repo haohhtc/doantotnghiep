@@ -41,6 +41,13 @@ public class InvoiceItem {
     @Column(nullable = false, precision = 18, scale = 3)
     private BigDecimal quantity;
 
+    // So luong quy doi ve don vi co so - dung de tru kho dung so (co the chi la 1 PHAN cua dot
+    // giao, khac truoc day luon lay nguyen ca dot - V49) va de tinh "da xuat hoa don bao nhieu"
+    // cho dot giao nay khi kiem tra con lai o cac hoa don tiep theo. Nullable: du lieu cu truoc
+    // V49 khong co gia tri nay.
+    @Column(name = "base_quantity", precision = 18, scale = 3)
+    private BigDecimal baseQuantity;
+
     // Don vi tinh cua dong hoa don (quantity + unit_price tinh theo DVT nay) - null = don vi co so.
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "uom_id")

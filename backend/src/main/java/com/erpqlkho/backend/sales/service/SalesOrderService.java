@@ -13,7 +13,6 @@ import com.erpqlkho.backend.category.warehouse.repository.WarehouseRepository;
 import com.erpqlkho.backend.category.uom.entity.Uom;
 import com.erpqlkho.backend.category.uomgroup.service.UomConversionService;
 import com.erpqlkho.backend.common.exception.ApiException;
-import com.erpqlkho.backend.sales.dto.DeliveryOrderDto;
 import com.erpqlkho.backend.sales.dto.SalesOrderDto;
 import com.erpqlkho.backend.sales.entity.SalesOrder;
 import com.erpqlkho.backend.sales.entity.SalesOrderDetail;
@@ -44,7 +43,6 @@ public class SalesOrderService {
     private final NumberingConfigService numberingConfigService;
     private final UomConversionService uomConversionService;
     private final AvailabilityService availabilityService;
-    private final DeliveryOrderService deliveryOrderService;
     private final RouteMasterRepository routeMasterRepository;
     private final EmployeeRepository employeeRepository;
 
@@ -85,11 +83,11 @@ public class SalesOrderService {
         salesOrderRepository.delete(order);
     }
 
-    // SALE-05: xac nhan don hang - duyet don (khong tru kho nua, xem V33) VA tu dong tao luon Don
-    // giao hang (DRAFT, copy nguyen so luong/DVT tu don) de hien san tren man hinh "Don giao hang"
-    // - nguoi dung khong can tu bam "+" chon lai don nua. Kho chi thuc su tru khi Xac nhan Don
-    // giao hang o buoc rieng (DeliveryOrderService.confirm(), trang "Xac nhan giao hang") - dung
-    // chuoi DMS goc SO (duyet + tu tao DO) -> Xac nhan DO (tru kho).
+    // SALE-05: xac nhan don hang - chi duyet don (khong tru kho, xem V33). V49: KHONG con tu dong
+    // tao Don giao hang nua - 1 don hang gio co the tao NHIEU Don giao hang (giao nhieu dot), nen
+    // viec tao DO phai la hanh dong rieng, chu dong, nguoi dung tu bam "+Tao don giao hang" bao
+    // nhieu lan tuy y (moi lan chon giao bao nhieu, con lai bao nhieu se tinh tu dong). Kho chi
+    // thuc su tru khi Xac nhan tung Don giao hang (DeliveryOrderService.confirm()).
     @Transactional
     public SalesOrder confirm(Long id) {
         SalesOrder order = findById(id);
@@ -98,13 +96,7 @@ public class SalesOrderService {
 
         order.setStatus("CONFIRMED");
         order.setConfirmedBy(currentUser());
-        SalesOrder saved = salesOrderRepository.save(order);
-
-        DeliveryOrderDto doDto = new DeliveryOrderDto();
-        doDto.setSalesOrderId(saved.getId());
-        deliveryOrderService.create(doDto);
-
-        return saved;
+        return salesOrderRepository.save(order);
     }
 
     @Transactional

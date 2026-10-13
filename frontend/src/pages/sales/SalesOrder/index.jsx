@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message, Tooltip,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, TruckOutlined, StopOutlined, FileTextOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, TruckOutlined, StopOutlined, ThunderboltOutlined, UserOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { useBranch } from '../../../contexts/BranchContext';
@@ -51,10 +51,10 @@ function computeVisitType(routeInfo, dateStr) {
 }
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../sales/controller/SalesOrderController.java.
-// SALE-05: xac nhan (CONFIRMED) tu dong tao luon Don giao hang DRAFT, nhung CHUA tru kho - phai
-// qua nut "Xac nhan giao hang" ngay tren trang "Don giao hang" (/sales/delivery-orders, da gop
-// chung 1 trang) moi thuc su xuat kho, dung chuoi DMS goc SO -> DO -> Xac nhan DO (xem V33 +
-// DeliveryOrderService).
+// SALE-05: xac nhan (CONFIRMED) CHI duyet don, khong tu tao Don giao hang nua (V49) - 1 don hang
+// gio co the tao NHIEU Don giao hang (giao nhieu dot), nguoi dung tu bam "+Tao don giao hang" o
+// trang "Don giao hang" (/sales/delivery-orders) bao nhieu lan tuy y. Xuat hoa don cung chuyen
+// sang lam o trang Don giao hang (chon dung 1 dot giao de xuat, co the tach nhieu hoa don).
 // Nhom 6 (tonghop.md): validate Khach hang phai thuoc dung Chi nhanh dang chon o Header (suy ra
 // tu tuyen cua khach, GET /api/customers/{id}/route-info) + tu dong tinh "Loai ghe tham".
 export default function SalesOrderPage() {
@@ -70,8 +70,6 @@ export default function SalesOrderPage() {
   const [detailRows, setDetailRows] = useState([]);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [customerRouteInfo, setCustomerRouteInfo] = useState(null);
-  const [invoicedOrderIds, setInvoicedOrderIds] = useState(new Set());
-  const [deliveredOrderIds, setDeliveredOrderIds] = useState(new Set());
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [massConfirming, setMassConfirming] = useState(false);
   const [requesterModalOpen, setRequesterModalOpen] = useState(false);
@@ -181,22 +179,12 @@ export default function SalesOrderPage() {
       axiosClient.get('/customers'),
       axiosClient.get('/warehouses'),
       axiosClient.get('/products'),
-      axiosClient.get('/invoices'),
-      axiosClient.get('/delivery-orders'),
     ])
-      .then(([ordersRes, customersRes, warehousesRes, productsRes, invoicesRes, deliveryOrdersRes]) => {
+      .then(([ordersRes, customersRes, warehousesRes, productsRes]) => {
         setOrders(ordersRes.data.data);
         setCustomers(customersRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setProducts(productsRes.data.data);
-        // Chi tinh hoa don CON HIEU LUC (status != CANCELLED) - sau V45 1 don hang co the co hoa don
-        // da Huy van giu lai lich su nhung van xuat duoc hoa don MOI, khong duoc an nut vinh vien.
-        setInvoicedOrderIds(
-          new Set(invoicesRes.data.data.filter((i) => i.status !== 'CANCELLED').map((i) => i.salesOrder.id))
-        );
-        setDeliveredOrderIds(
-          new Set(deliveryOrdersRes.data.data.filter((d) => d.status === 'CLOSED').map((d) => d.salesOrder.id))
-        );
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu đơn hàng'))
       .finally(() => setLoading(false));
@@ -286,16 +274,6 @@ export default function SalesOrderPage() {
         loadData();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Hủy thất bại'));
-  }
-
-  function handleCreateInvoice(record) {
-    axiosClient
-      .post('/invoices', null, { params: { salesOrderId: record.id } })
-      .then(() => {
-        message.success('Đã xuất hóa đơn');
-        loadData();
-      })
-      .catch((err) => message.error(err.response?.data?.message || 'Xuất hóa đơn thất bại'));
   }
 
   // Mass Process Delivery: duyet hang loat cac don PENDING da chon (chi doi trang thai, khong
@@ -443,29 +421,22 @@ export default function SalesOrderPage() {
       key: 'actions',
       render: (_, record) => {
         const isPending = record.status === 'PENDING';
-        const isDelivered = deliveredOrderIds.has(record.id);
-        const hasInvoice = invoicedOrderIds.has(record.id);
         return (
           <Space>
             <Button icon={<EditOutlined />} disabled={!isPending} onClick={() => openEditModal(record)} />
             {isPending && (
               <>
                 <Popconfirm
-                  title="Xác nhận tạo đơn giao hàng?"
-                  description="Đơn sẽ được duyệt (không thể sửa/hủy) và tự động tạo sẵn 1 Đơn giao hàng - chưa xuất kho ngay, vào trang Xác nhận giao hàng để xuất kho."
+                  title="Xác nhận đơn hàng này?"
+                  description='Đơn sẽ được duyệt (không thể sửa/hủy) - vào trang "Đơn giao hàng" bấm "+" để tạo đợt giao (có thể tạo nhiều đợt, mỗi đợt giao 1 phần).'
                   onConfirm={() => handleConfirmOrder(record)}
                 >
-                  <Button icon={<TruckOutlined />} type="primary" ghost title="Xác nhận tạo đơn giao hàng" />
+                  <Button icon={<TruckOutlined />} type="primary" ghost title="Xác nhận đơn hàng" />
                 </Popconfirm>
                 <Popconfirm title="Hủy đơn hàng này?" onConfirm={() => handleCancelOrder(record)}>
                   <Button icon={<StopOutlined />} />
                 </Popconfirm>
               </>
-            )}
-            {isDelivered && !hasInvoice && (
-              <Popconfirm title="Xuất hóa đơn cho đơn hàng này?" description="Sẽ trừ tồn thực tế ở Kho xe tải theo số lượng đã giao." onConfirm={() => handleCreateInvoice(record)}>
-                <Button icon={<FileTextOutlined />} title="Xuất hóa đơn" />
-              </Popconfirm>
             )}
             <Popconfirm title="Xóa đơn hàng này?" disabled={!isPending} onConfirm={() => handleDelete(record)}>
               <Button icon={<DeleteOutlined />} danger disabled={!isPending} />
