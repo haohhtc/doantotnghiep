@@ -106,12 +106,12 @@ public class SecurityConfig {
                         // Nhap hang & Kiem ke kho: ai dang nhap cung xem duoc, nhung SALES_STAFF chi duoc
                         // xem - tao/sua/xoa VA xac nhan/duyet (POST .../confirm, .../approve - van la POST
                         // nen khop chung voi rule POST duoi day) chi ADMIN + WAREHOUSE_MANAGER duoc lam.
-                        .requestMatchers(HttpMethod.GET, "/api/goods-receipts/**", "/api/stock-takes/**").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/goods-receipts/**", "/api/stock-takes/**")
+                        .requestMatchers(HttpMethod.GET, "/api/goods-receipts/**", "/api/stock-takes/**", "/api/purchase-requests/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/goods-receipts/**", "/api/stock-takes/**", "/api/purchase-requests/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
-                        .requestMatchers(HttpMethod.PUT, "/api/goods-receipts/**", "/api/stock-takes/**")
+                        .requestMatchers(HttpMethod.PUT, "/api/goods-receipts/**", "/api/stock-takes/**", "/api/purchase-requests/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
-                        .requestMatchers(HttpMethod.DELETE, "/api/goods-receipts/**", "/api/stock-takes/**")
+                        .requestMatchers(HttpMethod.DELETE, "/api/goods-receipts/**", "/api/stock-takes/**", "/api/purchase-requests/**")
                         .hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
 
                         // Canh bao ton kho (INV-05): ai dang nhap cung xem duoc, nhung SALES_STAFF chi duoc

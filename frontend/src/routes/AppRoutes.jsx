@@ -23,6 +23,7 @@ import DistrictsPage from '../pages/districts';
 import WardsPage from '../pages/wards';
 import GoodsReceiptPage from '../pages/inbound/GoodsReceipt';
 import PurchaseGoodsReturnPage from '../pages/purchase/GoodsReturn';
+import PurchaseRequestPage from '../pages/purchase/PurchaseRequest';
 import SalesRequestPage from '../pages/sales/SalesRequest';
 import SalesOrderPage from '../pages/sales/SalesOrder';
 import SalesReturnPage from '../pages/sales/SalesReturn';
@@ -80,7 +81,7 @@ export default function AppRoutes() {
 
             <Route path="/goods-receipts" element={<GoodsReceiptPage />} />
             <Route path="/purchase/goods-return" element={<PurchaseGoodsReturnPage />} />
-            <Route path="/purchase/purchase-request" element={<PlaceholderPage title="Yêu cầu mua hàng" />} />
+            <Route path="/purchase/purchase-request" element={<PurchaseRequestPage />} />
 
             <Route path="/sales/sales-request" element={<SalesRequestPage />} />
             <Route path="/sales-orders" element={<SalesOrderPage />} />
