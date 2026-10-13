@@ -41,9 +41,11 @@
 3. **Chặn vượt tồn** (`AvailabilityService`): `Sẵn sàng bán = Tồn thực tế − Đã đặt hàng` (đơn vị cơ sở, tại kho xuất của đơn; "Đã đặt hàng" = đơn PENDING/CONFIRMED mà Đơn giao hàng chưa Xác nhận — cùng công thức với trang Tồn kho). Nếu tổng SL đặt (cộng các dòng cùng sản phẩm, đã quy đổi) lớn hơn thì báo: *"Số lượng đặt vượt quá số lượng Sẵn sàng bán hiện có trong kho! (Sản phẩm X: cần A, sẵn sàng bán B)"*. Áp dụng khi **tạo, sửa, duyệt** Đơn hàng bán (loại trừ chính đơn đang sửa/duyệt để không tự cộng dồn) và khi **Chuyển Yêu cầu bán hàng thành đơn**. Mặc định đã chọn: Yêu cầu bán hàng chỉ kiểm tra lúc chuyển thành đơn (lúc tạo chưa có kho xuất nên không tính được); Pre-order và Hàng mẫu cũng bị chặn như đơn thường.
    - **Đã test qua API**: 100 Thùng vượt tồn bị chặn; 2 dòng cùng SP cộng lại vượt bị chặn; Pre-order/Hàng mẫu vượt bị chặn; đặt đúng bằng số sẵn sàng bán thì qua, thêm 1 gói bị chặn; sửa lên A+5 bị chặn, sửa xuống A−10 qua; duyệt đơn qua; Yêu cầu 20.000 gói tạo được nhưng chuyển thành đơn bị chặn, 50 gói chuyển được.
 
-## ⚠️ Giới hạn đã biết: Đơn giao hàng chỉ hỗ trợ 1-1 với Đơn hàng bán (không giao nhiều đợt)
+## ✅ [ĐÃ ĐẢO NGƯỢC - xem mục "Đổi quan hệ SO-DO-Invoice sang 1-nhiều" bên dưới, 2026-10-13] Giới hạn cũ: Đơn giao hàng chỉ hỗ trợ 1-1 với Đơn hàng bán
 
-`delivery_order.sales_order_id` đang là **UNIQUE** — 1 Đơn hàng bán chỉ tạo được tối đa **1 Đơn giao hàng**. Sửa số lượng ở bước "Đơn giao hàng" chỉ cho phép "giao thiếu rồi thôi" (giao 1 lần, ít hơn số đặt), **không hỗ trợ** tạo thêm Đơn giao hàng thứ 2 cho phần còn thiếu của cùng đơn (giao nhiều đợt/multiple shipments). Đã hỏi người dùng có cần sửa không — **người dùng xác nhận không cần**, giữ nguyên giới hạn này. Nếu giám khảo hỏi "giao nhiều đợt thì sao": trả lời rằng phạm vi đồ án chỉ hỗ trợ 1 đơn giao hàng/1 đơn hàng bán, muốn giao thiếu thì sửa số lượng ngay trên đơn giao hàng đó trước khi xác nhận.
+> Mục dưới đây chỉ giữ lại để lưu vết quyết định ban đầu — **không còn đúng nữa**, đã đảo ngược hẳn sau khi nhận feedback từ bạn của người dùng (xem mục "🔀 Đổi quan hệ SO-DO-Invoice..." ở cuối file).
+
+`delivery_order.sales_order_id` lúc đó là **UNIQUE** — 1 Đơn hàng bán chỉ tạo được tối đa **1 Đơn giao hàng**. Sửa số lượng ở bước "Đơn giao hàng" chỉ cho phép "giao thiếu rồi thôi" (giao 1 lần, ít hơn số đặt), **không hỗ trợ** tạo thêm Đơn giao hàng thứ 2 cho phần còn thiếu của cùng đơn (giao nhiều đợt/multiple shipments). Lúc đó đã hỏi người dùng có cần sửa không — người dùng xác nhận không cần, giữ nguyên giới hạn này.
 
 ## 🔀 Chuyển icon "Người xác nhận" đúng chỗ: Đơn hàng bán hiện "Người yêu cầu", Xác nhận giao hàng hiện "Người xác nhận" (2026-09-18)
 
@@ -650,6 +652,22 @@ Theo ảnh tham chiếu DMSpro (Phiếu Yêu Cầu Mua Hàng) người dùng g�
 **Chiết khấu + VAT** (khái niệm hoàn toàn mới, trước đây không có ở module Mua hàng nào): chốt tại thời điểm Lưu (giống cách Hóa đơn chốt thuế) — % Chiết khấu/dòng → Tiền chiết khấu → Giá sau chiết khấu → VAT (theo `product.purchaseTaxGroup`) → Tổng tiền. Khi "Tạo phiếu nhập hàng", đơn giá được **"nén"** gộp chiết khấu vào (Giá sau CK ÷ Số lượng) vì `GoodsReceiptDetail` không có cột chiết khấu/thuế riêng.
 
 **Đã test qua API (chuỗi đầy đủ)**: tạo YCM0001 (10 Gói CP001, giá 40.000, chiết khấu 5%) → đúng 380.000 → Gửi duyệt (PENDING_APPROVAL) → Tạo phiếu nhập hàng → sinh **PN0008** (Nháp, đơn giá 38.000 = 380.000/10 đúng) → YCM0001 chuyển CLOSED, chặn sửa đúng. Build frontend production sạch (`npm run build`, 1 cảnh báo chunk-size không liên quan). Đã xóa dữ liệu test.
+
+## 🔀 Đổi quan hệ SO→DO→Invoice từ 1-1 sang 1-nhiều: giao nhiều đợt, xuất hóa đơn từng phần (V49, 2026-10-13)
+
+Bạn của người dùng (review code) góp ý: "1 đơn bán hàng có thể tách ra làm nhiều đơn giao hàng, 1 đơn giao hàng cũng có thể tách ra làm nhiều invoice". Đây là **đảo ngược trực tiếp** quyết định "1-1, không giao nhiều đợt" đã chốt trước đó (xem mục cũ ở trên) — người dùng xác nhận muốn đổi theo hướng này. Trước khi làm đã **push code lên git làm điểm an toàn** (`b784ce4`) để có thể quay lại nếu lỗi.
+
+**Thiết kế mới:**
+- `SalesOrderService.confirm()`: bỏ hẳn việc tự động tạo Đơn giao hàng — giờ là hành động riêng, chủ động, người dùng tự bấm "+" bao nhiêu lần tùy ý (mỗi lần giao 1 phần, tự tính "còn lại chưa giao").
+- `DeliveryOrderService.create()/update()`: bỏ chặn "đã có Đơn giao hàng rồi", thay bằng validate **từng dòng sản phẩm** không được vượt quá số **còn lại** (= đã đặt − tổng đã giao ở các đợt khác đang hoạt động).
+- `DeliveryOrderService.cancel()`: bỏ hẳn việc đụng vào trạng thái Đơn hàng bán (đơn có thể còn các đợt giao khác) — rule chặn "đã có Hóa đơn" giờ chỉ xét **đúng đợt giao đang hủy**, không phải cả đơn.
+- `Invoice` thêm cột `delivery_order_id` (V49) — hóa đơn giờ gắn với **đúng 1 đợt giao cụ thể**, không chỉ đơn hàng chung chung. `InvoiceItem` thêm `base_quantity` để trừ kho đúng phần đã chọn (trước đây luôn lấy *nguyên* cả đợt giao).
+- `InvoiceService`: API tạo hóa đơn đổi từ `salesOrderId` (query param) sang `POST` body chọn **đúng 1 Đơn giao hàng + danh sách dòng/số lượng muốn xuất** (≤ còn lại chưa xuất hóa đơn của đợt đó). `cancel()` đơn giản hơn hẳn: Đơn giao hàng giữ nguyên "Đã giao" (không còn bị đưa về "Chờ giao" như thiết kế cũ), chỉ hoàn đúng số của hóa đơn bị hủy — bỏ được hẳn cơ chế `vanWarehouse` giữ lại phức tạp trước đây (không còn cần nữa với thiết kế mới).
+- Frontend: nút "Xuất hóa đơn" **chuyển từ trang Đơn hàng bán sang trang Đơn giao hàng** (vì giờ xuất theo đúng 1 đợt giao cụ thể, có popup chọn số lượng từng dòng). Trang Đơn giao hàng đổi cột "Số lượng đặt" → "Còn lại chưa giao", dropdown "Đơn hàng bán" không còn loại bỏ đơn đã có DO.
+
+**Đã test trực tiếp qua API (7 kịch bản, dữ liệu tự tạo, đã dọn sau test)**: 1 đơn 48 Gói tách 2 đợt giao 20+28 (đợt 3 vượt bị chặn đúng); xác nhận 1 đợt → kho đúng; tách 2 hóa đơn từ cùng 1 đợt giao 12+8 (hóa đơn 3 vượt bị chặn đúng); hủy 1 hóa đơn → kho hoàn đúng, **Đơn giao hàng giữ nguyên "Đã giao"** (khác hẳn hành vi cũ); xuất lại hóa đơn mới cho phần vừa giải phóng → OK; hủy 1 đợt giao có hóa đơn → bị chặn đúng (chỉ xét đúng đợt đó); hủy đợt giao khác CHƯA có hóa đơn (cùng đơn hàng) → hủy được bình thường; tạo lại đợt giao mới cho phần vừa giải phóng → OK.
+
+**⚠️ Còn thiếu, CHƯA làm**: công thức "Đã đặt hàng"/"Sẵn sàng bán" (`SalesOrderRepository.sumCommittedBase` + bản sao ở frontend `Inventories/index.jsx`) **vẫn còn theo giả định 1 đợt giao/1 đơn** — sẽ tính **thiếu** số đang giữ chỗ trong kịch bản giao nhiều đợt thật (đơn đã giao 1 phần, phần còn lại lẽ ra vẫn phải tính là "đang giữ chỗ" nhưng công thức cũ sẽ không còn tính nữa vì chỉ kiểm tra "có Đơn giao hàng CLOSED nào không" dạng boolean, không phải số học thật). Không ảnh hưởng đến tồn kho thật (stock_transaction vẫn đúng tuyệt đối, đã test kỹ) — chỉ ảnh hưởng cảnh báo "vượt tồn" lúc đặt/duyệt đơn mới. Cần viết lại riêng ở phiên sau.
 
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
