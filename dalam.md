@@ -669,6 +669,19 @@ Bạn của người dùng (review code) góp ý: "1 đơn bán hàng có thể 
 
 **⚠️ Còn thiếu, CHƯA làm**: công thức "Đã đặt hàng"/"Sẵn sàng bán" (`SalesOrderRepository.sumCommittedBase` + bản sao ở frontend `Inventories/index.jsx`) **vẫn còn theo giả định 1 đợt giao/1 đơn** — sẽ tính **thiếu** số đang giữ chỗ trong kịch bản giao nhiều đợt thật (đơn đã giao 1 phần, phần còn lại lẽ ra vẫn phải tính là "đang giữ chỗ" nhưng công thức cũ sẽ không còn tính nữa vì chỉ kiểm tra "có Đơn giao hàng CLOSED nào không" dạng boolean, không phải số học thật). Không ảnh hưởng đến tồn kho thật (stock_transaction vẫn đúng tuyệt đối, đã test kỹ) — chỉ ảnh hưởng cảnh báo "vượt tồn" lúc đặt/duyệt đơn mới. Cần viết lại riêng ở phiên sau.
 
+## 🧪 Test regression toàn hệ thống sau V49 + sửa lỗi tag "Trả hàng" bị lan (V50, 2026-10-13)
+
+Sau khi đổi quan hệ SO→DO→Invoice sang 1-nhiều (V49), quét lại **toàn bộ 41 API chính** (Danh mục, Mua hàng, Bán hàng, Tồn kho, Hệ thống) — không có lỗi 500 nào. Test sâu chuỗi Bán hàng với dữ liệu mới cho **cả 2 chi nhánh**:
+
+- **Bình Dương**: 1 đơn 60 Gói → tách 2 đợt giao (36+24) → tách 3 hóa đơn (24+12 từ đợt 1, 24 từ đợt 2) → tạo phiếu Trả hàng gắn đúng 1 hóa đơn cụ thể → Duyệt → Hủy Hóa đơn bị chặn đúng khi còn phiếu trả hiệu lực → Hủy phiếu trả → Hủy Hóa đơn thành công → Đơn giao hàng vẫn giữ "Đã giao" → Hủy Đơn giao hàng bị chặn đúng khi còn Hóa đơn khác hiệu lực.
+- **Hà Nội**: chuỗi đầy đủ tương tự (rút gọn) — xác nhận đúng chi nhánh, không lẫn dữ liệu.
+
+**Phát hiện 1 lỗi thật qua test**: tag "Trả hàng" tự động ở trang Hóa đơn so khớp theo **cả đơn hàng** (`salesOrder.id`) — nên khi 1 đơn có nhiều hóa đơn (do V49), tạo 1 phiếu trả gắn với 1 hóa đơn cụ thể làm **cả 3 hóa đơn** của đơn đó hiện sai "Trả hàng", dù phiếu chỉ gắn với 1 hóa đơn. Nguyên nhân: `SalesReturn` trước đây chỉ lưu `sales_order_id` (suy ra từ hóa đơn lúc tạo), không giữ lại chính hóa đơn đó.
+
+**Sửa (V50)**: thêm cột `sales_return.invoice_id` (lưu đúng hóa đơn gốc), tag giờ so khớp theo `invoice.id` chính xác (fallback về cách cũ chỉ khi phiếu không có `invoice` — dữ liệu rất cũ trước V50). Test lại: tạo phiếu trả gắn đúng 1 trong 3 hóa đơn → **chỉ đúng 1 hóa đơn đó** hiện "Trả hàng", 2 hóa đơn còn lại đúng "Đã duyệt" (trước khi sửa cả 3 đều sai).
+
+Đã dọn sạch toàn bộ dữ liệu test (cả 2 chi nhánh), kho khôi phục đúng số gốc.
+
 ## ⏳ Việc đang treo, CHƯA làm (nhớ làm sau khi xong hết việc hiện tại)
 
 **Phân trang (pagination) cho các trang danh sách** — nguyên nhân: Nhi (thành viên 2, làm ETL/DW/AI/BI nhánh `feature/data-ai`) đẩy lên 1 bộ dữ liệu khá lớn, làm các trang danh sách (Đơn hàng bán...) load chậm hẳn mỗi lần bấm, vì hiện tại mọi trang đều gọi API tải **toàn bộ** bảng 1 lần (không giới hạn số dòng, JSON lồng sâu), lọc/tìm kiếm làm phía trình duyệt. Đã phân tích trong phiên và người dùng **xác nhận hoãn lại**, đợi làm xong hết các yêu cầu hiện tại mới quay lại làm. Hướng giải quyết đã thống nhất: phân trang phía Server (Spring Data `Pageable` + AntD `Table` pagination gọi lại API theo trang), làm thí điểm ở trang Đơn hàng bán trước — nhớ vẫn cần hỏi xác nhận lại trước khi code theo đúng quy tắc chung.
