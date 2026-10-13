@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
 } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, SendOutlined, SwapOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, EyeOutlined, DeleteOutlined, SendOutlined, SwapOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { hasAnyRole, getCurrentUser } from '../../../utils/auth';
@@ -35,6 +35,7 @@ export default function PurchaseRequestPage() {
   const [editingRequest, setEditingRequest] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [viewingRequest, setViewingRequest] = useState(null);
   const [form] = Form.useForm();
   const [detailForm] = Form.useForm();
 
@@ -234,38 +235,39 @@ export default function PurchaseRequestPage() {
     { title: 'Kho', key: 'warehouse', render: (_, r) => r.warehouse?.name },
     { title: 'Tổng tiền', dataIndex: 'totalAmount', key: 'totalAmount', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
     { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) => {
-              const isOpen = record.status === 'OPEN';
-              const isPending = record.status === 'PENDING_APPROVAL';
-              return (
-                <Space>
-                  <Button icon={<EditOutlined />} disabled={!isOpen} onClick={() => openEditModal(record)} />
-                  {isOpen && (
-                    <Popconfirm title="Gửi duyệt yêu cầu mua hàng này?" description="Sau khi gửi duyệt sẽ không sửa/xóa được nữa." onConfirm={() => handleSubmitRequest(record)}>
-                      <Button icon={<SendOutlined />} type="primary" ghost />
-                    </Popconfirm>
-                  )}
-                  {isPending && (
-                    <Popconfirm title="Tạo phiếu nhập hàng từ yêu cầu này?" description="Sẽ sinh 1 Phiếu nhập hàng (Nháp) ở trang Nhập hàng và đóng yêu cầu này lại." onConfirm={() => handleConvert(record)}>
-                      <Button icon={<SwapOutlined />} type="primary" ghost>
-                        Tạo phiếu nhập hàng
-                      </Button>
-                    </Popconfirm>
-                  )}
-                  <Popconfirm title="Xóa yêu cầu mua hàng này?" disabled={!isOpen} onConfirm={() => handleDelete(record)}>
-                    <Button icon={<DeleteOutlined />} danger disabled={!isOpen} />
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => {
+        const isOpen = record.status === 'OPEN';
+        const isPending = record.status === 'PENDING_APPROVAL';
+        return (
+          <Space>
+            <Button icon={<EyeOutlined />} onClick={() => setViewingRequest(record)} />
+            {canWrite && (
+              <>
+                <Button icon={<EditOutlined />} disabled={!isOpen} onClick={() => openEditModal(record)} />
+                {isOpen && (
+                  <Popconfirm title="Gửi duyệt yêu cầu mua hàng này?" description="Sau khi gửi duyệt sẽ không sửa/xóa được nữa." onConfirm={() => handleSubmitRequest(record)}>
+                    <Button icon={<SendOutlined />} type="primary" ghost />
                   </Popconfirm>
-                </Space>
-              );
-            },
-          },
-        ]
-      : []),
+                )}
+                {isPending && (
+                  <Popconfirm title="Tạo phiếu nhập hàng từ yêu cầu này?" description="Sẽ sinh 1 Phiếu nhập hàng (Nháp) ở trang Nhập hàng và đóng yêu cầu này lại." onConfirm={() => handleConvert(record)}>
+                    <Button icon={<SwapOutlined />} type="primary" ghost>
+                      Tạo phiếu nhập hàng
+                    </Button>
+                  </Popconfirm>
+                )}
+                <Popconfirm title="Xóa yêu cầu mua hàng này?" disabled={!isOpen} onConfirm={() => handleDelete(record)}>
+                  <Button icon={<DeleteOutlined />} danger disabled={!isOpen} />
+                </Popconfirm>
+              </>
+            )}
+          </Space>
+        );
+      },
+    },
   ];
 
   const detailColumns = [
@@ -398,6 +400,55 @@ export default function PurchaseRequestPage() {
             </Col>
           </Row>
         </Form>
+      </Modal>
+
+      <Modal
+        title={viewingRequest ? `Xem yêu cầu mua hàng ${viewingRequest.docNumber}` : ''}
+        open={!!viewingRequest}
+        onCancel={() => setViewingRequest(null)}
+        footer={null}
+        width={900}
+        destroyOnHidden
+      >
+        {viewingRequest && (
+          <>
+            <Row gutter={16}>
+              <Col span={8}><Text>Ngày tạo: {viewingRequest.docDate}</Text></Col>
+              <Col span={8}><Text>Ngày yêu cầu: {viewingRequest.requestDate}</Text></Col>
+              <Col span={8}><Text>Trạng thái: </Text>{statusTag(viewingRequest.status)}</Col>
+              <Col span={8}><Text>Nhà cung cấp: {viewingRequest.supplier?.name}</Text></Col>
+              <Col span={8}><Text>Kho nhà phân phối: {viewingRequest.warehouse?.name}</Text></Col>
+              <Col span={8}><Text>Người yêu cầu: {viewingRequest.createdBy?.fullName || viewingRequest.createdBy?.username || '-'}</Text></Col>
+              <Col span={8}><Text>Lý do: {viewingRequest.reason || '-'}</Text></Col>
+              <Col span={8}><Text>Phiếu nhập hàng: {viewingRequest.goodsReceipt?.docNumber || '-'}</Text></Col>
+            </Row>
+            {viewingRequest.remarks && <div style={{ marginTop: 8 }}><Text>Diễn giải: {viewingRequest.remarks}</Text></div>}
+
+            <div style={{ marginTop: 16, marginBottom: 8 }}>
+              <Text strong>Chi tiết sản phẩm</Text>
+            </div>
+            <Table
+              rowKey="id"
+              size="small"
+              pagination={false}
+              dataSource={viewingRequest.items}
+              columns={[
+                { title: 'Sản phẩm', key: 'product', render: (_, d) => `${d.product?.code} - ${d.product?.name}` },
+                { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity', align: 'right' },
+                { title: 'Đơn giá', dataIndex: 'unitPrice', key: 'unitPrice', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
+                { title: '% CK', dataIndex: 'discountPercent', key: 'discountPercent', align: 'right', render: (v) => `${v || 0}%` },
+                { title: 'Tiền CK', dataIndex: 'discountAmount', key: 'discountAmount', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
+                { title: 'Thuế VAT', dataIndex: 'taxRate', key: 'taxRate', align: 'right', render: (v) => `${v}%` },
+                { title: 'Thành tiền', dataIndex: 'lineTotal', key: 'lineTotal', align: 'right', render: (v) => <Text strong>{Number(v).toLocaleString('vi-VN')} đ</Text> },
+              ]}
+            />
+            <div style={{ textAlign: 'right', marginTop: 12 }}>
+              <Text>Tiền hàng trước thuế: {Number(viewingRequest.subtotalAmount).toLocaleString('vi-VN')} đ</Text><br />
+              <Text>VAT: {Number(viewingRequest.taxAmount).toLocaleString('vi-VN')} đ</Text><br />
+              <Text strong>Tổng cộng: {Number(viewingRequest.totalAmount).toLocaleString('vi-VN')} đ</Text>
+            </div>
+          </>
+        )}
       </Modal>
 
       <Modal
