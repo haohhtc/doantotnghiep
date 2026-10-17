@@ -454,6 +454,21 @@ Toàn bộ các module trong `tonghop.md` đã code xong (tính đến bản c�
 
 **Đã test qua API**: GET /customers trả về đúng field `branch`; POST thiếu `branchId` bị chặn đúng thông báo lỗi; migration V39 chạy sạch; `GET /branches/{id}/products` xác nhận đúng CN-BD có 11 SP, CN_HN có 4 SP, HCM có 0 SP (đúng cảnh báo đã nêu trước khi code). Build backend + frontend đều sạch.
 
+## 🚐 App Van-Sale (di động) — Backend Phase 1: Ứng hàng/Trả hàng + Hóa đơn thẳng (V51, 2026-10-17)
+
+**Bối cảnh**: xem thêm mục "App Van-Sales (mobile, riêng)" phía trên — bạn của người dùng góp ý qua chat: đơn Van-Sale khác đơn Pre-order, KHÔNG có Đơn giao hàng ở giữa ("tiền trao cháo múc"), bán xong xuất hóa đơn luôn; "Kho NV" chỉ là chia nhỏ TRONG Kho Van theo từng nhân viên (tổng các Kho NV = đúng tồn Kho Van chi nhánh).
+
+**Đã xây** (mới backend để app gọi API, app di động thật chưa code):
+- Migration `V51__van_sale_employee_stock.sql`: bảng `employee_stock` (sổ phụ theo nhân viên, nằm TRONG Kho Van, không phải kho riêng), `van_sale_advance`/`van_sale_advance_item` (Ứng hàng Main→Van + cộng Kho NV), `van_sale_return`/`van_sale_return_item` (Trả hàng Van→Main + trừ Kho NV) — cả 2 phiếu theo mẫu 1 bước Nháp→Đã duyệt như Phiếu xuất kho (không có bước trung gian như Điều chuyển kho, vì chỉ có 1 NVBH liên quan).
+- `InvoiceService.createVanSale()`: xuất hóa đơn THẲNG từ 1 Đơn hàng bán (phải đã CONFIRMED, loại STANDARD, kho = Kho Van chi nhánh, có gán NVBH) — không qua Đơn giao hàng, trừ thẳng Kho Van + trừ Kho NV của đúng NVBH trong cùng 1 giao dịch. Chặn vượt số lượng đặt (cộng dồn các hóa đơn Van-Sale khác đã xuất cho cùng đơn).
+- `GET /api/employee-stocks/by-employee/{id}`: xem "Tồn NV" (chỉ xem, không sửa tay).
+
+**Bug phát hiện khi test + đã sửa**: `InvoiceService.cancel()` (viết từ V49, chỉ biết hoàn kho qua `deliveryOrder.getVanWarehouse()`) không hoàn được kho cho hóa đơn Van-Sale vì hóa đơn này không có Đơn giao hàng (đúng thiết kế). Hậu quả nếu không sửa: hủy hóa đơn Van-Sale sẽ "mất" hàng — Kho Van và Kho NV không được cộng trả lại dù hóa đơn đã bị hủy. Đã thêm nhánh riêng: nếu hóa đơn không gắn Đơn giao hàng VÀ đơn hàng gốc chưa từng có Đơn giao hàng nào (`DeliveryOrderRepository.existsBySalesOrderId` mới) thì hoàn thẳng vào `order.getWarehouse()` (Kho Van) + cộng lại Kho NV của đúng NVBH.
+
+**Đã test qua API** (Chi nhánh Bình Dương, NVBH "Nguyễn Văn Test"): Ứng hàng 100 gói CP002 → Main −100 / Van +100 / Kho NV +100; Trả hàng 40 → đúng ngược lại; chặn trả vượt tồn Kho NV (báo rõ đang có bao nhiêu, cần trả bao nhiêu); tạo Đơn hàng STANDARD tại Kho Van + gán NVBH → xuất hóa đơn Van-Sale 20 rồi 10 (đúng hết 30 đã đặt) → chặn xuất thêm (vượt/hết); chặn hóa đơn Van-Sale khi đơn chưa duyệt, sai loại đơn (Pre-order), sai kho (không phải Kho Van); hủy cả 2 hóa đơn Van-Sale → Kho Van + Kho NV được cộng trả đúng (xác nhận bug trên đã sửa đúng). Đã dọn sạch toàn bộ dữ liệu test, tồn kho/Kho NV/numbering_config về lại đúng mốc ban đầu.
+
+**Còn lại cho app di động thật**: chưa viết dòng code nào ở `mobile/` (dự kiến React Native/Expo, build `.apk`) — phần Pre-order của app sẽ tái dùng nguyên API `/sales-orders` hiện có, không cần code backend mới.
+
 ## ✅ Rà soát toàn hệ thống sau đợt lọc theo Chi nhánh (2026-10-07)
 
 Theo yêu cầu "kiểm lại toàn bộ xem có lỗi không" — chạy đủ 3 lớp kiểm tra, không chỉ dựa vào build sạch:

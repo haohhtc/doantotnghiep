@@ -2,6 +2,7 @@ package com.erpqlkho.backend.sales.controller;
 
 import com.erpqlkho.backend.common.response.ApiResponse;
 import com.erpqlkho.backend.sales.dto.InvoiceDto;
+import com.erpqlkho.backend.sales.dto.VanSaleInvoiceDto;
 import com.erpqlkho.backend.sales.entity.Invoice;
 import com.erpqlkho.backend.sales.service.InvoiceService;
 import jakarta.validation.Valid;
@@ -41,5 +42,11 @@ public class InvoiceController {
     @PostMapping("/{id}/cancel")
     public ApiResponse<Invoice> cancel(@PathVariable Long id) {
         return ApiResponse.ok("Da huy hoa don - mo lai Don giao hang", invoiceService.cancel(id));
+    }
+
+    // App Van-Sale (di dong): xuat hoa don THANG cho Van Sale, khong qua Don giao hang.
+    @PostMapping("/van-sale")
+    public ApiResponse<Invoice> createVanSale(@Valid @RequestBody VanSaleInvoiceDto dto) {
+        return ApiResponse.ok("Xuat hoa don Van Sale thanh cong", invoiceService.createVanSale(dto));
     }
 }

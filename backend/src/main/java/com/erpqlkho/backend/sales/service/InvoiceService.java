@@ -4,9 +4,12 @@ import com.erpqlkho.backend.category.product.entity.Product;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
 import com.erpqlkho.backend.category.uom.entity.Uom;
 import com.erpqlkho.backend.category.uomgroup.service.UomConversionService;
+import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
+import com.erpqlkho.backend.inventory.service.EmployeeStockService;
 import com.erpqlkho.backend.inventory.service.StockService;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.sales.dto.InvoiceDto;
+import com.erpqlkho.backend.sales.dto.VanSaleInvoiceDto;
 import com.erpqlkho.backend.sales.entity.DeliveryOrder;
 import com.erpqlkho.backend.sales.entity.DeliveryOrderItem;
 import com.erpqlkho.backend.sales.entity.Invoice;
@@ -48,6 +51,7 @@ public class InvoiceService {
     private final NumberingConfigService numberingConfigService;
     private final UomConversionService uomConversionService;
     private final StockService stockService;
+    private final EmployeeStockService employeeStockService;
 
     public List<Invoice> findAll() {
         return invoiceRepository.findAll();
@@ -127,6 +131,114 @@ public class InvoiceService {
         return saved;
     }
 
+    // Xuat hoa don THANG cho Van Sale (App Van-Sale, di dong) - KHONG qua Don giao hang: "tien trao
+    // chao muc", NVBH ban xong xuat hoa don luon tai cho. Can 1 Don hang ban da CONFIRMED,
+    // orderType=STANDARD (= "Van-Sales"), kho = dung Kho Van chi nhanh, co gan salesman (= NVBH
+    // dang ban, dung de tru "Kho NV" - EmployeeStockService). Tru THANG 1 buoc vao Kho Van (khong
+    // qua vanWarehouse cua Don giao hang nhu luong Pre-order, vi khong co Don giao hang o day).
+    @Transactional
+    public Invoice createVanSale(VanSaleInvoiceDto dto) {
+        SalesOrder order = salesOrderRepository.findById(dto.getSalesOrderId())
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay don hang id=" + dto.getSalesOrderId()));
+        if (!"STANDARD".equals(order.getOrderType())) {
+            throw ApiException.conflict("Chi xuat hoa don Van Sale thang duoc cho don hang loai Van-Sales (STANDARD)");
+        }
+        if (!"CONFIRMED".equals(order.getStatus())) {
+            throw ApiException.conflict("Don hang chua duoc duyet (CONFIRMED) - khong xuat duoc hoa don");
+        }
+        if (order.getSalesman() == null) {
+            throw ApiException.conflict("Don hang Van Sale phai gan dung NVBH ban hang (de tru dung Kho NV)");
+        }
+        Warehouse van = order.getWarehouse();
+        if (!"VAN".equals(van.getWarehouseType())) {
+            throw ApiException.conflict("Don hang Van Sale phai xuat tu Kho Van cua chi nhanh");
+        }
+
+        Invoice invoice = new Invoice();
+        invoice.setInvoiceNumber(resolveInvoiceNumber());
+        invoice.setInvoiceDate(LocalDate.now());
+        invoice.setSalesOrder(order);
+        invoice.setDeliveryOrder(null);
+        invoice.setCreatedBy(currentUser());
+        invoice.setCreatedAt(java.time.LocalDateTime.now());
+
+        BigDecimal subtotal = BigDecimal.ZERO;
+        BigDecimal totalTax = BigDecimal.ZERO;
+        List<InvoiceItem> items = new ArrayList<>();
+        for (VanSaleInvoiceDto.ItemDto itemDto : dto.getItems()) {
+            Product product = findProduct(itemDto.getProductId());
+            Uom uom = itemDto.getUomId() != null ? uomConversionService.findUom(itemDto.getUomId()) : null;
+            BigDecimal baseQuantity = uomConversionService.toBase(product, uom, itemDto.getQuantity());
+
+            BigDecimal unitPrice = unitPriceOf(order, product, uom);
+            BigDecimal rate = product.getSaleTaxGroup() != null ? product.getSaleTaxGroup().getRatePercent() : BigDecimal.ZERO;
+            BigDecimal lineSubtotal = itemDto.getQuantity().multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal lineTax = lineSubtotal.multiply(rate).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            BigDecimal lineTotal = lineSubtotal.add(lineTax);
+
+            InvoiceItem item = new InvoiceItem();
+            item.setInvoice(invoice);
+            item.setProduct(product);
+            item.setUom(uom);
+            item.setQuantity(itemDto.getQuantity());
+            item.setBaseQuantity(baseQuantity);
+            item.setUnitPrice(unitPrice);
+            item.setTaxRate(rate);
+            item.setLineTaxAmount(lineTax);
+            item.setLineTotal(lineTotal);
+            items.add(item);
+
+            subtotal = subtotal.add(lineSubtotal);
+            totalTax = totalTax.add(lineTax);
+        }
+        assertWithinOrdered(order, items);
+
+        invoice.getItems().addAll(items);
+        invoice.setSubtotalAmount(subtotal);
+        invoice.setTaxAmount(totalTax);
+        invoice.setTotalAmount(subtotal.add(totalTax));
+
+        Invoice saved = invoiceRepository.save(invoice);
+
+        // Tru THANG Kho Van chi nhanh (khong qua buoc Don giao hang) VA tru "Kho NV" cua dung NVBH
+        // ban hang - 2 thao tac trong CUNG 1 giao dich (EmployeeStockService tu chan neu NV khong
+        // du hang, tuc chua Ung hang truoc do).
+        for (InvoiceItem item : items) {
+            stockService.decrease(item.getProduct(), van, item.getBaseQuantity(), "VAN_SALE_INVOICE", saved.getId());
+            employeeStockService.decrease(order.getSalesman(), item.getProduct(), item.getBaseQuantity());
+        }
+        return saved;
+    }
+
+    // Chan xuat hoa don Van Sale vuot qua so luong da dat cua don hang (cong don cac hoa don Van
+    // Sale khac - deliveryOrder==null - da xuat cho cung don nay, phong truong hop xuat lam nhieu
+    // lan cho cung 1 don).
+    private void assertWithinOrdered(SalesOrder order, List<InvoiceItem> items) {
+        var requestedByProduct = items.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        item -> item.getProduct().getId(),
+                        java.util.stream.Collectors.reducing(BigDecimal.ZERO, InvoiceItem::getBaseQuantity, BigDecimal::add)));
+        var alreadyInvoicedByProduct = invoiceRepository.findBySalesOrderIdAndStatusNot(order.getId(), "CANCELLED").stream()
+                .filter(inv -> inv.getDeliveryOrder() == null)
+                .flatMap(inv -> inv.getItems().stream())
+                .collect(java.util.stream.Collectors.groupingBy(
+                        item -> item.getProduct().getId(),
+                        java.util.stream.Collectors.reducing(BigDecimal.ZERO, this::resolveBaseQuantity, BigDecimal::add)));
+        for (var entry : requestedByProduct.entrySet()) {
+            BigDecimal ordered = order.getDetails().stream()
+                    .filter(d -> d.getProduct().getId().equals(entry.getKey()))
+                    .map(d -> d.getBaseQuantity())
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal alreadyInvoiced = alreadyInvoicedByProduct.getOrDefault(entry.getKey(), BigDecimal.ZERO);
+            BigDecimal remaining = ordered.subtract(alreadyInvoiced);
+            if (entry.getValue().compareTo(remaining) > 0) {
+                Product product = findProduct(entry.getKey());
+                throw ApiException.conflict("San pham " + product.getCode() + " xuat hoa don vuot qua so luong con lai cua don hang (con lai "
+                        + remaining.stripTrailingZeros().toPlainString() + ")");
+            }
+        }
+    }
+
     // Tong so luong (don vi co so) con lai CHUA xuat hoa don cua 1 san pham trong 1 dot giao hang =
     // so luong da giao (DeliveryOrderItem) tru tong da xuat o cac Hoa don dang hoat dong (khong
     // CANCELLED) cua CHINH dot giao do. excludeInvoiceId: bo qua chinh hoa don dang xet (null khi
@@ -184,6 +296,17 @@ public class InvoiceService {
             for (InvoiceItem item : invoice.getItems()) {
                 stockService.increase(item.getProduct(), deliveryOrder.getVanWarehouse(),
                         resolveBaseQuantity(item), "INVOICE_CANCEL", invoice.getId());
+            }
+        } else if (deliveryOrder == null && !deliveryOrderRepository.existsBySalesOrderId(invoice.getSalesOrder().getId())) {
+            // Hoa don Van Sale (V51) - khong qua Don giao hang: hoan tra THANG Kho Van cua don hang
+            // va hoan lai "Kho NV" cua dung NVBH da ban (ngược voi createVanSale()).
+            SalesOrder order = invoice.getSalesOrder();
+            for (InvoiceItem item : invoice.getItems()) {
+                BigDecimal baseQuantity = resolveBaseQuantity(item);
+                stockService.increase(item.getProduct(), order.getWarehouse(), baseQuantity, "INVOICE_CANCEL", invoice.getId());
+                if (order.getSalesman() != null) {
+                    employeeStockService.increase(order.getSalesman(), item.getProduct(), baseQuantity);
+                }
             }
         }
 
