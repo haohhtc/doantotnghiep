@@ -21,6 +21,10 @@ public class CorsConfig {
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
+        // Mac dinh Spring cache ket qua preflight 1800s (30 phut) o trinh duyet - khi dev hay doi
+        // CORS_ALLOWED_ORIGINS (them port Expo web...) ma khong restart trinh duyet thi de bi dinh
+        // ket qua cu. Rut xuong 60s cho du dung nhung khong gay bat ngo luc dev.
+        config.setMaxAge(60L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
