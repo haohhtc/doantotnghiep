@@ -9,6 +9,7 @@ import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.user.entity.User;
 import com.erpqlkho.backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +34,14 @@ public class EmployeeService {
     public Employee findById(Long id) {
         return employeeRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay nhan vien id=" + id));
+    }
+
+    // App Van-Sale (di dong): nhan vien dang dang nhap tren app, de app tu suy ra Kho NV/Kho Van
+    // cua minh (xem EmployeeStockService, InvoiceService.createVanSale()).
+    public Employee findByCurrentUser() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return employeeRepository.findByUser_Username(username)
+                .orElseThrow(() -> ApiException.notFound("Tai khoan dang nhap chua duoc gan voi nhan vien nao"));
     }
 
     @Transactional

@@ -36,6 +36,12 @@ public class EmployeeController {
         return ApiResponse.ok(employeeService.findById(id));
     }
 
+    // App Van-Sale (di dong): nhan vien dang dang nhap - xem EmployeeService.findByCurrentUser().
+    @GetMapping("/me")
+    public ApiResponse<Employee> findMe() {
+        return ApiResponse.ok(employeeService.findByCurrentUser());
+    }
+
     @PostMapping
     public ApiResponse<Employee> create(@Valid @RequestBody EmployeeDto dto) {
         return ApiResponse.ok("Tao nhan vien thanh cong", employeeService.create(dto));

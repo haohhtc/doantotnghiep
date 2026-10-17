@@ -1,0 +1,178 @@
+import { useCallback, useState } from 'react';
+import { useFocusEffect, router } from 'expo-router';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { useSession } from '../../../ctx/SessionContext';
+import { apiClient, errorMessage } from '../../../api/client';
+
+const STATUS_LABEL = {
+  PENDING: 'Chờ xác nhận',
+  CONFIRMED: 'Đã xác nhận',
+  CANCELLED: 'Đã hủy',
+};
+
+// Van Sale: ban xong xuat hoa don THANG, khong qua Don giao hang (xem InvoiceService.createVanSale()
+// o backend). Moi don chi xuat 1 hoa don duy nhat cho het so luong (v1 - don gian, chua ho tro xuat
+// tung phan nhu web).
+export default function VanSaleList() {
+  const { session } = useSession();
+  const employee = session?.employee;
+
+  const [orders, setOrders] = useState([]);
+  const [invoicedOrderIds, setInvoicedOrderIds] = useState(new Set());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [actingId, setActingId] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [ordersRes, invoicesRes] = await Promise.all([
+        apiClient.get('/api/sales-orders'),
+        apiClient.get('/api/invoices'),
+      ]);
+      const mine = ordersRes.data.data.filter(
+        (o) =>
+          o.orderType === 'STANDARD' &&
+          employee &&
+          o.salesman?.id === employee.id &&
+          o.warehouse?.warehouseType === 'VAN'
+      );
+      mine.sort((a, b) => b.id - a.id);
+      setOrders(mine);
+
+      const invoiced = new Set(
+        invoicesRes.data.data
+          .filter((inv) => inv.deliveryOrder == null && inv.status !== 'CANCELLED')
+          .map((inv) => inv.salesOrder?.id)
+      );
+      setInvoicedOrderIds(invoiced);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [employee]);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  async function handleConfirm(id) {
+    setActingId(id);
+    try {
+      await apiClient.post(`/api/sales-orders/${id}/confirm`);
+      load();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function handleInvoice(order) {
+    setActingId(order.id);
+    try {
+      await apiClient.post('/api/invoices/van-sale', {
+        salesOrderId: order.id,
+        items: order.details.map((d) => ({
+          productId: d.product.id,
+          uomId: d.uom?.id,
+          quantity: d.quantity,
+        })),
+      });
+      load();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  if (!employee) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.empty}>Tài khoản này chưa gán Nhân viên - không thể bán Van Sale.</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Pressable style={styles.newBtn} onPress={() => router.push('/vansale/new')}>
+        <Text style={styles.newBtnText}>+ Tạo đơn Van Sale mới</Text>
+      </Pressable>
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 24 }} />
+      ) : (
+        <FlatList
+          data={orders}
+          keyExtractor={(item) => String(item.id)}
+          ListEmptyComponent={<Text style={styles.empty}>Chưa có đơn Van Sale nào.</Text>}
+          renderItem={({ item }) => {
+            const isInvoiced = invoicedOrderIds.has(item.id);
+            return (
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>{item.docNumber}</Text>
+                  <Text style={styles.cardStatus}>
+                    {isInvoiced ? 'Đã xuất hóa đơn' : STATUS_LABEL[item.status] || item.status}
+                  </Text>
+                </View>
+                <Text style={styles.cardSub}>{item.customer?.name}</Text>
+
+                {item.status === 'PENDING' ? (
+                  <Pressable
+                    style={styles.actionBtn}
+                    onPress={() => handleConfirm(item.id)}
+                    disabled={actingId === item.id}
+                  >
+                    {actingId === item.id ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.actionBtnText}>Xác nhận đơn</Text>
+                    )}
+                  </Pressable>
+                ) : null}
+
+                {item.status === 'CONFIRMED' && !isInvoiced ? (
+                  <Pressable
+                    style={[styles.actionBtn, { backgroundColor: '#d4380d' }]}
+                    onPress={() => handleInvoice(item)}
+                    disabled={actingId === item.id}
+                  >
+                    {actingId === item.id ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.actionBtnText}>Xuất hóa đơn</Text>
+                    )}
+                  </Pressable>
+                ) : null}
+              </View>
+            );
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff', padding: 16 },
+  newBtn: { backgroundColor: '#1677ff', borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 12 },
+  newBtnText: { color: '#fff', fontWeight: '600' },
+  card: { borderWidth: 1, borderColor: '#eee', borderRadius: 8, padding: 12, marginBottom: 10 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between' },
+  cardTitle: { fontWeight: '700', fontSize: 15 },
+  cardStatus: { color: '#666', fontSize: 13 },
+  cardSub: { color: '#444', marginTop: 4 },
+  actionBtn: { backgroundColor: '#389e0d', borderRadius: 6, padding: 8, alignItems: 'center', marginTop: 8 },
+  actionBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  empty: { color: '#999', marginTop: 16, textAlign: 'center' },
+  error: { color: '#d4380d', marginBottom: 8, textAlign: 'center' },
+});
