@@ -25,8 +25,11 @@ ra duoc Kho Main/Kho Van/Kho NV).
 
 ## Pham vi hien tai (v1 - 2026-10-17)
 
-- Da xong: dang nhap, xem Kho NV, Dat hang Pre-order (tao + xac nhan), Ban hang Van Sale
-  (tao + xac nhan + xuat hoa don thang), Ung hang/Tra hang.
-- Chua lam: man hinh xac nhan giao hang + xuat hoa don cho chuoi Pre-order (DO/Invoice) - hien
-  tam phai lam tiep tren web; xuat hoa don Van Sale tung phan (v1 chi xuat full 1 lan/don); chon
-  san pham/khach hang dang danh sach cham chon, chua co o tim kiem.
+- Da xong: dang nhap, xem Kho NV, Ung hang/Tra hang, Dat hang Pre-order (tao + xac nhan + tiep
+  ca chuoi: tao Don giao hang + xac nhan giao + xuat hoa don), Ban hang Van Sale (tao + xac nhan
+  + xuat hoa don, sua duoc so luong truoc khi xuat de ho tro xuat tung phan/giao thieu).
+- Chua lam: chon san pham/khach hang dang danh sach cham chon, chua co o tim kiem (on neu danh
+  muc it, se kho dung khi chi nhanh co nhieu san pham/khach hang); **chua chay thu tren may/dien
+  thoai thuc** (moi truong dev hien tai khong co emulator/Android SDK) - can chay `npx expo start`
+  + Expo Go de kiem tra UI thuc; **chua build ra file `.apk`** - can tai khoan Expo (mien phi) de
+  chay `eas build -p android --profile preview` (xem `mobile/AGENTS.md` muc "Building with EAS").

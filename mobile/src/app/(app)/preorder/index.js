@@ -78,7 +78,10 @@ export default function PreorderList() {
           keyExtractor={(item) => String(item.id)}
           ListEmptyComponent={<Text style={styles.empty}>Chưa có đơn Pre-order nào.</Text>}
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <Pressable
+              style={styles.card}
+              onPress={() => item.status === 'CONFIRMED' && router.push(`/preorder/${item.id}`)}
+            >
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{item.docNumber}</Text>
                 <Text style={styles.cardStatus}>{STATUS_LABEL[item.status] || item.status}</Text>
@@ -97,7 +100,10 @@ export default function PreorderList() {
                   )}
                 </Pressable>
               ) : null}
-            </View>
+              {item.status === 'CONFIRMED' ? (
+                <Text style={styles.hint}>Chạm để tiếp tục giao hàng / xuất hóa đơn →</Text>
+              ) : null}
+            </Pressable>
           )}
         />
       )}
@@ -116,6 +122,7 @@ const styles = StyleSheet.create({
   cardSub: { color: '#444', marginTop: 4 },
   confirmBtn: { backgroundColor: '#389e0d', borderRadius: 6, padding: 8, alignItems: 'center', marginTop: 8 },
   confirmBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  hint: { color: '#1677ff', fontSize: 12, marginTop: 6 },
   empty: { color: '#999', marginTop: 16, textAlign: 'center' },
   error: { color: '#d4380d', marginBottom: 8, textAlign: 'center' },
 });

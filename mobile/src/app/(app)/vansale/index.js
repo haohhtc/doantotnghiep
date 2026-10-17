@@ -11,8 +11,8 @@ const STATUS_LABEL = {
 };
 
 // Van Sale: ban xong xuat hoa don THANG, khong qua Don giao hang (xem InvoiceService.createVanSale()
-// o backend). Moi don chi xuat 1 hoa don duy nhat cho het so luong (v1 - don gian, chua ho tro xuat
-// tung phan nhu web).
+// o backend). Co the xuat tung phan (vd ban it hon dat vi het hang) - sua so luong o man hinh
+// [id].js, tuong tu "con lai chua xuat hoa don" cua Pre-order.
 export default function VanSaleList() {
   const { session } = useSession();
   const employee = session?.employee;
@@ -41,12 +41,31 @@ export default function VanSaleList() {
       mine.sort((a, b) => b.id - a.id);
       setOrders(mine);
 
-      const invoiced = new Set(
-        invoicesRes.data.data
-          .filter((inv) => inv.deliveryOrder == null && inv.status !== 'CANCELLED')
-          .map((inv) => inv.salesOrder?.id)
-      );
-      setInvoicedOrderIds(invoiced);
+      // Cong don so luong da xuat hoa don (theo tung san pham) cho moi don, de biet don nao da
+      // xuat HET (an nut "Xuat hoa don") so voi con xuat duoc tiep (van hien nut, sang man hinh
+      // [id].js de sua so luong con lai).
+      const invoicedByOrder = {};
+      invoicesRes.data.data
+        .filter((inv) => inv.deliveryOrder == null && inv.status !== 'CANCELLED')
+        .forEach((inv) => {
+          const orderId = inv.salesOrder?.id;
+          if (!orderId) return;
+          if (!invoicedByOrder[orderId]) invoicedByOrder[orderId] = {};
+          inv.items.forEach((it) => {
+            invoicedByOrder[orderId][it.product.id] =
+              (invoicedByOrder[orderId][it.product.id] || 0) + Number(it.quantity);
+          });
+        });
+
+      const fullyInvoiced = new Set();
+      mine.forEach((o) => {
+        const invoicedMap = invoicedByOrder[o.id] || {};
+        const allDone = o.details.every(
+          (d) => (invoicedMap[d.product.id] || 0) >= Number(d.quantity)
+        );
+        if (allDone) fullyInvoiced.add(o.id);
+      });
+      setInvoicedOrderIds(fullyInvoiced);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -64,25 +83,6 @@ export default function VanSaleList() {
     setActingId(id);
     try {
       await apiClient.post(`/api/sales-orders/${id}/confirm`);
-      load();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setActingId(null);
-    }
-  }
-
-  async function handleInvoice(order) {
-    setActingId(order.id);
-    try {
-      await apiClient.post('/api/invoices/van-sale', {
-        salesOrderId: order.id,
-        items: order.details.map((d) => ({
-          productId: d.product.id,
-          uomId: d.uom?.id,
-          quantity: d.quantity,
-        })),
-      });
       load();
     } catch (e) {
       setError(errorMessage(e));
@@ -143,14 +143,9 @@ export default function VanSaleList() {
                 {item.status === 'CONFIRMED' && !isInvoiced ? (
                   <Pressable
                     style={[styles.actionBtn, { backgroundColor: '#d4380d' }]}
-                    onPress={() => handleInvoice(item)}
-                    disabled={actingId === item.id}
+                    onPress={() => router.push(`/vansale/${item.id}`)}
                   >
-                    {actingId === item.id ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <Text style={styles.actionBtnText}>Xuất hóa đơn</Text>
-                    )}
+                    <Text style={styles.actionBtnText}>Xuất hóa đơn</Text>
                   </Pressable>
                 ) : null}
               </View>
