@@ -741,3 +741,22 @@ Sau khi đổi quan hệ SO→DO→Invoice sang 1-nhiều (V49), quét lại **t
 **4. Icon ở thanh Bottom Tab (Tổng quan/Đặt hàng/Bán hàng/Ứng-Trả) hiện thành ô vuông gạch chéo.** Đúng như người dùng mô tả - đây là icon "MissingIcon" mặc định của React Navigation khi quên khai báo `tabBarIcon` (lúc dựng khung ban đầu chỉ đặt `title`, chưa thêm icon). Thêm `@expo/vector-icons` (Ionicons) cho cả 4 tab.
 
 **Ghi nhận cách làm việc**: ở mục 1, 3, 4 người dùng tự đoán nguyên nhân (sai BASE_URL/endpoint, thiếu import Ionicons "chuẩn") - đã tự kiểm tra lại code/cấu hình thật trước khi sửa, không sửa mù theo đúng nguyên nhân người dùng đoán, vì cả 2 chỗ đoán đó thực ra đã đúng sẵn/không phải gốc rễ thật (gốc rễ là tường lửa + quên 1 dòng code, không phải sai cấu hình).
+
+**5. Bản web vẫn không đăng nhập được dù đã sửa CORS - lỗi thật khác hẳn.** Nhờ người dùng mở DevTools (Console rồi Network) mới thấy: tab Network **trống trơn**, chưa từng gửi request nào tới server - lỗi xảy ra ngay trong JS trước khi kịp gọi mạng. Nguyên nhân: `expo-secure-store` (dùng để lưu token) **không hỗ trợ nền tảng web** (chỉ Android/iOS theo docs chính thức), nhưng code gọi thẳng `SecureStore.getItemAsync('token')` trong interceptor của `apiClient` (chạy trước MỌI request) mà không kiểm tra `Platform.OS` - lỗi ngay từ cú gọi đầu tiên (chính là login). Sửa: tạo `src/api/tokenStorage.js` bọc get/set/clear token, tren web dùng `localStorage` (giống pattern đã có sẵn ở `useStorageState.js`), native vẫn dùng SecureStore như cũ - dùng chung cho cả `client.js` (interceptor) lẫn `SessionContext.js` (signIn/signOut). Lỗi này **chỉ ảnh hưởng bản web** - bản Android/iOS thật (Expo Go) không dính vì SecureStore hoạt động bình thường trên 2 nền tảng đó.
+
+**Bài học quy trình**: 5 lỗi ở trên đều được định vị đúng gốc rễ bằng cách nhìn bằng chứng thật (Console/Network tab, log backend, test API trực tiếp) thay vì đoán rồi sửa đại - 2 lần đầu (CORS origin, CORS maxAge) đoán đúng hướng nhưng chưa đủ, phải đào thêm; lần cuối cùng (SecureStore) nếu không có ảnh chụp Network tab trống thì rất dễ sửa nhầm hướng tiếp (lại nghi CORS/firewall).
+
+## 🔁 Test lại toàn bộ luồng trừ/cộng kho của App Van-Sale sau đợt sửa lỗi (2026-10-18)
+
+Sau khi sửa xong 5 lỗi ở mục trên, test lại 1 lượt đầy đủ qua đúng API mà cả web lẫn app cùng gọi (2 bên dùng chung 1 bộ code JS nên test API là đại diện cho cả hai): Ứng hàng 50 → Trả hàng 20 → chuỗi Pre-order đầy đủ (đặt 5 → duyệt → tạo Đơn giao → xác nhận giao → xuất hóa đơn) → Van Sale xuất hóa đơn từng phần (đặt 10, xuất 6 rồi 4, xuất thêm bị chặn đúng). **4/4 luồng đúng kho 100%** ở từng bước (xem số liệu chi tiết trong lịch sử chat). Đã dọn sạch dữ liệu test, tồn kho/số phiếu về đúng mốc ban đầu.
+
+## ⏳ Yêu cầu "Realtime" từ giảng viên - đã phân tích, CHƯA LÀM (2026-10-18)
+
+Giảng viên yêu cầu 3 việc cụ thể cho App Van-Sale: (1) API app gọi thẳng backend + ghi DB ngay - **đã đạt sẵn**, không cần làm gì thêm (đã verify kỹ, không có cache/hàng đợi trung gian). (2) Tích hợp Spring WebSocket (STOMP) ở backend, phát broadcast event mỗi khi có giao dịch Van Sale/Ứng/Trả hàng thành công. (3) Web ERP tự nhận sự kiện, hiện thông báo + tự tải lại Tồn kho không cần F5.
+
+**Thiết kế đã thống nhất (chưa code)**:
+- Backend: thêm `spring-boot-starter-websocket`, endpoint `/ws` (SockJS), kênh `/topic/inventory`. Bắn message ở 3 chỗ: `VanSaleAdvanceService.confirm()`, `VanSaleReturnService.confirm()`, `InvoiceService.createVanSale()` sau khi commit xong.
+- **Đơn giản hoá quan trọng**: kênh WebSocket chỉ phát tín hiệu "có gì vừa đổi, tự tải lại" - KHÔNG gửi kèm dữ liệu tồn kho thật trong message, nên không cần tích hợp JWT vào STOMP handshake (phần phức tạp nhất nếu làm đủ) - dữ liệu thật vẫn phải gọi lại API REST có JWT như cũ.
+- Frontend web: cài `@stomp/stompjs` + `sockjs-client`, ở trang Tồn kho (`Inventories/index.jsx`) lắng nghe `/topic/inventory`, nhận được thì gọi lại `loadData()` sẵn có + hiện `notification.open()`.
+
+**Quy mô**: tính năng mới cỡ vừa, đụng cả backend lẫn frontend web - ước tính cần riêng 1 buổi làm tập trung. Người dùng đã xác nhận **lưu lại phân tích, chưa làm** - đợi quyết định sau.

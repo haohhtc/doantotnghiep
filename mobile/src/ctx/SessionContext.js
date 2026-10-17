@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
-import * as SecureStore from 'expo-secure-store';
 import { useStorageState } from './useStorageState';
 import { apiClient } from '../api/client';
+import { setToken, clearToken } from '../api/tokenStorage';
 
 const SessionContext = createContext(null);
 
@@ -18,9 +18,9 @@ export function SessionProvider({ children }) {
   async function signIn(username, password) {
     const res = await apiClient.post('/api/auth/login', { username, password });
     const { token, fullName, role } = res.data.data;
-    // Luu token truoc, de apiClient (interceptor doc SecureStore) dinh kem dung token cho cau goi
+    // Luu token truoc, de apiClient (interceptor doc token) dinh kem dung token cho cau goi
     // /me ngay sau day.
-    await SecureStore.setItemAsync('token', token);
+    await setToken(token);
 
     let employee = null;
     try {
@@ -35,7 +35,7 @@ export function SessionProvider({ children }) {
   }
 
   async function signOut() {
-    await SecureStore.deleteItemAsync('token');
+    await clearToken();
     setSessionRaw(null);
   }
 
