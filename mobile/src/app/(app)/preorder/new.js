@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import {
   View,
   Text,
@@ -8,14 +8,17 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
-  ScrollView,
 } from 'react-native';
 import { useSession } from '../../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../../api/client';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+// Buoc 1 "them san pham vao gio" (yeu cau tv2, giong anh tham khao "Danh sach hang hoa - Giao
+// sau"): stepper +/- thay vi go tay so luong, gia tu dong tra ve theo bang gia. Buoc 2 (xem lai +
+// xac nhan) o man hinh review.js, nhan gio hang qua route params.
 export default function NewPreorder() {
+  const { customerId: presetCustomerId } = useLocalSearchParams();
   const { session } = useSession();
   const employee = session?.employee;
   const branchId = employee?.user?.branch?.id;
@@ -25,12 +28,11 @@ export default function NewPreorder() {
   const [products, setProducts] = useState([]);
   const [mainWarehouseId, setMainWarehouseId] = useState(null);
 
-  const [customerId, setCustomerId] = useState(null);
+  const [customerId, setCustomerId] = useState(presetCustomerId ? Number(presetCustomerId) : null);
   const [deliveryDate, setDeliveryDate] = useState('');
-  const [quantities, setQuantities] = useState({}); // { [productId]: '10' }
-  const [prices, setPrices] = useState({}); // { [productId]: 50000 }
+  const [quantities, setQuantities] = useState({});
+  const [prices, setPrices] = useState({});
 
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -46,8 +48,6 @@ export default function NewPreorder() {
           apiClient.get('/api/warehouses'),
         ]);
         setCustomers(customersRes.data.data.filter((c) => c.branch?.id === branchId));
-        // API tra ve danh sach "phan bo san pham theo chi nhanh" ({id, product, branch}), khong
-        // phai Product thang - lay rieng truong product.
         setProducts(productsRes.data.data.map((a) => a.product));
         const main = warehousesRes.data.data.find(
           (w) => w.branch?.id === branchId && w.warehouseType === 'MAIN'
@@ -62,36 +62,37 @@ export default function NewPreorder() {
     loadData();
   }, [branchId]);
 
-  async function lookupPrice(productId, qty) {
-    if (!customerId || !mainWarehouseId || Number(qty) <= 0) return;
+  async function lookupPrice(productId) {
+    if (!customerId || !mainWarehouseId) return;
     try {
       const res = await apiClient.get('/api/price-lists/lookup', {
-        params: {
-          productId,
-          customerId,
-          warehouseId: mainWarehouseId,
-          purpose: 'SALE',
-          date: today(),
-        },
+        params: { productId, customerId, warehouseId: mainWarehouseId, purpose: 'SALE', date: today() },
       });
       if (res.data.data != null) {
         setPrices((prev) => ({ ...prev, [productId]: res.data.data }));
       }
     } catch {
-      // Khong tim duoc gia tu dong - de nguoi dung tu nhap, khong chan luong tao don.
+      // Khong tim duoc gia tu dong - de nguoi dung tu sua o man xem lai, khong chan.
     }
   }
 
-  function setQty(productId, value) {
-    setQuantities((prev) => ({ ...prev, [productId]: value }));
-    lookupPrice(productId, value);
+  function changeQty(productId, delta) {
+    setQuantities((prev) => {
+      const next = Math.max(0, (prev[productId] || 0) + delta);
+      return { ...prev, [productId]: next };
+    });
+    if (!prices[productId]) lookupPrice(productId);
   }
 
-  function setPrice(productId, value) {
-    setPrices((prev) => ({ ...prev, [productId]: value }));
-  }
+  const cartLines = Object.entries(quantities)
+    .filter(([, qty]) => qty > 0)
+    .map(([productId, qty]) => {
+      const product = products.find((p) => p.id === Number(productId));
+      return { productId: Number(productId), name: product?.name, quantity: qty, unitPrice: prices[productId] || 0 };
+    });
+  const cartTotal = cartLines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
 
-  async function handleSubmit() {
+  function handleGoToReview() {
     if (!customerId) {
       setError('Chọn khách hàng');
       return;
@@ -100,56 +101,38 @@ export default function NewPreorder() {
       setError('Đơn Pre-order bắt buộc có ngày giao hàng (YYYY-MM-DD)');
       return;
     }
-    const details = Object.entries(quantities)
-      .map(([productId, qty]) => ({
-        productId: Number(productId),
-        quantity: Number(qty),
-        unitPrice: Number(prices[productId] || 0),
-      }))
-      .filter((d) => d.quantity > 0);
-    if (details.length === 0) {
-      setError('Nhập số lượng cho ít nhất 1 sản phẩm');
+    if (cartLines.length === 0) {
+      setError('Chọn số lượng cho ít nhất 1 sản phẩm');
       return;
     }
-
     setError(null);
-    setSubmitting(true);
-    try {
-      await apiClient.post('/api/sales-orders', {
-        docDate: today(),
+    router.push({
+      pathname: '/preorder/review',
+      params: {
+        customerId: String(customerId),
+        warehouseId: String(mainWarehouseId),
         deliveryDate,
-        customerId,
-        warehouseId: mainWarehouseId,
-        orderType: 'PRE_ORDER',
-        salesmanId: employee.id,
-        details,
-      });
-      router.back();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setSubmitting(false);
-    }
+        items: JSON.stringify(cartLines),
+      },
+    });
   }
 
   if (loading) return <ActivityIndicator style={{ marginTop: 40 }} />;
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
       <Text style={styles.label}>Khách hàng</Text>
       <FlatList
         data={customers}
         horizontal
         keyExtractor={(item) => String(item.id)}
-        style={{ marginBottom: 12 }}
+        style={{ marginBottom: 8, flexGrow: 0 }}
         renderItem={({ item }) => (
           <Pressable
             style={[styles.chip, customerId === item.id && styles.chipActive]}
             onPress={() => setCustomerId(item.id)}
           >
-            <Text style={[styles.chipText, customerId === item.id && styles.chipTextActive]}>
-              {item.name}
-            </Text>
+            <Text style={[styles.chipText, customerId === item.id && styles.chipTextActive]}>{item.name}</Text>
           </Pressable>
         )}
       />
@@ -162,49 +145,61 @@ export default function NewPreorder() {
         onChangeText={setDeliveryDate}
       />
 
-      <Text style={styles.label}>Sản phẩm</Text>
-      {products.map((item) => (
-        <View key={item.id} style={styles.row}>
-          <Text style={styles.rowName}>{item.name}</Text>
-          <TextInput
-            style={styles.qtyInput}
-            keyboardType="numeric"
-            placeholder="SL"
-            value={quantities[item.id] || ''}
-            onChangeText={(v) => setQty(item.id, v)}
-          />
-          <TextInput
-            style={styles.priceInput}
-            keyboardType="numeric"
-            placeholder="Giá"
-            value={prices[item.id] != null ? String(prices[item.id]) : ''}
-            onChangeText={(v) => setPrice(item.id, v)}
-          />
-        </View>
-      ))}
-
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Pressable style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Tạo đơn</Text>}
-      </Pressable>
-    </ScrollView>
+      <Text style={styles.label}>Sản phẩm</Text>
+      <FlatList
+        data={products}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => {
+          const qty = quantities[item.id] || 0;
+          return (
+            <View style={styles.row}>
+              <Text style={styles.rowName} numberOfLines={2}>{item.name}</Text>
+              <View style={styles.stepper}>
+                <Pressable style={styles.stepBtn} onPress={() => changeQty(item.id, -1)}>
+                  <Text style={styles.stepBtnText}>−</Text>
+                </Pressable>
+                <Text style={[styles.stepValue, qty > 0 && styles.stepValueActive]}>{qty}</Text>
+                <Pressable style={styles.stepBtn} onPress={() => changeQty(item.id, 1)}>
+                  <Text style={styles.stepBtnText}>+</Text>
+                </Pressable>
+              </View>
+            </View>
+          );
+        }}
+      />
+
+      {cartLines.length > 0 ? (
+        <Pressable style={styles.cartBar} onPress={handleGoToReview}>
+          <Text style={styles.cartBarText}>Giỏ hàng: {cartLines.length} sản phẩm</Text>
+          <Text style={styles.cartBarText}>{cartTotal.toLocaleString('vi-VN')} đ →</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
-  label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 6, marginTop: 10 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 8 },
+  label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 6, marginTop: 6 },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 4 },
   chip: { borderWidth: 1, borderColor: '#1677ff', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8 },
   chipActive: { backgroundColor: '#1677ff' },
   chipText: { color: '#1677ff' },
   chipTextActive: { color: '#fff' },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  rowName: { flex: 1, fontSize: 13 },
-  qtyInput: { width: 50, borderWidth: 1, borderColor: '#ddd', borderRadius: 6, padding: 6, textAlign: 'center', marginRight: 6 },
-  priceInput: { width: 80, borderWidth: 1, borderColor: '#ddd', borderRadius: 6, padding: 6, textAlign: 'center' },
-  submitBtn: { backgroundColor: '#1677ff', borderRadius: 8, padding: 14, alignItems: 'center', marginVertical: 16 },
-  submitText: { color: '#fff', fontWeight: '600' },
-  error: { color: '#d4380d', marginVertical: 8, textAlign: 'center' },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  rowName: { flex: 1, fontSize: 13, marginRight: 8 },
+  stepper: { flexDirection: 'row', alignItems: 'center' },
+  stepBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f0f0f0', alignItems: 'center', justifyContent: 'center' },
+  stepBtnText: { fontSize: 18, fontWeight: '700', color: '#1677ff' },
+  stepValue: { width: 36, textAlign: 'center', fontSize: 15 },
+  stepValueActive: { fontWeight: '700', color: '#1677ff' },
+  cartBar: {
+    position: 'absolute', left: 16, right: 16, bottom: 16,
+    backgroundColor: '#1677ff', borderRadius: 10, padding: 14,
+    flexDirection: 'row', justifyContent: 'space-between',
+  },
+  cartBarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  error: { color: '#d4380d', marginVertical: 4, textAlign: 'center' },
 });

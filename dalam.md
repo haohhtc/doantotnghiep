@@ -760,3 +760,19 @@ Giảng viên yêu cầu 3 việc cụ thể cho App Van-Sale: (1) API app gọi
 - Frontend web: cài `@stomp/stompjs` + `sockjs-client`, ở trang Tồn kho (`Inventories/index.jsx`) lắng nghe `/topic/inventory`, nhận được thì gọi lại `loadData()` sẵn có + hiện `notification.open()`.
 
 **Quy mô**: tính năng mới cỡ vừa, đụng cả backend lẫn frontend web - ước tính cần riêng 1 buổi làm tập trung. Người dùng đã xác nhận **lưu lại phân tích, chưa làm** - đợi quyết định sau.
+
+## 📱 App Van-Sale (di động) — Đối chiếu 20 ảnh tham khảo của tv2 (SFA) + làm theo 3 việc đã chốt (2026-10-19)
+
+**Bối cảnh**: người dùng gửi lại bộ 20 ảnh chụp 1 app SFA tham khảo (thư mục `anhapp/`, không commit - ảnh cá nhân) + yêu cầu chữ của tv2 (thành viên nhóm, qua chat). Đã xem đủ 20 ảnh đúng thứ tự + đối chiếu: nghiệp vụ cốt lõi (PreOrder trừ Main, VanSale trừ Kho NV, Ứng/Trả = Main↔Van) **khớp đúng sẵn** với code đã có - verify lại bằng kịch bản thật "3 NVBH cùng 1 chi nhánh, mỗi người ứng 100" (tv2 gửi bảng số) → kết quả khớp 100% (Kho Main −300, Kho Van +300, mỗi Kho NV riêng đúng 100, không lẫn nhau).
+
+**3 việc người dùng chốt làm tiếp (theo đúng ảnh tham khảo)**:
+
+**1. Nâng cấp Ứng/Trả hàng**:
+- Backend: thêm bảng `employee_stock_transaction` (V52) - sổ nhật ký cho Kho NV (giống `stock_transaction` cho kho thật), ghi lại ở `EmployeeStockService.increase()/decrease()`. Thêm `GET /api/employee-stocks/by-employee/{id}/summary?date=` tính "Đầu ngày/Đã nhận/Đã xuất/Còn lại" theo ngày (Đầu ngày = Còn lại − Đã nhận + Đã xuất, tính ngược, không lưu riêng).
+- App: màn Tổng quan đổi sang bảng 4 cột (Đầu ngày/Đã nhận/Đã xuất/Còn lại) thay vì chỉ 1 số. Tách `advance-return.js` (1 file) thành nhóm 2 màn: `advance-return/index.js` (lịch sử phiếu, tab Ứng hàng/Trả hàng riêng, trạng thái Chờ xác nhận/Đã duyệt) + `advance-return/new.js` (tạo phiếu, hiện thêm cột "Tồn NPP" bên cạnh "Kho NV" - đúng yêu cầu tv2 "hiển thị số lượng npp").
+
+**2. Giỏ hàng + Xem lại cho Đặt hàng/Bán hàng**: `preorder/new.js`/`vansale/new.js` đổi từ danh sách dài nhập tay sang stepper +/- (giống ảnh tham khảo), có thanh "Giỏ hàng: N sản phẩm — Tổng tiền" nổi ở đáy màn hình, bấm vào mở màn `review.js` mới (xem lại từng dòng, sửa ngày giao/ghi chú, "Hoàn tất & Gửi dữ liệu"). Thêm cột `remarks` vào `sales_order` (V53, trước đây chưa có trường ghi chú nào) để lưu được "Ghi chú đơn hàng".
+
+**3. Màn Ghé thăm điểm bán (đơn giản)**: thêm tab "Khách hàng" mới (`customers/index.js`) + màn `customers/visit.js` (2 tác vụ PreOrder/VanSale, điều hướng sang đúng màn tạo đơn với khách hàng đã chọn sẵn). Theo đúng quyết định đã phân tích trước: **không thêm bảng DB mới** cho bước này (không lưu "đã ghé thăm lúc nào"), chỉ điều hướng thuần ở app.
+
+**Đã test qua API thật**: Đầu ngày/Đã nhận/Đã xuất/Còn lại tính đúng (Ứng 50 → daNhan=50 conLai=50; Trả tiếp 20 → daXuat=20 conLai=30, dauNgay=0 cả 2 lần vì cùng trong ngày); lịch sử phiếu lọc đúng theo nhân viên; tạo đơn Pre-order kèm `remarks` lưu + trả về đúng. Build mobile (`npx expo export`) sạch. Đã dọn sạch dữ liệu test, tồn kho về đúng mốc ban đầu.

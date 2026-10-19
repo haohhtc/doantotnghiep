@@ -89,7 +89,7 @@ public class VanSaleAdvanceService {
         for (VanSaleAdvanceItem item : advance.getItems()) {
             stockService.decrease(item.getProduct(), main, item.getBaseQuantity(), "VAN_SALE_ADVANCE", advance.getId());
             stockService.increase(item.getProduct(), van, item.getBaseQuantity(), "VAN_SALE_ADVANCE", advance.getId());
-            employeeStockService.increase(advance.getEmployee(), item.getProduct(), item.getBaseQuantity());
+            employeeStockService.increase(advance.getEmployee(), item.getProduct(), item.getBaseQuantity(), "VAN_SALE_ADVANCE", advance.getId());
         }
 
         advance.setStatus("CLOSED");

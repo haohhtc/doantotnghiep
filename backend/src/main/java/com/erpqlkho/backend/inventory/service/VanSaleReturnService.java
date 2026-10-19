@@ -96,7 +96,7 @@ public class VanSaleReturnService {
         for (VanSaleReturnItem item : ret.getItems()) {
             stockService.decrease(item.getProduct(), van, item.getBaseQuantity(), "VAN_SALE_RETURN", ret.getId());
             stockService.increase(item.getProduct(), main, item.getBaseQuantity(), "VAN_SALE_RETURN", ret.getId());
-            employeeStockService.decrease(ret.getEmployee(), item.getProduct(), item.getBaseQuantity());
+            employeeStockService.decrease(ret.getEmployee(), item.getProduct(), item.getBaseQuantity(), "VAN_SALE_RETURN", ret.getId());
         }
 
         ret.setStatus("CLOSED");

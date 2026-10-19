@@ -12,6 +12,13 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
+        name="customers"
+        options={{
+          title: 'Khách hàng',
+          tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="preorder"
         options={{
           title: 'Đặt hàng',

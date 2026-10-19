@@ -205,7 +205,7 @@ public class InvoiceService {
         // du hang, tuc chua Ung hang truoc do).
         for (InvoiceItem item : items) {
             stockService.decrease(item.getProduct(), van, item.getBaseQuantity(), "VAN_SALE_INVOICE", saved.getId());
-            employeeStockService.decrease(order.getSalesman(), item.getProduct(), item.getBaseQuantity());
+            employeeStockService.decrease(order.getSalesman(), item.getProduct(), item.getBaseQuantity(), "VAN_SALE_INVOICE", saved.getId());
         }
         return saved;
     }
@@ -305,7 +305,7 @@ public class InvoiceService {
                 BigDecimal baseQuantity = resolveBaseQuantity(item);
                 stockService.increase(item.getProduct(), order.getWarehouse(), baseQuantity, "INVOICE_CANCEL", invoice.getId());
                 if (order.getSalesman() != null) {
-                    employeeStockService.increase(order.getSalesman(), item.getProduct(), baseQuantity);
+                    employeeStockService.increase(order.getSalesman(), item.getProduct(), baseQuantity, "INVOICE_CANCEL", invoice.getId());
                 }
             }
         }

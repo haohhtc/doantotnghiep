@@ -124,6 +124,7 @@ public class SalesOrderService {
 
         order.setOrderType(orderType);
         order.setDeliveryDate(dto.getDeliveryDate());
+        order.setRemarks(dto.getRemarks());
         order.setDocDate(dto.getDocDate());
         order.setCustomer(findCustomer(dto.getCustomerId()));
         order.setWarehouse(warehouse);

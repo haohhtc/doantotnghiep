@@ -33,6 +33,9 @@ public class SalesOrderDto {
 
     private LocalDate deliveryDate;
 
+    // Ghi chu don hang (app Van-Sale, man hinh Xem lai & Xac nhan) - nullable.
+    private String remarks;
+
     // Tuyen + NVBH tu suy o Frontend tu Khach hang + Ngay dat hang (khong chon tay) - nullable neu
     // khach hang chua gan tuyen hoac tuyen dang trong NVBH - xem SalesOrderService.applyDto().
     private Long routeMasterId;

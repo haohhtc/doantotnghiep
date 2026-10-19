@@ -55,6 +55,9 @@ public class SalesOrder extends BaseEntity {
     @Column(name = "delivery_date")
     private LocalDate deliveryDate;
 
+    @Column(length = 500)
+    private String remarks;
+
     // Tuyen + NVBH dang phu trach tuyen cua khach hang TAI NGAY dat hang (tu dong suy o Frontend
     // khi chon Khach hang/doi Ngay dat hang, khoa cung khong cho chon tay) - phuc vu bao cao doanh
     // so/hoa hong. Nullable - khach hang co the chua gan tuyen, hoac tuyen dang trong NVBH luc do.
