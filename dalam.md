@@ -776,3 +776,17 @@ Giảng viên yêu cầu 3 việc cụ thể cho App Van-Sale: (1) API app gọi
 **3. Màn Ghé thăm điểm bán (đơn giản)**: thêm tab "Khách hàng" mới (`customers/index.js`) + màn `customers/visit.js` (2 tác vụ PreOrder/VanSale, điều hướng sang đúng màn tạo đơn với khách hàng đã chọn sẵn). Theo đúng quyết định đã phân tích trước: **không thêm bảng DB mới** cho bước này (không lưu "đã ghé thăm lúc nào"), chỉ điều hướng thuần ở app.
 
 **Đã test qua API thật**: Đầu ngày/Đã nhận/Đã xuất/Còn lại tính đúng (Ứng 50 → daNhan=50 conLai=50; Trả tiếp 20 → daXuat=20 conLai=30, dauNgay=0 cả 2 lần vì cùng trong ngày); lịch sử phiếu lọc đúng theo nhân viên; tạo đơn Pre-order kèm `remarks` lưu + trả về đúng. Build mobile (`npx expo export`) sạch. Đã dọn sạch dữ liệu test, tồn kho về đúng mốc ban đầu.
+
+## 📱 App Van-Sale (di động) — Thêm nút Xem/Sửa/Xóa cho mọi đơn + phiếu (2026-10-20)
+
+**Lý do**: người dùng tự test, phát hiện tạo xong Ứng hàng/Pre-order/Van Sale thì chỉ thấy mã đơn trong danh sách, bấm vào không có phản ứng gì - với nhiều đơn thì không xem lại được thông tin đã nhập.
+
+**Đã làm**:
+- `advance-return/[id].js` (mới) - xem chi tiết phiếu Ứng/Trả hàng (chỉ xem, không sửa được - API backend chỉ cho sửa/xoá khi phiếu còn ở trạng thái DRAFT, nhưng app tự xác nhận luôn nên phiếu đã "Đã duyệt" (CLOSED) ngay từ lúc tạo, giống mọi chứng từ khác trong hệ thống khi đã duyệt là khoá lại).
+- `preorder/[id].js` và `vansale/[id].js` viết lại thành màn chi tiết đầy đủ (khách hàng, sản phẩm, đơn giá, thành tiền, ghi chú) thay vì chỉ lo mỗi chuỗi giao hàng/xuất hóa đơn như trước:
+  - Đơn còn **Chờ xác nhận (PENDING)**: hiện 3 nút **Sửa đơn / Xóa đơn / Xác nhận** - dùng đúng API `PUT`/`DELETE` đã có sẵn (chỉ cho phép khi còn PENDING - `SalesOrderService.requirePending()`).
+  - Đơn **Đã xác nhận (CONFIRMED)**: giữ nguyên luồng cũ (Pre-order: tạo Đơn giao hàng → xác nhận giao → xuất hóa đơn; Van Sale: xuất hóa đơn, tách riêng ra `vansale/invoice.js`).
+- `preorder/edit.js` và `vansale/edit.js` (mới) - màn sửa đơn, nạp sẵn dữ liệu cũ, gửi `PUT` thay vì `POST`.
+- Danh sách (`preorder/index.js`, `vansale/index.js`): bỏ hết nút hành động trực tiếp trên card, giờ **cả đơn bấm vào đều mở màn chi tiết** (trước đây chỉ đơn CONFIRMED mới bấm được).
+
+**Đã test qua API thật** (đúng request mà `edit.js` gửi): tạo đơn Pre-order PENDING → sửa (đổi số lượng, ngày giao, ghi chú) → xác nhận đúng dữ liệu mới → xóa → xác nhận đã mất. Lặp lại y hệt cho Van Sale. Build mobile sạch. Đã dọn sạch dữ liệu test.

@@ -17,7 +17,6 @@ export default function PreorderList() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [confirmingId, setConfirmingId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -41,18 +40,6 @@ export default function PreorderList() {
       load();
     }, [load])
   );
-
-  async function handleConfirm(id) {
-    setConfirmingId(id);
-    try {
-      await apiClient.post(`/api/sales-orders/${id}/confirm`);
-      load();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setConfirmingId(null);
-    }
-  }
 
   if (!employee) {
     return (
@@ -78,31 +65,13 @@ export default function PreorderList() {
           keyExtractor={(item) => String(item.id)}
           ListEmptyComponent={<Text style={styles.empty}>Chưa có đơn Pre-order nào.</Text>}
           renderItem={({ item }) => (
-            <Pressable
-              style={styles.card}
-              onPress={() => item.status === 'CONFIRMED' && router.push(`/preorder/${item.id}`)}
-            >
+            <Pressable style={styles.card} onPress={() => router.push(`/preorder/${item.id}`)}>
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{item.docNumber}</Text>
                 <Text style={styles.cardStatus}>{STATUS_LABEL[item.status] || item.status}</Text>
               </View>
               <Text style={styles.cardSub}>{item.customer?.name}</Text>
-              {item.status === 'PENDING' ? (
-                <Pressable
-                  style={styles.confirmBtn}
-                  onPress={() => handleConfirm(item.id)}
-                  disabled={confirmingId === item.id}
-                >
-                  {confirmingId === item.id ? (
-                    <ActivityIndicator color="#fff" size="small" />
-                  ) : (
-                    <Text style={styles.confirmBtnText}>Xác nhận đơn</Text>
-                  )}
-                </Pressable>
-              ) : null}
-              {item.status === 'CONFIRMED' ? (
-                <Text style={styles.hint}>Chạm để tiếp tục giao hàng / xuất hóa đơn →</Text>
-              ) : null}
+              <Text style={styles.hint}>Chạm để xem chi tiết →</Text>
             </Pressable>
           )}
         />

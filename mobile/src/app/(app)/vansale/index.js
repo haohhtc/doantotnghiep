@@ -21,7 +21,6 @@ export default function VanSaleList() {
   const [invoicedOrderIds, setInvoicedOrderIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [actingId, setActingId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,18 +78,6 @@ export default function VanSaleList() {
     }, [load])
   );
 
-  async function handleConfirm(id) {
-    setActingId(id);
-    try {
-      await apiClient.post(`/api/sales-orders/${id}/confirm`);
-      load();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setActingId(null);
-    }
-  }
-
   if (!employee) {
     return (
       <View style={styles.container}>
@@ -117,7 +104,7 @@ export default function VanSaleList() {
           renderItem={({ item }) => {
             const isInvoiced = invoicedOrderIds.has(item.id);
             return (
-              <View style={styles.card}>
+              <Pressable style={styles.card} onPress={() => router.push(`/vansale/${item.id}`)}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>{item.docNumber}</Text>
                   <Text style={styles.cardStatus}>
@@ -125,30 +112,8 @@ export default function VanSaleList() {
                   </Text>
                 </View>
                 <Text style={styles.cardSub}>{item.customer?.name}</Text>
-
-                {item.status === 'PENDING' ? (
-                  <Pressable
-                    style={styles.actionBtn}
-                    onPress={() => handleConfirm(item.id)}
-                    disabled={actingId === item.id}
-                  >
-                    {actingId === item.id ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <Text style={styles.actionBtnText}>Xác nhận đơn</Text>
-                    )}
-                  </Pressable>
-                ) : null}
-
-                {item.status === 'CONFIRMED' && !isInvoiced ? (
-                  <Pressable
-                    style={[styles.actionBtn, { backgroundColor: '#d4380d' }]}
-                    onPress={() => router.push(`/vansale/${item.id}`)}
-                  >
-                    <Text style={styles.actionBtnText}>Xuất hóa đơn</Text>
-                  </Pressable>
-                ) : null}
-              </View>
+                <Text style={styles.hint}>Chạm để xem chi tiết →</Text>
+              </Pressable>
             );
           }}
         />
@@ -166,8 +131,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontWeight: '700', fontSize: 15 },
   cardStatus: { color: '#666', fontSize: 13 },
   cardSub: { color: '#444', marginTop: 4 },
-  actionBtn: { backgroundColor: '#389e0d', borderRadius: 6, padding: 8, alignItems: 'center', marginTop: 8 },
-  actionBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  hint: { color: '#d4380d', fontSize: 12, marginTop: 6 },
   empty: { color: '#999', marginTop: 16, textAlign: 'center' },
   error: { color: '#d4380d', marginBottom: 8, textAlign: 'center' },
 });

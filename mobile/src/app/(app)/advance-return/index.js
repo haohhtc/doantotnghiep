@@ -86,7 +86,10 @@ export default function AdvanceReturnHistory() {
           keyExtractor={(item) => String(item.id)}
           ListEmptyComponent={<Text style={styles.empty}>Chưa có phiếu nào.</Text>}
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <Pressable
+              style={styles.card}
+              onPress={() => router.push({ pathname: `/advance-return/${item.id}`, params: { mode } })}
+            >
               <View style={styles.cardHeader}>
                 <Text style={styles.cardTitle}>{item.docNumber}</Text>
                 <Text style={item.status === 'CLOSED' ? styles.statusDone : styles.statusPending}>
@@ -97,7 +100,7 @@ export default function AdvanceReturnHistory() {
               <Text style={styles.cardSub}>
                 {item.items?.length || 0} sản phẩm
               </Text>
-            </View>
+            </Pressable>
           )}
         />
       )}
