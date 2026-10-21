@@ -19,19 +19,16 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen
-        name="preorder"
+        name="orders"
         options={{
-          title: 'Đặt hàng',
-          tabBarIcon: ({ color, size }) => <Ionicons name="cart-outline" size={size} color={color} />,
+          title: 'Đơn hàng',
+          tabBarIcon: ({ color, size }) => <Ionicons name="receipt-outline" size={size} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="vansale"
-        options={{
-          title: 'Bán hàng',
-          tabBarIcon: ({ color, size }) => <Ionicons name="car-outline" size={size} color={color} />,
-        }}
-      />
+      {/* Dat hang/Ban hang khong con la tab rieng (yeu cau tv2) - tao don chi qua Ghe tham khach
+          hang (customers/visit.js); href: null giu route dieu huong duoc nhung an khoi thanh tab. */}
+      <Tabs.Screen name="preorder" options={{ href: null }} />
+      <Tabs.Screen name="vansale" options={{ href: null }} />
       <Tabs.Screen
         name="advance-return"
         options={{

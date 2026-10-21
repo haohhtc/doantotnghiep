@@ -790,3 +790,15 @@ Giảng viên yêu cầu 3 việc cụ thể cho App Van-Sale: (1) API app gọi
 - Danh sách (`preorder/index.js`, `vansale/index.js`): bỏ hết nút hành động trực tiếp trên card, giờ **cả đơn bấm vào đều mở màn chi tiết** (trước đây chỉ đơn CONFIRMED mới bấm được).
 
 **Đã test qua API thật** (đúng request mà `edit.js` gửi): tạo đơn Pre-order PENDING → sửa (đổi số lượng, ngày giao, ghi chú) → xác nhận đúng dữ liệu mới → xóa → xác nhận đã mất. Lặp lại y hệt cho Van Sale. Build mobile sạch. Đã dọn sạch dữ liệu test.
+
+## 📱 App Van-Sale (di động) — Gộp tab Đặt hàng + Bán hàng thành 1 tab "Đơn hàng" (2026-10-21)
+
+**Yêu cầu tv2**: không làm tab Bán hàng/Đặt hàng riêng nữa, thay bằng 1 tab "Đơn hàng" chung. Đặt hàng/Bán hàng chỉ còn là 2 tác vụ khi bấm "Ghé thăm khách hàng". Tab "Đơn hàng" hiển thị toàn bộ đơn đã thực hiện (cả Pre-order + Van Sale) của đúng NVBH đó.
+
+**Đã làm**:
+- `orders/index.js` (mới) — gộp danh sách 2 loại đơn (`GET /api/sales-orders` lọc `salesman.id` + `orderType` PRE_ORDER hoặc STANDARD), có nhãn phân biệt loại (Đặt hàng/Bán hàng), bấm vào điều hướng đúng màn chi tiết cũ (`/preorder/{id}` hoặc `/vansale/{id}`) tùy loại đơn.
+- `_layout.js` (tab dưới cùng): bỏ 2 tab "Đặt hàng"/"Bán hàng", thêm tab "Đơn hàng"; 2 route `preorder`/`vansale` dùng `options={{ href: null }}` để vẫn điều hướng được (từ `customers/visit.js` → `/preorder/new`, `/vansale/new`) nhưng không hiện nút tab riêng.
+- Xóa `preorder/index.js` và `vansale/index.js` (không còn ai điều hướng tới, thay hẳn bằng `orders/index.js`); bỏ `Stack.Screen name="index"` tương ứng trong 2 file `_layout.js` con.
+- Không đổi code backend — thuần điều hướng/giao diện mobile.
+
+**Đã kiểm tra**: build `npx expo export` sạch; rà soát toàn repo không còn chỗ nào điều hướng tới route gốc `/preorder` hoặc `/vansale` (bare, không kèm id/new/edit) — tránh vỡ do xóa 2 file index.js.
