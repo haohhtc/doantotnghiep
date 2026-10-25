@@ -19,13 +19,17 @@ def _compare(label, oltp_count, oltp_amount, dw_count, dw_amount):
 
 
 def reconcile_sales(oltp, dw):
+    """fact_sales (star schema) da duoc thay bang fact_sellout (wide, cho Power BI) - xem
+    data-warehouse/schema/04_fact_sellout.sql. Doi chieu tai day theo fact_sellout."""
     oltp_row = pd.read_sql("""
         SELECT COUNT(*) AS n, COALESCE(SUM(d.amount), 0) AS total
         FROM sales_order so JOIN sales_order_detail d ON d.sales_order_id = so.id
         WHERE so.status = 'CONFIRMED'
     """, oltp).iloc[0]
-    dw_row = pd.read_sql("SELECT COUNT(*) AS n, COALESCE(SUM(amount), 0) AS total FROM fact_sales", dw).iloc[0]
-    return _compare("fact_sales", oltp_row["n"], oltp_row["total"], dw_row["n"], dw_row["total"])
+    dw_row = pd.read_sql(
+        "SELECT COUNT(*) AS n, COALESCE(SUM(line_amount), 0) AS total FROM fact_sellout", dw
+    ).iloc[0]
+    return _compare("fact_sellout", oltp_row["n"], oltp_row["total"], dw_row["n"], dw_row["total"])
 
 
 def reconcile_inbound(oltp, dw):
@@ -71,12 +75,12 @@ def reconcile_stock(oltp, dw, snapshot_date):
 def check_monthly_sales(dw):
     """In doanh so theo thang + canh bao thang nao co du lieu nhung bang 0 don (nghi thieu du lieu)."""
     df = pd.read_sql("""
-        SELECT t.year, t.month, COUNT(*) AS so_dong, SUM(f.amount) AS doanh_so
-        FROM fact_sales f JOIN dim_time t ON t.time_key = f.time_key
+        SELECT t.year, t.month, COUNT(*) AS so_dong, SUM(f.line_amount) AS doanh_so
+        FROM fact_sellout f JOIN dim_time t ON t.time_key = f.time_key
         GROUP BY t.year, t.month
         ORDER BY t.year, t.month
     """, dw)
-    print("\nDoanh so theo thang (fact_sales):")
+    print("\nDoanh so theo thang (fact_sellout):")
     print(df.to_string(index=False))
 
     if len(df) >= 2:

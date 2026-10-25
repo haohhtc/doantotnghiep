@@ -84,6 +84,129 @@ def extract_stock_snapshot(engine):
     return pd.read_sql(sql, engine)
 
 
+def extract_sellout(engine):
+    """1 dong = 1 sales_order_detail CONFIRMED, da gop san moi thong tin can cho fact_sellout
+    (san pham, khach hang, chi nhanh, tuyen/salesman, giao hang, hoa don) - doc tu raw_*."""
+    sql = """
+        SELECT
+            so.id                                           AS so_id,
+            sod.id                                           AS so_detail_id,
+            so.doc_number                                    AS so_order_number,
+            so.doc_date                                      AS so_order_date,
+            YEAR(so.doc_date)                                AS so_order_year,
+            MONTH(so.doc_date)                               AS so_order_month,
+            so.status                                        AS so_order_status,
+            CASE so.status
+                WHEN 'PENDING'   THEN 'Cho duyet'
+                WHEN 'CONFIRMED' THEN 'Da xac nhan'
+                WHEN 'CANCELLED' THEN 'Da huy'
+                ELSE so.status
+            END                                               AS so_order_status_vn,
+            CASE so.status
+                WHEN 'PENDING'   THEN 'choduyet'
+                WHEN 'CONFIRMED' THEN 'daxacnhan'
+                WHEN 'CANCELLED' THEN 'dahuy'
+                ELSE 'khac'
+            END                                               AS sos_order_status_icon_vn,
+            'Ban hang'                                        AS sos_order_type_vn,
+            'SALES ORDER'                                     AS source_type,
+
+            p.code                                            AS product_code,
+            p.name                                            AS product_name,
+            COALESCE(u_sale.code, u_sod.code)                 AS product_uom_code,
+            pc.code                                           AS category_code,
+            pc.name                                           AS category_name,
+            pc_parent.code                                    AS parent_category_code,
+            pc_parent.name                                    AS parent_category_name,
+            pg_sub.group_code                                 AS product_group_code,
+            pg_sub.group_name                                 AS product_group_name,
+
+            c.code                                            AS customer_code,
+            c.name                                             AS customer_name,
+            c.address                                          AS customer_address,
+            pr.name                                            AS customer_province,
+            dt.name                                            AS customer_district,
+            w.name                                             AS customer_ward,
+            cc.code                                            AS customer_channel_code,
+            cc.name                                            AS customer_channel_name,
+            cg_sub.group_code                                  AS customer_group_code,
+            cg_sub.group_name                                  AS customer_group_name,
+
+            b.code                                             AS branch_code,
+            b.name                                             AS branch_name,
+
+            reg.name                                           AS region_name,
+            sz.name                                            AS selling_zone_name,
+            b.name                                             AS branch_territory_name,
+            rm.code                                            AS route_code,
+            rm.name                                            AS route_name,
+            rm.selling_category                                AS selling_category_code,
+
+            sal.username                                       AS salesperson_code,
+            sal.full_name                                      AS salesperson_name,
+            sup.username                                       AS supervisor_code,
+            sup.full_name                                      AS supervisor_name,
+
+            wh.code                                            AS warehouse_code,
+
+            sod.quantity                                       AS quantity,
+            sod.unit_price                                     AS unit_price,
+            sod.amount                                         AS line_amount,
+            COALESCE(tg.rate_percent, 0)                       AS tax_rate,
+            ROUND(sod.amount * COALESCE(tg.rate_percent, 0) / 100, 2) AS tax_amount,
+            sod.amount + ROUND(sod.amount * COALESCE(tg.rate_percent, 0) / 100, 2) AS line_amount_after_tax,
+            0.00                                                AS discount_amount,
+            sod.amount                                         AS line_amount_before_discount,
+
+            inv.invoice_number,
+            inv.invoice_date,
+            ii.line_total                                      AS invoice_line_total,
+
+            dov.doc_number                                     AS delivery_number,
+            dov.doc_date                                       AS delivery_date,
+            doi.quantity                                       AS delivery_quantity
+
+        FROM raw_sales_order_detail   sod
+        JOIN  raw_sales_order         so   ON sod.sales_order_id  = so.id
+        JOIN  raw_product             p    ON sod.product_id      = p.id
+        JOIN  raw_product_category    pc   ON p.category_id       = pc.id
+        LEFT JOIN raw_product_category pc_parent ON pc.parent_id  = pc_parent.id
+        LEFT JOIN raw_uom              u_sale ON p.sale_uom_id    = u_sale.id
+        LEFT JOIN raw_uom              u_sod  ON sod.uom_id       = u_sod.id
+        LEFT JOIN raw_tax_group        tg     ON p.sale_tax_group_id = tg.id
+        LEFT JOIN (
+            SELECT pgi.product_id, pg.code AS group_code, pg.name AS group_name
+            FROM raw_product_group_item pgi
+            JOIN raw_product_group pg ON pgi.product_group_id = pg.id
+        ) pg_sub ON pg_sub.product_id = p.id
+        JOIN  raw_customer             c   ON so.customer_id      = c.id
+        LEFT JOIN raw_province         pr  ON c.province_id       = pr.id
+        LEFT JOIN raw_district         dt  ON c.district_id       = dt.id
+        LEFT JOIN raw_ward             w   ON c.ward_id           = w.id
+        LEFT JOIN raw_customer_channel cc  ON c.channel_id        = cc.id
+        LEFT JOIN (
+            SELECT cgm.customer_id, cg.code AS group_code, cg.name AS group_name
+            FROM raw_customer_group_member cgm
+            JOIN raw_customer_group cg ON cgm.customer_group_id = cg.id
+        ) cg_sub ON cg_sub.customer_id = c.id
+        LEFT JOIN raw_branch           b   ON c.branch_id         = b.id
+        LEFT JOIN raw_user             sal ON so.salesman_id       = sal.id
+        LEFT JOIN raw_route_master     rm  ON so.route_master_id  = rm.id
+        LEFT JOIN raw_selling_zone     sz  ON rm.selling_zone_id  = sz.id
+        LEFT JOIN raw_region           reg ON sz.region_id        = reg.id
+        LEFT JOIN raw_user             sup ON rm.manage_by_id     = sup.id
+        JOIN  raw_warehouse            wh  ON so.warehouse_id     = wh.id
+        LEFT JOIN raw_invoice          inv ON inv.sales_order_id  = so.id
+        LEFT JOIN raw_invoice_item     ii  ON ii.invoice_id       = inv.id
+                                           AND ii.product_id      = sod.product_id
+        LEFT JOIN raw_delivery_order   dov ON dov.sales_order_id  = so.id
+        LEFT JOIN raw_delivery_order_item doi ON doi.delivery_order_id = dov.id
+                                              AND doi.product_id  = sod.product_id
+        WHERE so.status = 'CONFIRMED'
+    """
+    return pd.read_sql(sql, engine)
+
+
 if __name__ == "__main__":
     import sys
     from pathlib import Path

@@ -5,11 +5,16 @@ import pandas as pd
 from sqlalchemy import text
 
 RAW_TABLES = [
-    "product_category", "product", "supplier", "warehouse", "branch",
-    "customer", "customer_channel", "uom", "tax_group",
+    "product_category", "product", "product_group", "product_group_item",
+    "supplier", "warehouse", "branch",
+    "customer", "customer_channel", "customer_group", "customer_group_member",
+    "uom", "tax_group",
     "region", "province", "district", "ward",
+    "user", "route_master", "selling_zone",
     "goods_receipt", "goods_receipt_detail",
     "sales_order", "sales_order_detail",
+    "delivery_order", "delivery_order_item",
+    "invoice", "invoice_item",
     "stock_transaction", "stock",
 ]
 

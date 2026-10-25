@@ -37,6 +37,15 @@ def upsert_snapshot(engine, df, table_name="fact_inventory_snapshot"):
             """), row)
 
 
+def touch_last_refresh(engine):
+    """Cap nhat last_date_refresh - de Power BI hien thi 'Du lieu cap nhat luc...'."""
+    with engine.begin() as conn:
+        conn.execute(text(
+            "INSERT INTO last_date_refresh (id, last_date_updated) VALUES (1, NOW()) "
+            "ON DUPLICATE KEY UPDATE last_date_updated = NOW()"
+        ))
+
+
 def generate_dim_time(start_date, end_date):
     dates = pd.date_range(start_date, end_date, freq="D")
     df = pd.DataFrame({"full_date": dates})

@@ -14,12 +14,12 @@ from config.db_config import get_oltp_engine, get_dw_engine
 from load.load_raw import load_all_raw
 from extract.extract_raw import (
     extract_products, extract_suppliers, extract_warehouses, extract_customers,
-    extract_goods_receipts, extract_sales_orders, extract_stock_transactions, extract_stock_snapshot,
+    extract_goods_receipts, extract_sellout, extract_stock_transactions, extract_stock_snapshot,
 )
-from transform.transform_sales import transform_sales
+from transform.transform_sellout import transform_sellout
 from transform.transform_inbound import transform_inbound
 from transform.transform_inventory import transform_stock_movement, transform_inventory_snapshot
-from load.load_dw import load_dimension, load_facts, upsert_snapshot, generate_dim_time
+from load.load_dw import load_dimension, load_facts, upsert_snapshot, touch_last_refresh, generate_dim_time
 import validate
 
 
@@ -37,17 +37,30 @@ def main():
     load_dimension(dw, extract_suppliers(dw), "dim_supplier")
     load_dimension(dw, extract_warehouses(dw), "dim_warehouse")
     load_dimension(dw, extract_customers(dw), "dim_customer")
-    load_dimension(dw, generate_dim_time(date.today() - timedelta(days=210), date.today() + timedelta(days=30)), "dim_time")
 
-    dim_product = pd.read_sql("SELECT product_id, product_key FROM dim_product", dw)
+    # dim_time phai phu dung khoang ngay THAT cua du lieu (goods_receipt/sales_order), khong phai
+    # "hom nay +-N ngay" - vi du lieu mau co moc ngay co dinh, con "hom nay" troi theo thoi gian
+    # chay script => cua so truot se rot mat du lieu cu (gay loi FK time_key khi load fact).
+    date_bounds = pd.read_sql("""
+        SELECT MIN(d) AS min_d, MAX(d) AS max_d FROM (
+            SELECT doc_date AS d FROM raw_sales_order
+            UNION ALL SELECT doc_date FROM raw_goods_receipt
+        ) x
+    """, dw)
+    min_d = date_bounds["min_d"].iloc[0] - timedelta(days=30)
+    max_d = max(date_bounds["max_d"].iloc[0], date.today()) + timedelta(days=30)
+    load_dimension(dw, generate_dim_time(min_d, max_d), "dim_time")
+
+    dim_product = pd.read_sql("SELECT product_id, product_code, product_key FROM dim_product", dw)
     dim_supplier = pd.read_sql("SELECT supplier_id, supplier_key FROM dim_supplier", dw)
-    dim_warehouse = pd.read_sql("SELECT warehouse_id, warehouse_key FROM dim_warehouse", dw)
-    dim_customer = pd.read_sql("SELECT customer_id, customer_key FROM dim_customer", dw)
+    dim_warehouse = pd.read_sql("SELECT warehouse_id, warehouse_code, warehouse_key FROM dim_warehouse", dw)
+    dim_customer = pd.read_sql("SELECT customer_id, customer_code, customer_key FROM dim_customer", dw)
 
-    print("\n== 2. fact_sales ==")
-    fact_sales = transform_sales(extract_sales_orders(dw), dim_product, dim_customer, dim_warehouse)
-    load_facts(dw, fact_sales, "fact_sales")
-    print(f"Da nap {len(fact_sales)} dong")
+    print("\n== 2. fact_sellout (thay the fact_sales - bang rong cho Power BI) ==")
+    fact_sellout = transform_sellout(extract_sellout(dw), dim_product, dim_customer, dim_warehouse)
+    load_facts(dw, fact_sellout, "fact_sellout")
+    touch_last_refresh(dw)
+    print(f"Da nap {len(fact_sellout)} dong")
 
     print("\n== 3. fact_inbound ==")
     fact_inbound = transform_inbound(extract_goods_receipts(dw), dim_product, dim_supplier, dim_warehouse)
