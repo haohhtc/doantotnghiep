@@ -93,8 +93,8 @@ def main():
                     "e": f"{username}@example-mau.vn", "r": role_id})
             emp_id = conn.execute(text("""
                 INSERT INTO employee (type, code, full_name, position_id, is_delivery_man, active, user_id, created_at)
-                VALUES ('NVBH', :code, :n, :pos, 0, 1, :uid, NOW())
-            """), {"code": f"EMP-{username}", "n": full_name,
+                VALUES (:type, :code, :n, :pos, 0, 1, :uid, NOW())
+            """), {"type": "NV" if is_manager else "NVBH", "code": f"EMP-{username}", "n": full_name,
                     "pos": pos_supervisor if is_manager else pos_salesman, "uid": uid}).lastrowid
             return uid, emp_id
 
