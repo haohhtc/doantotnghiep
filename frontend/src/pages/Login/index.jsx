@@ -17,9 +17,9 @@ export default function LoginPage() {
     axiosClient
       .post('/auth/login', { username: values.username, password: values.password })
       .then(({ data }) => {
-        const { token, username, fullName, role } = data.data;
+        const { token, username, fullName, role, branchCode, branchName } = data.data;
         localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify({ username, fullName, role }));
+        localStorage.setItem('user', JSON.stringify({ username, fullName, role, branchCode, branchName }));
         message.success('Đăng nhập thành công');
         navigate('/');
       })

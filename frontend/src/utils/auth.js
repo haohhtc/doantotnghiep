@@ -17,6 +17,13 @@ export function hasAnyRole(...roles) {
   return role != null && roles.includes(role);
 }
 
+// Chi nhanh (NPP) nguoi dung dang thuoc ve - null neu ADMIN (Admin HO, khong gioi han chi
+// nhanh) hoac tai khoan chua duoc gan chi nhanh. Dung de gui kem len AI Chatbot, chan khong cho
+// hoi du lieu chi nhanh/NPP khac - xem components/AiChatWidget.jsx + ai-services/chatbot/main.py.
+export function getCurrentBranchCode() {
+  return getCurrentUser()?.branchCode || null;
+}
+
 // Decode phan payload cua JWT (khong xac thuc chu ky - chi doc claim "exp" de tu kiem tra
 // het han o Frontend, xac thuc that van do Backend lam qua JwtUtil.isValid). JWT dung base64url
 // (khac base64 thuong o cho "-"/"_" thay vi "+"/"/" va khong co padding "=").

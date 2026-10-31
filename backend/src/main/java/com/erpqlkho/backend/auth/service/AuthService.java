@@ -48,6 +48,9 @@ public class AuthService {
         loginLogService.record(request.getUsername(), true, httpServletRequest);
         activeSessionService.recordSession(user, token, httpServletRequest);
 
-        return new LoginResponse(token, user.getUsername(), user.getFullName(), user.getRole().getCode());
+        String branchCode = user.getBranch() != null ? user.getBranch().getCode() : null;
+        String branchName = user.getBranch() != null ? user.getBranch().getName() : null;
+        return new LoginResponse(token, user.getUsername(), user.getFullName(), user.getRole().getCode(),
+                branchCode, branchName);
     }
 }
