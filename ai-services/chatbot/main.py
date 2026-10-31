@@ -97,6 +97,10 @@ def chat(req: ChatRequest):
         direction = entities.extract_rank_direction(question)
         limit = entities.extract_limit(question, default=5)
         answer, source = handlers.handle_customer_performance(engine, start, end, label, direction, location, limit)
+    elif intent == "PRODUCT_BY_ROUTE":
+        direction = entities.extract_rank_direction(question, default="ASC")
+        limit = entities.extract_limit(question, default=25)
+        answer, source = handlers.handle_product_by_route(engine, start, end, label, direction, location, limit)
     else:
         answer, source = FALLBACK_ANSWER, []
 

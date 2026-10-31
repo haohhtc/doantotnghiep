@@ -344,6 +344,43 @@ def handle_customer_performance(engine, start, end, label, direction="DESC", loc
     return answer, [dict(r._mapping) for r in rows]
 
 
+def handle_product_by_route(engine, start, end, label, direction="ASC", location=None, limit=25):
+    """Khac CUSTOMER_PERFORMANCE/SLOW_MOVING/TOP_SELLING (xep hang CHUNG toan pham vi): o day
+    moi TUYEN la 1 nhom rieng, tra ve san pham ban it nhat (hoac nhieu nhat) CUA RIENG tuyen do
+    - dung MySQL window function (ROW_NUMBER) de lay dung 1 dong dai dien moi tuyen trong 1
+    truy van, khong phai N truy van rieng cho N tuyen."""
+    from entities import location_label
+
+    loc_sql, loc_params = _location_filter(location)
+    order = "ASC" if direction == "ASC" else "DESC"
+    sql = f"""
+        SELECT route_code, route_name, product_code, product_name, qty FROM (
+            SELECT route_code, route_name, product_code, product_name, SUM(quantity) AS qty,
+                   ROW_NUMBER() OVER (PARTITION BY route_code ORDER BY SUM(quantity) {order}) AS rn
+            FROM fact_sellout
+            WHERE so_order_date BETWEEN :start AND :end {loc_sql} AND route_code IS NOT NULL
+            GROUP BY route_code, route_name, product_code, product_name
+        ) ranked WHERE rn = 1
+        ORDER BY route_code
+    """
+    params = {"start": start, "end": end, **loc_params}
+    with engine.connect() as conn:
+        rows = conn.execute(sql_text(sql), params).fetchall()
+
+    scope = location_label(location)
+    if not rows:
+        return f"Không có dữ liệu bán hàng theo tuyến{scope} trong khoảng {label}.", []
+
+    rank_word = "ít nhất, cần đẩy mạnh" if direction == "ASC" else "nhiều nhất"
+    shown = rows[:limit]
+    lines = [f'- Tuyến {r.route_name or r.route_code}: "{r.product_name}" ({r.product_code}) '
+             f'bán {rank_word} - {_qty(r.qty)} sản phẩm' for r in shown]
+    more_note = f"\n… và {len(rows) - limit} tuyến khác." if len(rows) > limit else ""
+    answer = (f"Sản phẩm bán {rank_word} theo từng tuyến{scope} trong {label} ({start} → {end}) "
+              f"({len(rows)} tuyến):\n" + "\n".join(lines) + more_note)
+    return answer, [dict(r._mapping) for r in rows]
+
+
 def handle_supplier_analysis(engine):
     sql = """
         SELECT ds.supplier_code, ds.supplier_name, SUM(f.quantity) AS qty, SUM(f.amount) AS amount

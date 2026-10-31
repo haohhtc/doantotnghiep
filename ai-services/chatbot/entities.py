@@ -155,8 +155,10 @@ def extract_location(question: str, engine):
     return {"scope": "branch", "branch_code": branch_code, "branch_name": branch_name}
 
 
-_LOW_RANK_KEYWORDS = ["thap nhat", "it nhat", "kem nhat", "yeu nhat", "can cham soc"]
-_HIGH_RANK_KEYWORDS = ["cao nhat", "nhieu nhat", "tot nhat", "hieu qua nhat", "lon nhat", "dong gop nhieu"]
+_LOW_RANK_KEYWORDS = ["thap nhat", "it nhat", "kem nhat", "yeu nhat", "can cham soc", "cham nhat",
+                       "ton lau", "can day manh", "can thuc day"]
+_HIGH_RANK_KEYWORDS = ["cao nhat", "nhieu nhat", "tot nhat", "hieu qua nhat", "lon nhat",
+                        "dong gop nhieu", "chay nhat", "ban chay"]
 
 
 def extract_limit(question: str, default=5, max_limit=20):

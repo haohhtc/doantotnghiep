@@ -30,6 +30,8 @@ INTENTS = [
     "INBOUND_SUMMARY",    # Tinh hinh nhap hang
     "SUPPLIER_ANALYSIS",  # Phan tich nha cung cap
     "CUSTOMER_PERFORMANCE", # Khach hang nao doanh so cao/thap nhat - kem tuyen + salesman phu trach
+    "PRODUCT_BY_ROUTE",    # San pham ban it/nhieu nhat, tong hop rieng theo TUNG TUYEN (khong
+                            # phai 1 bang xep hang chung toan cong ty nhu SLOW_MOVING/TOP_SELLING)
     "OTHER",              # Ngoai pham vi nghiep vu (chao hoi, cau hoi khong lien quan...) - lop
                            # "tu choi" de khong ep cau hoi khong lien quan vao 1 trong 8 intent that
 ]
@@ -175,6 +177,23 @@ TRAINING_EXAMPLES = {
         "tuyen nao va salesman nao dang phu trach khach hang mua it nhat",
         "khach hang nao yeu nhat ve doanh so",
         "liet ke khach hang doanh so thap nhat kem tuyen va nhan vien ban hang phu trach",
+    ],
+    "PRODUCT_BY_ROUTE": [
+        "san pham nao ban it nhat o tung tuyen",
+        "tong hop san pham ban cham theo tung tuyen",
+        "moi tuyen dang ban yeu san pham nao",
+        "san pham nao can thuc day doanh thu o tung tuyen",
+        "theo tung tuyen san pham nao ban it nhat",
+        "phan tich san pham ban cham theo tuyen",
+        "tuyen nao dang ban yeu san pham gi",
+        "san pham nao dang co so luong mua thap nhat theo tung tuyen",
+        "liet ke san pham ban it nhat cho moi tuyen",
+        "moi tuyen can day manh san pham nao",
+        "san pham nao dang co so luong mua thap nhat can de thuc day doanh thu tong hop o tung tuyen",
+        "tung tuyen dang ban yeu san pham gi can day manh",
+        "san pham ban chay nhat theo tung tuyen la gi",
+        "moi tuyen ban chay nhat san pham nao",
+        "thong ke san pham theo tung tuyen ban hang",
     ],
     "OTHER": [
         "xin chao",
