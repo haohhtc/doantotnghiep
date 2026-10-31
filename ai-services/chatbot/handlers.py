@@ -60,38 +60,44 @@ def handle_revenue_total(engine, start, end, label, product=None, location=None)
                       "quantity": float(qty), "orderCount": order_count}]
 
 
-def handle_top_selling(engine, start, end, label, limit=5):
-    sql = """
+def handle_top_selling(engine, start, end, label, limit=5, location=None):
+    from entities import location_label
+    loc_sql, loc_params = _location_filter(location)
+    sql = f"""
         SELECT product_code, product_name, SUM(quantity) AS qty, SUM(line_amount_after_tax) AS revenue
-        FROM fact_sellout WHERE so_order_date BETWEEN :start AND :end
+        FROM fact_sellout WHERE so_order_date BETWEEN :start AND :end {loc_sql}
         GROUP BY product_code, product_name ORDER BY qty DESC LIMIT :limit
     """
     with engine.connect() as conn:
-        rows = conn.execute(sql_text(sql), {"start": start, "end": end, "limit": limit}).fetchall()
+        rows = conn.execute(sql_text(sql), {"start": start, "end": end, "limit": limit, **loc_params}).fetchall()
 
+    scope = location_label(location)
     if not rows:
-        return f"Không có dữ liệu bán hàng trong khoảng {label}.", []
+        return f"Không có dữ liệu bán hàng{scope} trong khoảng {label}.", []
 
     lines = [f"{i+1}. {r.product_name} ({r.product_code}): {_qty(r.qty)} sản phẩm, doanh thu {_money(r.revenue)}"
              for i, r in enumerate(rows)]
-    answer = f"Top {len(rows)} sản phẩm bán chạy nhất trong {label} ({start} → {end}):\n" + "\n".join(lines)
+    answer = f"Top {len(rows)} sản phẩm bán chạy nhất{scope} trong {label} ({start} → {end}):\n" + "\n".join(lines)
     return answer, [dict(r._mapping) for r in rows]
 
 
-def handle_slow_moving(engine, start, end, label, limit=5):
-    sql = """
+def handle_slow_moving(engine, start, end, label, limit=5, location=None):
+    from entities import location_label
+    loc_sql, loc_params = _location_filter(location, "f.warehouse_code", "f.branch_code")
+    sql = f"""
         SELECT dp.product_code, dp.product_name, COALESCE(SUM(f.quantity), 0) AS qty
         FROM dim_product dp
         LEFT JOIN fact_sellout f ON f.product_key = dp.product_key
-            AND f.so_order_date BETWEEN :start AND :end
+            AND f.so_order_date BETWEEN :start AND :end {loc_sql}
         GROUP BY dp.product_code, dp.product_name ORDER BY qty ASC LIMIT :limit
     """
     with engine.connect() as conn:
-        rows = conn.execute(sql_text(sql), {"start": start, "end": end, "limit": limit}).fetchall()
+        rows = conn.execute(sql_text(sql), {"start": start, "end": end, "limit": limit, **loc_params}).fetchall()
 
+    scope = location_label(location)
     lines = [f"{i+1}. {r.product_name} ({r.product_code}): chỉ bán {_qty(r.qty)} sản phẩm"
              for i, r in enumerate(rows)]
-    answer = (f"{len(rows)} sản phẩm bán chậm nhất trong {label} ({start} → {end}) "
+    answer = (f"{len(rows)} sản phẩm bán chậm nhất{scope} trong {label} ({start} → {end}) "
               f"(0 nghĩa là không bán được sản phẩm nào):\n" + "\n".join(lines))
     return answer, [dict(r._mapping) for r in rows]
 
@@ -274,28 +280,34 @@ def handle_stock_by_warehouse(engine, location=None, product=None):
     return answer, [dict(r._mapping) for r in rows]
 
 
-def handle_inbound_summary(engine, start, end, label):
+def handle_inbound_summary(engine, start, end, label, location=None):
+    from entities import location_label
+    loc_sql, loc_params = _location_filter(location, "dw.warehouse_code", "dw.branch_code")
     with engine.connect() as conn:
-        summary = conn.execute(sql_text("""
+        summary = conn.execute(sql_text(f"""
             SELECT COALESCE(SUM(f.quantity), 0) AS qty, COALESCE(SUM(f.amount), 0) AS amount, COUNT(*) AS line_count
-            FROM fact_inbound f JOIN dim_time td ON td.time_key = f.time_key
-            WHERE td.full_date BETWEEN :start AND :end
-        """), {"start": start, "end": end}).fetchone()
+            FROM fact_inbound f
+            JOIN dim_time td ON td.time_key = f.time_key
+            JOIN dim_warehouse dw ON dw.warehouse_key = f.warehouse_key
+            WHERE td.full_date BETWEEN :start AND :end {loc_sql}
+        """), {"start": start, "end": end, **loc_params}).fetchone()
 
-        top_rows = conn.execute(sql_text("""
+        top_rows = conn.execute(sql_text(f"""
             SELECT dp.product_code, dp.product_name, SUM(f.quantity) AS qty
             FROM fact_inbound f JOIN dim_product dp ON dp.product_key = f.product_key
             JOIN dim_time td ON td.time_key = f.time_key
-            WHERE td.full_date BETWEEN :start AND :end
+            JOIN dim_warehouse dw ON dw.warehouse_key = f.warehouse_key
+            WHERE td.full_date BETWEEN :start AND :end {loc_sql}
             GROUP BY dp.product_code, dp.product_name ORDER BY qty DESC LIMIT 3
-        """), {"start": start, "end": end}).fetchall()
+        """), {"start": start, "end": end, **loc_params}).fetchall()
 
+    scope = location_label(location)
     qty, amount, lines_count = summary
     if lines_count == 0:
-        return f"Không có dữ liệu nhập hàng trong khoảng {label} ({start} → {end}).", []
+        return f"Không có dữ liệu nhập hàng{scope} trong khoảng {label} ({start} → {end}).", []
 
     top_lines = [f"- {r.product_name}: {_qty(r.qty)}" for r in top_rows]
-    answer = (f"Nhập hàng trong {label} ({start} → {end}): tổng {_qty(qty)} sản phẩm, "
+    answer = (f"Nhập hàng{scope} trong {label} ({start} → {end}): tổng {_qty(qty)} sản phẩm, "
               f"giá trị {_money(amount)}, {lines_count} dòng nhập. Nhập nhiều nhất:\n" + "\n".join(top_lines))
     return answer, [{"quantity": float(qty), "amount": float(amount), "lineCount": lines_count}]
 
@@ -527,20 +539,26 @@ def handle_generic_ranking(engine, metric, dimension, start, end, label, directi
     return answer, [dict(r._mapping) for r in rows]
 
 
-def handle_supplier_analysis(engine):
-    sql = """
+def handle_supplier_analysis(engine, location=None):
+    from entities import location_label
+    loc_sql, loc_params = _location_filter(location, "dw.warehouse_code", "dw.branch_code")
+    sql = f"""
         SELECT ds.supplier_code, ds.supplier_name, SUM(f.quantity) AS qty, SUM(f.amount) AS amount
-        FROM fact_inbound f JOIN dim_supplier ds ON ds.supplier_key = f.supplier_key
+        FROM fact_inbound f
+        JOIN dim_supplier ds ON ds.supplier_key = f.supplier_key
+        JOIN dim_warehouse dw ON dw.warehouse_key = f.warehouse_key
+        WHERE 1=1 {loc_sql}
         GROUP BY ds.supplier_code, ds.supplier_name ORDER BY amount DESC
     """
     with engine.connect() as conn:
-        rows = conn.execute(sql_text(sql)).fetchall()
+        rows = conn.execute(sql_text(sql), loc_params).fetchall()
 
+    scope = location_label(location)
     if not rows:
-        return "Chưa có dữ liệu nhập hàng để phân tích nhà cung cấp.", []
+        return f"Chưa có dữ liệu nhập hàng{scope} để phân tích nhà cung cấp.", []
 
     lines = [f"{i+1}. {r.supplier_name}: nhập {_qty(r.qty)} sản phẩm, giá trị {_money(r.amount)}"
              for i, r in enumerate(rows)]
     note = "" if len(rows) > 1 else "\n(Hiện hệ thống mới có 1 nhà cung cấp.)"
-    answer = "Phân tích nhà cung cấp (theo tổng giá trị nhập hàng):\n" + "\n".join(lines) + note
+    answer = f"Phân tích nhà cung cấp{scope} (theo tổng giá trị nhập hàng):\n" + "\n".join(lines) + note
     return answer, [dict(r._mapping) for r in rows]

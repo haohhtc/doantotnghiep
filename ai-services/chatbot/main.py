@@ -27,6 +27,12 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     question: str
+    # Role + chi nhanh (NPP) cua nguoi dang hoi - Frontend tu dien tu tai khoan dang dang nhap
+    # (xem frontend/src/api/chatbotClient.js). Dung de CHAN truy cap chi nhanh khac - xem
+    # PHAN QUYEN THEO CHI NHANH ben duoi. Optional de tuong thich nguoc voi api-contract goc
+    # (chi co "question") khi test truc tiep qua curl/Postman - khi do coi nhu khong gioi han.
+    role: str | None = None
+    branchCode: str | None = None
 
 
 SUGGESTED_QUESTIONS = [
@@ -56,6 +62,11 @@ FALLBACK_ANSWER = (
     "hàng, nhà cung cấp, hoặc khách hàng nào doanh số cao/thấp nhất (kèm tuyến, salesman phụ "
     "trách). Ví dụ: \"Sản phẩm nào sắp hết hàng?\""
 )
+
+
+def _access_denied_message(own_branch_name):
+    return (f"Bạn không có quyền xem dữ liệu của chi nhánh/NPP khác. "
+            f"Tài khoản của bạn chỉ được xem dữ liệu của {own_branch_name}.")
 
 
 @app.get("/health")
@@ -91,10 +102,28 @@ def chat(req: ChatRequest):
         intent in RANKING_INTENT_DIMENSION and expected_dim != dimension
     ) or intent == "REVENUE_TOTAL")
 
+    ref_date = entities.resolve_reference_date(engine)
+    start, end, label = entities.extract_date_range(question, ref_date)
+    product = entities.extract_product(question, engine)
+    location = entities.extract_location(question, engine)
+
+    # --- PHAN QUYEN THEO CHI NHANH (NPP) ---
+    # ADMIN (Admin HO) khong gioi han - thay het moi chi nhanh. User khac (vd WAREHOUSE_MANAGER,
+    # dong vai "NPP") CHI duoc xem du lieu CHI NHANH CUA CHINH HO: cau hoi khong noi ro chi nhanh
+    # nao -> TU DONG gioi han ve chi nhanh ho (khong im lang tra loi toan he thong); cau hoi noi
+    # ro 1 chi nhanh/kho thuoc chi nhanh KHAC -> TU CHOI thang, khong chay query (tranh lo du
+    # lieu NPP khac). Dat SAU khi tinh location nhung TRUOC khi dispatch toi bat ky handler nao.
+    is_restricted = bool(req.role) and req.role != "ADMIN" and bool(req.branchCode)
+    if is_restricted:
+        if location is None:
+            location = {"scope": "branch", "branch_code": req.branchCode,
+                        "branch_name": entities.get_branch_name(engine, req.branchCode)}
+        elif location.get("branch_code") != req.branchCode:
+            own_name = entities.get_branch_name(engine, req.branchCode)
+            return {"answer": _access_denied_message(own_name), "sourceData": [],
+                    "intent": intent, "confidence": confidence}
+
     if should_use_generic:
-        ref_date = entities.resolve_reference_date(engine)
-        start, end, label = entities.extract_date_range(question, ref_date)
-        location = entities.extract_location(question, engine)
         metric = entities.extract_metric(question)
         direction = entities.extract_rank_direction(question)
         limit = entities.extract_limit(question, default=5)
@@ -105,19 +134,14 @@ def chat(req: ChatRequest):
     if intent is None:
         return {"answer": FALLBACK_ANSWER, "sourceData": [], "intent": None, "confidence": confidence}
 
-    ref_date = entities.resolve_reference_date(engine)
-    start, end, label = entities.extract_date_range(question, ref_date)
-    product = entities.extract_product(question, engine)
-    location = entities.extract_location(question, engine)
-
     if intent == "REVENUE_TOTAL":
         answer, source = handlers.handle_revenue_total(engine, start, end, label, product, location)
     elif intent == "TOP_SELLING":
         limit = entities.extract_limit(question, default=5)
-        answer, source = handlers.handle_top_selling(engine, start, end, label, limit)
+        answer, source = handlers.handle_top_selling(engine, start, end, label, limit, location)
     elif intent == "SLOW_MOVING":
         limit = entities.extract_limit(question, default=5)
-        answer, source = handlers.handle_slow_moving(engine, start, end, label, limit)
+        answer, source = handlers.handle_slow_moving(engine, start, end, label, limit, location)
     elif intent == "STOCK_CURRENT":
         answer, source = handlers.handle_stock_current(engine, product, location)
     elif intent == "LOW_STOCK":
@@ -125,9 +149,9 @@ def chat(req: ChatRequest):
     elif intent == "STOCK_BY_WAREHOUSE":
         answer, source = handlers.handle_stock_by_warehouse(engine, location, product)
     elif intent == "INBOUND_SUMMARY":
-        answer, source = handlers.handle_inbound_summary(engine, start, end, label)
+        answer, source = handlers.handle_inbound_summary(engine, start, end, label, location)
     elif intent == "SUPPLIER_ANALYSIS":
-        answer, source = handlers.handle_supplier_analysis(engine)
+        answer, source = handlers.handle_supplier_analysis(engine, location)
     elif intent == "CUSTOMER_PERFORMANCE":
         direction = entities.extract_rank_direction(question)
         limit = entities.extract_limit(question, default=5)
@@ -140,6 +164,10 @@ def chat(req: ChatRequest):
         answer, source = handlers.handle_route_count(engine, location)
     elif intent == "ROUTE_SALESMAN_LOOKUP":
         route = entities.extract_route(question, engine)
+        if is_restricted and route and route.get("branch_code") != req.branchCode:
+            own_name = entities.get_branch_name(engine, req.branchCode)
+            return {"answer": _access_denied_message(own_name), "sourceData": [],
+                    "intent": intent, "confidence": confidence}
         answer, source = handlers.handle_route_salesman_lookup(engine, route)
     elif intent == "SALESMAN_PERFORMANCE":
         direction = entities.extract_rank_direction(question)

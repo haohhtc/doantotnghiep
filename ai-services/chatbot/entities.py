@@ -260,14 +260,30 @@ def has_rank_language(question: str) -> bool:
 
 
 def extract_route(question: str, engine):
-    """Khop ma tuyen (vd R-HCM-01) nhac toi trong cau hoi, doi chieu voi raw_route_master."""
+    """Khop ma tuyen (vd R-HCM-01) nhac toi trong cau hoi, doi chieu voi raw_route_master. Kem
+    ca branch_code cua tuyen do (qua raw_branch) - can de kiem tra phan quyen NPP (xem main.py:
+    user KHONG phai ADMIN chi duoc tra cuu tuyen thuoc chi nhanh cua chinh ho)."""
     q = normalize(question)
     with engine.connect() as conn:
-        rows = conn.execute(sql_text("SELECT code, name FROM raw_route_master")).fetchall()
+        rows = conn.execute(sql_text("""
+            SELECT rm.code, rm.name, b.code AS branch_code
+            FROM raw_route_master rm LEFT JOIN raw_branch b ON b.id = rm.branch_id
+        """)).fetchall()
     for r in rows:
         if r.code and normalize(r.code) in q:
-            return {"route_code": r.code, "route_name": r.name}
+            return {"route_code": r.code, "route_name": r.name, "branch_code": r.branch_code}
     return None
+
+
+def get_branch_name(engine, branch_code):
+    """Tra ten chi nhanh tu ma - dung de dien vao thong bao tu choi quyen / tu dong gioi han
+    pham vi cho user khong phai ADMIN (xem main.py)."""
+    if not branch_code:
+        return branch_code
+    with engine.connect() as conn:
+        name = conn.execute(sql_text("SELECT name FROM raw_branch WHERE code = :c"),
+                             {"c": branch_code}).scalar()
+    return name or branch_code
 
 
 def location_label(location):
