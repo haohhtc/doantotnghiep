@@ -32,6 +32,8 @@ INTENTS = [
     "CUSTOMER_PERFORMANCE", # Khach hang nao doanh so cao/thap nhat - kem tuyen + salesman phu trach
     "PRODUCT_BY_ROUTE",    # San pham ban it/nhieu nhat, tong hop rieng theo TUNG TUYEN (khong
                             # phai 1 bang xep hang chung toan cong ty nhu SLOW_MOVING/TOP_SELLING)
+    "ROUTE_COUNT",         # Cau hoi DEM SO LUONG ("co bao nhieu tuyen") - tra loi NGAN GON 1
+                            # con so, khac PRODUCT_BY_ROUTE (liet ke chi tiet tung tuyen)
     "OTHER",              # Ngoai pham vi nghiep vu (chao hoi, cau hoi khong lien quan...) - lop
                            # "tu choi" de khong ep cau hoi khong lien quan vao 1 trong 8 intent that
 ]
@@ -194,6 +196,21 @@ TRAINING_EXAMPLES = {
         "san pham ban chay nhat theo tung tuyen la gi",
         "moi tuyen ban chay nhat san pham nao",
         "thong ke san pham theo tung tuyen ban hang",
+    ],
+    "ROUTE_COUNT": [
+        "co bao nhieu tuyen ban hang",
+        "chi nhanh hcm co bao nhieu tuyen",
+        "npp hcm co bao nhieu tuyen ban hang",
+        "tong so tuyen ban hang hien tai la bao nhieu",
+        "so luong tuyen ban hang o moi chi nhanh",
+        "co bao nhieu tuyen dang hoat dong",
+        "hcm dang co may tuyen",
+        "ha noi co bao nhieu tuyen ban hang",
+        "cong ty hien co bao nhieu tuyen",
+        "moi chi nhanh co bao nhieu tuyen ban hang",
+        "da nang co may tuyen ban hang",
+        "tong so tuyen cua toan he thong",
+        "so tuyen ban hang hien tai cua chi nhanh hcm",
     ],
     "OTHER": [
         "xin chao",

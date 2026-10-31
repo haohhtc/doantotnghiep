@@ -126,7 +126,8 @@ def extract_location(question: str, engine):
     # 1) Go dung ten/ma 1 kho cu the - uu tien cao nhat, ro rang nhat, khong can suy luan gi them.
     for r in rows:
         if normalize(r.warehouse_code) in q or normalize(r.warehouse_name) in q:
-            return {"scope": "warehouse", "warehouse_code": r.warehouse_code, "warehouse_name": r.warehouse_name}
+            return {"scope": "warehouse", "warehouse_code": r.warehouse_code, "warehouse_name": r.warehouse_name,
+                    "branch_code": r.branch_code, "branch_name": r.branch_name}
 
     # 2) Nhac toi chi nhanh (ten day du hoac alias thong dung)
     branch_code = None
@@ -149,7 +150,8 @@ def extract_location(question: str, engine):
             matched = [r for r in branch_warehouses if r.warehouse_type == wtype]
             if len(matched) == 1:
                 return {"scope": "warehouse", "warehouse_code": matched[0].warehouse_code,
-                        "warehouse_name": matched[0].warehouse_name}
+                        "warehouse_name": matched[0].warehouse_name,
+                        "branch_code": branch_code, "branch_name": branch_name}
             break
 
     return {"scope": "branch", "branch_code": branch_code, "branch_name": branch_name}

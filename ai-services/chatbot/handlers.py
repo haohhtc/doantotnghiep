@@ -381,6 +381,34 @@ def handle_product_by_route(engine, start, end, label, direction="ASC", location
     return answer, [dict(r._mapping) for r in rows]
 
 
+def handle_route_count(engine, location=None):
+    """Cau hoi DEM so luong ("co bao nhieu tuyen") - tra loi 1-2 dong, KHONG liet ke chi tiet
+    tung tuyen (xem handle_product_by_route cho dang liet ke chi tiet). Dung raw_route_master/
+    raw_branch (lop Raw/Staging cua DW, sao y nguyen tu OLTP - van la doc tu DW, khong doc thang
+    OLTP, dung kien truc da thong nhat)."""
+    with engine.connect() as conn:
+        rows = conn.execute(sql_text("""
+            SELECT b.code, b.name, COUNT(*) AS route_count
+            FROM raw_route_master r JOIN raw_branch b ON b.id = r.branch_id
+            GROUP BY b.code, b.name ORDER BY b.code
+        """)).fetchall()
+
+    if not rows:
+        return "Chưa có dữ liệu tuyến bán hàng.", []
+
+    branch_code = location.get("branch_code") if location else None
+    if branch_code:
+        match = next((r for r in rows if r.code == branch_code), None)
+        if not match:
+            return f"Không tìm thấy tuyến bán hàng nào thuộc chi nhánh này.", []
+        return f"{match.name} hiện có {match.route_count} tuyến bán hàng.", [dict(match._mapping)]
+
+    total = sum(r.route_count for r in rows)
+    lines = [f"- {r.name}: {r.route_count} tuyến" for r in rows]
+    answer = f"Toàn hệ thống hiện có {total} tuyến bán hàng:\n" + "\n".join(lines)
+    return answer, [dict(r._mapping) for r in rows]
+
+
 def handle_supplier_analysis(engine):
     sql = """
         SELECT ds.supplier_code, ds.supplier_name, SUM(f.quantity) AS qty, SUM(f.amount) AS amount

@@ -101,6 +101,8 @@ def chat(req: ChatRequest):
         direction = entities.extract_rank_direction(question, default="ASC")
         limit = entities.extract_limit(question, default=25)
         answer, source = handlers.handle_product_by_route(engine, start, end, label, direction, location, limit)
+    elif intent == "ROUTE_COUNT":
+        answer, source = handlers.handle_route_count(engine, location)
     else:
         answer, source = FALLBACK_ANSWER, []
 
