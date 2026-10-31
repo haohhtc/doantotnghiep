@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import AppLayout from '../components/AppLayout';
 import ProtectedRoute from '../components/ProtectedRoute';
 import Login from '../pages/Login';
+import Home from '../pages/Home';
 import ProductPage from '../pages/category/Product';
 import ProductCategoryPage from '../pages/category/ProductCategory';
 import ProductGroupsPage from '../pages/productGroups';
@@ -56,7 +57,7 @@ export default function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
-            <Route path="/" element={<PlaceholderPage title="Trang chủ" />} />
+            <Route path="/" element={<Home />} />
             <Route path="/products" element={<ProductPage />} />
             <Route path="/product-categories" element={<ProductCategoryPage />} />
             <Route path="/product-groups" element={<ProductGroupsPage />} />
