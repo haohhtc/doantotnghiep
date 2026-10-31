@@ -71,20 +71,20 @@ def chat(req: ChatRequest):
     ref_date = entities.resolve_reference_date(engine)
     start, end, label = entities.extract_date_range(question, ref_date)
     product = entities.extract_product(question, engine)
-    warehouse = entities.extract_warehouse(question, engine)
+    location = entities.extract_location(question, engine)
 
     if intent == "REVENUE_TOTAL":
-        answer, source = handlers.handle_revenue_total(engine, start, end, label, product, warehouse)
+        answer, source = handlers.handle_revenue_total(engine, start, end, label, product, location)
     elif intent == "TOP_SELLING":
         answer, source = handlers.handle_top_selling(engine, start, end, label)
     elif intent == "SLOW_MOVING":
         answer, source = handlers.handle_slow_moving(engine, start, end, label)
     elif intent == "STOCK_CURRENT":
-        answer, source = handlers.handle_stock_current(engine, product)
+        answer, source = handlers.handle_stock_current(engine, product, location)
     elif intent == "LOW_STOCK":
-        answer, source = handlers.handle_low_stock(engine, ref_date)
+        answer, source = handlers.handle_low_stock(engine, ref_date, location)
     elif intent == "STOCK_BY_WAREHOUSE":
-        answer, source = handlers.handle_stock_by_warehouse(engine, warehouse)
+        answer, source = handlers.handle_stock_by_warehouse(engine, location, product)
     elif intent == "INBOUND_SUMMARY":
         answer, source = handlers.handle_inbound_summary(engine, start, end, label)
     elif intent == "SUPPLIER_ANALYSIS":

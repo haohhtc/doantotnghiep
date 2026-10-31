@@ -50,6 +50,8 @@ TRAINING_EXAMPLES = {
         "so luong don hang va doanh thu tuan nay",
         "tinh hinh ban hang gan day the nao",
         "ket qua kinh doanh thang nay ra sao",
+        "doanh thu san pham co ma nay tai chi nhanh ha noi",
+        "doanh so ban hang cua kho van thang nay",
     ],
     "TOP_SELLING": [
         "san pham nao ban chay nhat",
@@ -88,6 +90,16 @@ TRAINING_EXAMPLES = {
         "cho toi xem ton kho hien tai",
         "kho con bao nhieu san pham nay",
         "ton kho hom nay cua tat ca san pham",
+        "san pham co ma cp001 con bao nhieu trong kho",
+        "san pham ma sp001 con ton bao nhieu o kho nao",
+        "cho toi biet ton kho cua san pham co ma nay",
+        "san pham nay con bao nhieu trong kho chinh chi nhanh hcm",
+        "ma san pham nay con ton bao nhieu o kho main",
+        "kiem tra so luong con lai cua san pham co ma",
+        "san pham nay trong kho con bao nhieu o chi nhanh ha noi",
+        "san pham co ma nay con bao nhieu o kho van chi nhanh hcm",
+        "ton kho san pham nay o kho chinh chi nhanh da nang",
+        "kiem tra ton kho ma san pham o kho luu dong",
     ],
     "LOW_STOCK": [
         "san pham nao sap het hang",
@@ -100,6 +112,10 @@ TRAINING_EXAMPLES = {
         "kiem tra canh bao sap het hang",
         "san pham nao ton kho dang thap",
         "can nhap them san pham nao gap",
+        "san pham nao sap het hang o chi nhanh hcm",
+        "canh bao sap het hang tai kho main",
+        "kho van co san pham nao sap het khong",
+        "chi nhanh ha noi co san pham nao can nhap gap khong",
     ],
     "STOCK_BY_WAREHOUSE": [
         "ton kho theo tung kho the nao",
@@ -114,6 +130,11 @@ TRAINING_EXAMPLES = {
         "ton kho hien tai theo tung kho",
         "ton kho hien tai cua tung kho the nao",
         "ton kho hien tai phan theo kho",
+        "liet ke ton kho tat ca san pham o chi nhanh hcm",
+        "danh sach san pham va so luong ton tai kho main",
+        "cho toi xem het ton kho cua kho van chi nhanh ha noi",
+        "chi nhanh da nang dang ton nhung san pham nao",
+        "tat ca san pham trong kho chinh con bao nhieu",
     ],
     "INBOUND_SUMMARY": [
         "tinh hinh nhap hang thang nay",
@@ -186,8 +207,11 @@ def _build_classifier():
 
 _classifier = _build_classifier()
 
-# Duoi nguong nay coi nhu khong chac chan -> tra loi fallback thay vi doan bua.
-CONFIDENCE_THRESHOLD = 0.35
+# Duoi nguong nay coi nhu khong chac chan -> tra loi fallback thay vi doan bua. Nguong khong
+# can qua cao vi lop OTHER (cau hoi ngoai pham vi) da duoc xu ly rieng o duoi (ep thanh fallback
+# bat ke confidence) - nguong nay chi la luoi an toan cho cau hoi dung chu de nhung dien dat dai/
+# phuc tap hon vi du mau huan luyen, lam tan deu xac suat.
+CONFIDENCE_THRESHOLD = 0.26
 
 
 def predict_intent(question: str):

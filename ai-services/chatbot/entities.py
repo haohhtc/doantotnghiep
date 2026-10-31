@@ -91,17 +91,76 @@ def extract_product(question: str, engine):
     return best
 
 
-def extract_warehouse(question: str, engine):
-    """Khop ten kho/chi nhanh trong cau hoi voi dim_warehouse."""
+# Noi tat/alias pho bien cho 3 chi nhanh - can co vi branch_name day du ("Chi nhanh TP.HCM")
+# thuong KHONG xuat hien y nguyen trong cau hoi that (nguoi dung hay go tat "o HCM", "ben Ha Noi").
+BRANCH_ALIASES = {
+    "CN-HCM": ["tp.hcm", "tphcm", "ho chi minh", "sai gon", "hcm"],
+    "CN-HN": ["ha noi", "thu do", "hn"],
+    "CN_DN": ["da nang", "dn"],
+}
+
+# Noi tat loai kho (dung dung thuat ngu nghiep vu Main/Van da dung trong he thong - xem
+# V37/V38: mo hinh kho 2 cap Main (kho tong) -> Van (kho luu dong tren xe tai ban hang)).
+WAREHOUSE_TYPE_KEYWORDS = {
+    "MAIN": ["kho main", "kho chinh", "kho tong", "main"],
+    "VAN": ["kho van", "luu dong", "xe tai", "van"],
+    "DAMAGE": ["kho loi", "hang loi", "damage"],
+}
+
+
+def extract_location(question: str, engine):
+    """Nhan dien pham vi KHO/CHI NHANH nhac toi trong cau hoi. Tra ve None neu khong nhac gi,
+    hoac 1 trong 2 dang:
+      - {"scope": "warehouse", "warehouse_code", "warehouse_name"} - dung 1 kho cu the (go dung
+        ten/ma kho, hoac chi nhanh + loai kho MAIN/VAN/DAMAGE ma chi khop dung 1 kho).
+      - {"scope": "branch", "branch_code", "branch_name"} - ca chi nhanh (nhieu kho, vd CN-HCM co
+        ca kho Main va kho Van) - cac ham xu ly se CONG DON tat ca kho thuoc chi nhanh nay.
+    Quan trong: khong duoc tu y gop ton kho giua cac chi nhanh/kho khac nhau khi nguoi dung hoi
+    cu the 1 noi - 1 NVBH/kho o chi nhanh nay khong the "muon" hang tu kho chi nhanh khac."""
     q = normalize(question)
     with engine.connect() as conn:
         rows = conn.execute(sql_text(
-            "SELECT DISTINCT warehouse_code, warehouse_name, branch_name FROM dim_warehouse"
+            "SELECT warehouse_code, warehouse_name, warehouse_type, branch_code, branch_name FROM dim_warehouse"
         )).fetchall()
 
-    for code, name, branch_name in rows:
-        if normalize(code) in q or normalize(name) in q:
-            return {"warehouse_code": code, "warehouse_name": name}
-        if branch_name and normalize(branch_name) in q:
-            return {"warehouse_code": code, "warehouse_name": name}
-    return None
+    # 1) Go dung ten/ma 1 kho cu the - uu tien cao nhat, ro rang nhat, khong can suy luan gi them.
+    for r in rows:
+        if normalize(r.warehouse_code) in q or normalize(r.warehouse_name) in q:
+            return {"scope": "warehouse", "warehouse_code": r.warehouse_code, "warehouse_name": r.warehouse_name}
+
+    # 2) Nhac toi chi nhanh (ten day du hoac alias thong dung)
+    branch_code = None
+    for bcode, aliases in BRANCH_ALIASES.items():
+        if any(a in q for a in aliases):
+            branch_code = bcode
+            break
+    if not branch_code:
+        return None
+
+    branch_warehouses = [r for r in rows if r.branch_code == branch_code]
+    if not branch_warehouses:
+        return None
+    branch_name = branch_warehouses[0].branch_name
+
+    # 3) Co nhac them loai kho (Main/Van/kho loi) va chi nhanh nay chi co DUNG 1 kho loai do
+    # -> quy ve thang 1 kho cu the, khong can cong don ca chi nhanh.
+    for wtype, keywords in WAREHOUSE_TYPE_KEYWORDS.items():
+        if any(kw in q for kw in keywords):
+            matched = [r for r in branch_warehouses if r.warehouse_type == wtype]
+            if len(matched) == 1:
+                return {"scope": "warehouse", "warehouse_code": matched[0].warehouse_code,
+                        "warehouse_name": matched[0].warehouse_name}
+            break
+
+    return {"scope": "branch", "branch_code": branch_code, "branch_name": branch_name}
+
+
+def location_label(location):
+    """Cum tu tieng Viet mo ta pham vi, de dien vao cau tra loi (vd ' tai Kho Tong TP.HCM')."""
+    if not location:
+        return ""
+    if location["scope"] == "warehouse":
+        return f' tại {location["warehouse_name"]}'
+    if location["scope"] == "branch":
+        return f' tại {location["branch_name"]} (tất cả kho)'
+    return ""
