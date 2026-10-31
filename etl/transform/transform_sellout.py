@@ -36,6 +36,7 @@ FACT_SELLOUT_COLS = [
     "delivery_number", "delivery_date", "delivery_quantity",
     "slicer_customer", "slicer_distributor",
     "slicer_salesman", "slicer_supervisor", "slicer_product",
+    "so_link_number", "order_stage",
     "etl_batch_date",
 ]
 
@@ -65,6 +66,21 @@ def transform_sellout(df_raw, dim_product, dim_customer, dim_warehouse):
     df["slicer_salesman"] = df["salesperson_code"].fillna("") + " - " + df["salesperson_name"].fillna("")
     df["slicer_supervisor"] = df["supervisor_code"].fillna("") + " - " + df["supervisor_name"].fillna("")
     df["slicer_product"] = df["product_code"].fillna("") + " - " + df["product_name"].fillna("")
+
+    # so_link_number: chain SO - DO - HĐ (tới đâu có tới đó)
+    df["so_link_number"] = df["so_order_number"].fillna("")
+    mask_do  = df["delivery_number"].notna()
+    mask_inv = df["invoice_number"].notna()
+    df.loc[mask_do,  "so_link_number"] += " - " + df.loc[mask_do,  "delivery_number"].fillna("")
+    df.loc[mask_inv, "so_link_number"] += " - " + df.loc[mask_inv, "invoice_number"].fillna("")
+
+    # order_stage: giai đoạn pipeline, prefix A/B/C/D để PBI sort đúng thứ tự
+    def _stage(row):
+        if row["sos_order_type_vn"] == "Trả hàng":  return "D. Trả hàng"
+        if pd.notna(row["invoice_number"]):           return "C. Có hóa đơn"
+        if pd.notna(row["delivery_number"]):          return "B. Đã giao hàng"
+        return "A. Chờ xử lý (SO)"
+    df["order_stage"] = df.apply(_stage, axis=1)
 
     df["etl_batch_date"] = date.today()
 
