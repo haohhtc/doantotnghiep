@@ -12,6 +12,7 @@ services:
       - "${OLTP_DB_PORT:-3306}:3306"
     volumes:
       - erp_oltp_data:/var/lib/mysql
+      - ./etl/seed:/docker-entrypoint-initdb.d
 
   mysql-dw:
     image: mysql:8.0
