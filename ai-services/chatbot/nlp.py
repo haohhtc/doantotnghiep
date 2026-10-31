@@ -29,6 +29,7 @@ INTENTS = [
     "STOCK_BY_WAREHOUSE", # Ton kho theo tung kho / chi nhanh
     "INBOUND_SUMMARY",    # Tinh hinh nhap hang
     "SUPPLIER_ANALYSIS",  # Phan tich nha cung cap
+    "CUSTOMER_PERFORMANCE", # Khach hang nao doanh so cao/thap nhat - kem tuyen + salesman phu trach
     "OTHER",              # Ngoai pham vi nghiep vu (chao hoi, cau hoi khong lien quan...) - lop
                            # "tu choi" de khong ep cau hoi khong lien quan vao 1 trong 8 intent that
 ]
@@ -154,6 +155,26 @@ TRAINING_EXAMPLES = {
         "nha cung cap nao dang hop tac nhieu nhat",
         "thong ke theo nha cung cap",
         "nha cung cap chu luc la ai",
+    ],
+    "CUSTOMER_PERFORMANCE": [
+        "khach hang nao co doanh so thap nhat",
+        "khach hang nao mua nhieu nhat",
+        "khach hang nao mua it nhat",
+        "doanh so khach hang nao thap nhat nam trong tuyen nao sm nao dang phu trach tuyen do",
+        "top khach hang doanh so cao nhat",
+        "danh sach khach hang doanh so thap nhat",
+        "khach hang nao hieu qua nhat",
+        "khach hang nao co doanh so cao nhat thang nay",
+        "nhung khach hang nao mua it nhat gan day",
+        "khach hang nao can cham soc vi doanh so thap",
+        "top 5 khach hang doanh so cao nhat",
+        "khach hang nao thuoc tuyen nao doanh so thap nhat",
+        "sm nao dang phu trach khach hang co doanh so thap nhat",
+        "khach hang nao dong gop doanh thu nhieu nhat",
+        "khach hang nao doanh so kem nhat nam trong tuyen nao",
+        "tuyen nao va salesman nao dang phu trach khach hang mua it nhat",
+        "khach hang nao yeu nhat ve doanh so",
+        "liet ke khach hang doanh so thap nhat kem tuyen va nhan vien ban hang phu trach",
     ],
     "OTHER": [
         "xin chao",

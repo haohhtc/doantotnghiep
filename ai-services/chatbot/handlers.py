@@ -300,6 +300,50 @@ def handle_inbound_summary(engine, start, end, label):
     return answer, [{"quantity": float(qty), "amount": float(amount), "lineCount": lines_count}]
 
 
+def handle_customer_performance(engine, start, end, label, direction="DESC", location=None, limit=5):
+    """Xep hang khach hang theo doanh so trong ky, kem LUON tuyen + salesman/supervisor phu
+    trach - fact_sellout da denormalize san nen 1 truy van tra loi duoc ca 3 y dinh ma nguoi
+    dung thuong hoi gop lai ("KH nao thap nhat, thuoc tuyen nao, SM nao phu trach tuyen do?"),
+    khong can tach cau hoi ra tung phan rieng (cac phan sau phu thuoc dai tu "tuyen do" tro ve
+    phan truoc nen tach roi se mat ngu canh, khong tu tra loi duoc)."""
+    from entities import location_label
+
+    where = ["so_order_date BETWEEN :start AND :end"]
+    params = {"start": start, "end": end, "limit": limit}
+    loc_sql, loc_params = _location_filter(location)
+    params.update(loc_params)
+
+    order = "ASC" if direction == "ASC" else "DESC"
+    sql = f"""
+        SELECT customer_code, customer_name, route_code, route_name, salesperson_name, supervisor_name,
+               SUM(line_amount_after_tax) AS revenue, SUM(quantity) AS qty, COUNT(DISTINCT so_id) AS orders
+        FROM fact_sellout WHERE {' AND '.join(where)} {loc_sql}
+        GROUP BY customer_code, customer_name, route_code, route_name, salesperson_name, supervisor_name
+        ORDER BY revenue {order} LIMIT :limit
+    """
+    with engine.connect() as conn:
+        rows = conn.execute(sql_text(sql), params).fetchall()
+
+    scope = location_label(location)
+    if not rows:
+        return f"Không có dữ liệu bán hàng{scope} trong khoảng {label}.", []
+
+    rank_label = "thấp nhất" if direction == "ASC" else "cao nhất"
+    lines = []
+    for i, r in enumerate(rows):
+        route = r.route_name or r.route_code or "—"
+        sm = r.salesperson_name or "—"
+        sup = r.supervisor_name or "—"
+        lines.append(
+            f'{i+1}. {r.customer_name} ({r.customer_code}): doanh thu {_money(r.revenue)}, '
+            f'{_qty(r.qty)} sản phẩm, {r.orders} đơn — thuộc tuyến "{route}", '
+            f'SM phụ trách: {sm}, quản lý: {sup}'
+        )
+    answer = (f"Top {len(rows)} khách hàng có doanh số {rank_label}{scope} trong {label} "
+              f"({start} → {end}):\n" + "\n".join(lines))
+    return answer, [dict(r._mapping) for r in rows]
+
+
 def handle_supplier_analysis(engine):
     sql = """
         SELECT ds.supplier_code, ds.supplier_name, SUM(f.quantity) AS qty, SUM(f.amount) AS amount

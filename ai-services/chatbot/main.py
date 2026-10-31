@@ -37,12 +37,14 @@ SUGGESTED_QUESTIONS = [
     "Sản phẩm nào bán chậm, tồn lâu?",
     "Tình hình nhập hàng tháng này?",
     "Nhà cung cấp nào nhập nhiều nhất?",
+    "Khách hàng nào có doanh số thấp nhất, thuộc tuyến nào, SM nào phụ trách?",
 ]
 
 FALLBACK_ANSWER = (
     "Xin lỗi, tôi chưa hiểu rõ câu hỏi này. Bạn có thể hỏi về: doanh thu/doanh số bán hàng, "
     "sản phẩm bán chạy hoặc bán chậm, tồn kho hiện tại, sản phẩm sắp hết hàng, tình hình nhập "
-    "hàng, hoặc nhà cung cấp. Ví dụ: \"Sản phẩm nào sắp hết hàng?\""
+    "hàng, nhà cung cấp, hoặc khách hàng nào doanh số cao/thấp nhất (kèm tuyến, salesman phụ "
+    "trách). Ví dụ: \"Sản phẩm nào sắp hết hàng?\""
 )
 
 
@@ -76,9 +78,11 @@ def chat(req: ChatRequest):
     if intent == "REVENUE_TOTAL":
         answer, source = handlers.handle_revenue_total(engine, start, end, label, product, location)
     elif intent == "TOP_SELLING":
-        answer, source = handlers.handle_top_selling(engine, start, end, label)
+        limit = entities.extract_limit(question, default=5)
+        answer, source = handlers.handle_top_selling(engine, start, end, label, limit)
     elif intent == "SLOW_MOVING":
-        answer, source = handlers.handle_slow_moving(engine, start, end, label)
+        limit = entities.extract_limit(question, default=5)
+        answer, source = handlers.handle_slow_moving(engine, start, end, label, limit)
     elif intent == "STOCK_CURRENT":
         answer, source = handlers.handle_stock_current(engine, product, location)
     elif intent == "LOW_STOCK":
@@ -89,6 +93,10 @@ def chat(req: ChatRequest):
         answer, source = handlers.handle_inbound_summary(engine, start, end, label)
     elif intent == "SUPPLIER_ANALYSIS":
         answer, source = handlers.handle_supplier_analysis(engine)
+    elif intent == "CUSTOMER_PERFORMANCE":
+        direction = entities.extract_rank_direction(question)
+        limit = entities.extract_limit(question, default=5)
+        answer, source = handlers.handle_customer_performance(engine, start, end, label, direction, location, limit)
     else:
         answer, source = FALLBACK_ANSWER, []
 

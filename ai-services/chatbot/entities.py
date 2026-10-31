@@ -155,6 +155,34 @@ def extract_location(question: str, engine):
     return {"scope": "branch", "branch_code": branch_code, "branch_name": branch_name}
 
 
+_LOW_RANK_KEYWORDS = ["thap nhat", "it nhat", "kem nhat", "yeu nhat", "can cham soc"]
+_HIGH_RANK_KEYWORDS = ["cao nhat", "nhieu nhat", "tot nhat", "hieu qua nhat", "lon nhat", "dong gop nhieu"]
+
+
+def extract_limit(question: str, default=5, max_limit=20):
+    """Cau hoi co 'top N'/'N khach hang'/'N san pham' - lay so N lam gioi han danh sach, bo qua
+    cac so da bi dung lam khoang thoi gian (vd '7 ngay qua') de khong nham."""
+    q = normalize(question)
+    q_no_time = re.sub(r"\d+\s*(ngay|thang|tuan|nam|quy)\b", "", q)
+    m = re.search(r"\btop\s*(\d+)\b", q_no_time) or re.search(r"\b(\d+)\s*(khach hang|san pham|sp|kh)\b", q_no_time)
+    if m:
+        n = int(m.group(1))
+        if 1 <= n <= max_limit:
+            return n
+    return default
+
+
+def extract_rank_direction(question: str, default="DESC"):
+    """Cau hoi xep hang (KH/SP nao thap nhat/cao nhat...) - tra ve 'ASC' (thap->cao, lay dau la
+    thap nhat) hoac 'DESC' (cao->thap, lay dau la cao nhat)."""
+    q = normalize(question)
+    if any(k in q for k in _LOW_RANK_KEYWORDS):
+        return "ASC"
+    if any(k in q for k in _HIGH_RANK_KEYWORDS):
+        return "DESC"
+    return default
+
+
 def location_label(location):
     """Cum tu tieng Viet mo ta pham vi, de dien vao cau tra loi (vd ' tai Kho Tong TP.HCM')."""
     if not location:
