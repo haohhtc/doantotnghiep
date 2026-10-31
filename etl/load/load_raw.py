@@ -10,7 +10,7 @@ RAW_TABLES = [
     "customer", "customer_channel", "customer_group", "customer_group_member",
     "uom", "tax_group",
     "region", "province", "district", "ward",
-    "user", "route_master", "selling_zone",
+    "user", "employee", "route_master", "route_salesman_assignment", "selling_zone",
     "goods_receipt", "goods_receipt_detail",
     "sales_order", "sales_order_detail",
     "delivery_order", "delivery_order_item",

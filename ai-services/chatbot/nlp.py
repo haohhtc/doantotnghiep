@@ -34,6 +34,7 @@ INTENTS = [
                             # phai 1 bang xep hang chung toan cong ty nhu SLOW_MOVING/TOP_SELLING)
     "ROUTE_COUNT",         # Cau hoi DEM SO LUONG ("co bao nhieu tuyen") - tra loi NGAN GON 1
                             # con so, khac PRODUCT_BY_ROUTE (liet ke chi tiet tung tuyen)
+    "ROUTE_SALESMAN_LOOKUP", # Tra cuu 1 TUYEN CU THE (vd R-HCM-01): ai phu trach, SDT, email
     "OTHER",              # Ngoai pham vi nghiep vu (chao hoi, cau hoi khong lien quan...) - lop
                            # "tu choi" de khong ep cau hoi khong lien quan vao 1 trong 8 intent that
 ]
@@ -211,6 +212,20 @@ TRAINING_EXAMPLES = {
         "da nang co may tuyen ban hang",
         "tong so tuyen cua toan he thong",
         "so tuyen ban hang hien tai cua chi nhanh hcm",
+    ],
+    "ROUTE_SALESMAN_LOOKUP": [
+        "tuyen r-hcm-01 nhan vien ban hang la ai",
+        "cho toi so dien thoai cua nhan vien ban hang tuyen do",
+        "ai dang phu trach tuyen r-hcm-05",
+        "nhan vien ban hang cua tuyen r-hn-01 la ai so dien thoai bao nhieu",
+        "tuyen r-dn-02 do ai phu trach",
+        "sm nao dang quan ly tuyen r-hcm-10",
+        "thong tin lien he cua nhan vien ban hang tuyen r-hcm-03",
+        "cho toi biet ai dang ban hang o tuyen r-hcm-07",
+        "tuyen r-hcm-15 ai phu trach cho toi so dien thoai",
+        "salesman phu trach tuyen r-hcm-20 ten gi",
+        "tuyen r-hcm-01 nhan vien ban hang la ai cho toi so dien thoai cua nhan vien ban hang do",
+        "cho toi email va so dien thoai cua nvbh tuyen r-hn-02",
     ],
     "OTHER": [
         "xin chao",

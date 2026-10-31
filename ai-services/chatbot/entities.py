@@ -187,6 +187,17 @@ def extract_rank_direction(question: str, default="DESC"):
     return default
 
 
+def extract_route(question: str, engine):
+    """Khop ma tuyen (vd R-HCM-01) nhac toi trong cau hoi, doi chieu voi raw_route_master."""
+    q = normalize(question)
+    with engine.connect() as conn:
+        rows = conn.execute(sql_text("SELECT code, name FROM raw_route_master")).fetchall()
+    for r in rows:
+        if r.code and normalize(r.code) in q:
+            return {"route_code": r.code, "route_name": r.name}
+    return None
+
+
 def location_label(location):
     """Cum tu tieng Viet mo ta pham vi, de dien vao cau tra loi (vd ' tai Kho Tong TP.HCM')."""
     if not location:

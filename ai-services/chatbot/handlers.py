@@ -409,6 +409,33 @@ def handle_route_count(engine, location=None):
     return answer, [dict(r._mapping) for r in rows]
 
 
+def handle_route_salesman_lookup(engine, route):
+    """Tra cuu 1 TUYEN CU THE: ai dang phu trach (nhan vien ban hang hien tai, end_date IS NULL)
+    + SDT/email. Dung raw_employee/raw_route_salesman_assignment (lop Raw trong DW, moi them vao
+    RAW_TABLES - truoc do chatbot khong co du lieu nay)."""
+    if not route:
+        return ('Bạn cho tôi biết mã tuyến cụ thể (ví dụ "R-HCM-01") để tôi tra cứu nhé.', [])
+
+    sql = """
+        SELECT rm.code, rm.name, e.code AS employee_code, e.full_name, e.phone, e.email
+        FROM raw_route_master rm
+        JOIN raw_route_salesman_assignment rsa ON rsa.route_master_id = rm.id AND rsa.end_date IS NULL
+        JOIN raw_employee e ON e.id = rsa.employee_id
+        WHERE rm.code = :code
+    """
+    with engine.connect() as conn:
+        row = conn.execute(sql_text(sql), {"code": route["route_code"]}).fetchone()
+
+    if not row:
+        return f'Tuyến {route["route_code"]} hiện chưa có nhân viên bán hàng phụ trách.', []
+
+    phone = row.phone or "chưa cập nhật trong hệ thống"
+    email = row.email or "chưa cập nhật"
+    answer = (f'Tuyến {row.code} ({row.name or "—"}) do {row.full_name} ({row.employee_code}) phụ trách. '
+              f"SĐT: {phone}. Email: {email}.")
+    return answer, [dict(row._mapping)]
+
+
 def handle_supplier_analysis(engine):
     sql = """
         SELECT ds.supplier_code, ds.supplier_name, SUM(f.quantity) AS qty, SUM(f.amount) AS amount

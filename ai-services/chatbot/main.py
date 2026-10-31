@@ -103,6 +103,9 @@ def chat(req: ChatRequest):
         answer, source = handlers.handle_product_by_route(engine, start, end, label, direction, location, limit)
     elif intent == "ROUTE_COUNT":
         answer, source = handlers.handle_route_count(engine, location)
+    elif intent == "ROUTE_SALESMAN_LOOKUP":
+        route = entities.extract_route(question, engine)
+        answer, source = handlers.handle_route_salesman_lookup(engine, route)
     else:
         answer, source = FALLBACK_ANSWER, []
 
