@@ -97,9 +97,9 @@ def extract_sellout(engine):
             MONTH(so.doc_date)                               AS so_order_month,
             so.status                                        AS so_order_status,
             CASE so.status
-                WHEN 'PENDING'   THEN 'Cho duyet'
-                WHEN 'CONFIRMED' THEN 'Da xac nhan'
-                WHEN 'CANCELLED' THEN 'Da huy'
+                WHEN 'PENDING'   THEN 'Chờ duyệt'
+                WHEN 'CONFIRMED' THEN 'Đã xác nhận'
+                WHEN 'CANCELLED' THEN 'Đã hủy'
                 ELSE so.status
             END                                               AS so_order_status_vn,
             CASE so.status
@@ -108,7 +108,12 @@ def extract_sellout(engine):
                 WHEN 'CANCELLED' THEN 'dahuy'
                 ELSE 'khac'
             END                                               AS sos_order_status_icon_vn,
-            'Ban hang'                                        AS sos_order_type_vn,
+            CASE so.order_type
+                WHEN 'VAN_SALE' THEN 'Van sale'
+                WHEN 'PRE_SALE' THEN 'Pre-sale'
+                WHEN 'SAMPLE'   THEN 'Mau thu'
+                ELSE so.order_type
+            END                                               AS sos_order_type_vn,
             'SALES ORDER'                                     AS source_type,
 
             p.code                                            AS product_code,
@@ -144,8 +149,8 @@ def extract_sellout(engine):
 
             sal.username                                       AS salesperson_code,
             sal.full_name                                      AS salesperson_name,
-            sup.username                                       AS supervisor_code,
-            sup.full_name                                      AS supervisor_name,
+            sup_sub.supervisor_code                            AS supervisor_code,
+            sup_sub.supervisor_name                            AS supervisor_name,
 
             wh.code                                            AS warehouse_code,
 
@@ -194,7 +199,16 @@ def extract_sellout(engine):
         LEFT JOIN raw_route_master     rm  ON so.route_master_id  = rm.id
         LEFT JOIN raw_selling_zone     sz  ON rm.selling_zone_id  = sz.id
         LEFT JOIN raw_region           reg ON sz.region_id        = reg.id
-        LEFT JOIN raw_user             sup ON rm.manage_by_id     = sup.id
+        LEFT JOIN (
+            -- Giam sat/quan ly tuyen THAT SU gan qua route_manager_assignment (dang hieu luc,
+            -- end_date IS NULL) - route_master.manage_by_id KHONG duoc dung boi du lieu that
+            -- (luon NULL), day la nguyen nhan cu supervisor_code/name bi rong truoc khi sua.
+            SELECT rma.route_master_id, u2.username AS supervisor_code, e2.full_name AS supervisor_name
+            FROM raw_route_manager_assignment rma
+            JOIN raw_employee e2 ON e2.id = rma.employee_id
+            JOIN raw_user     u2 ON u2.id = e2.user_id
+            WHERE rma.end_date IS NULL
+        ) sup_sub ON sup_sub.route_master_id = rm.id
         JOIN  raw_warehouse            wh  ON so.warehouse_id     = wh.id
         LEFT JOIN raw_invoice          inv ON inv.sales_order_id  = so.id
         LEFT JOIN raw_invoice_item     ii  ON ii.invoice_id       = inv.id
