@@ -35,6 +35,8 @@ INTENTS = [
     "ROUTE_COUNT",         # Cau hoi DEM SO LUONG ("co bao nhieu tuyen") - tra loi NGAN GON 1
                             # con so, khac PRODUCT_BY_ROUTE (liet ke chi tiet tung tuyen)
     "ROUTE_SALESMAN_LOOKUP", # Tra cuu 1 TUYEN CU THE (vd R-HCM-01): ai phu trach, SDT, email
+    "SALESMAN_PERFORMANCE", # Xep hang NHAN VIEN BAN HANG (SM) theo doanh so cao/thap nhat,
+                             # kem SDT/email - khac CUSTOMER_PERFORMANCE (xep hang KHACH HANG)
     "OTHER",              # Ngoai pham vi nghiep vu (chao hoi, cau hoi khong lien quan...) - lop
                            # "tu choi" de khong ep cau hoi khong lien quan vao 1 trong 8 intent that
 ]
@@ -226,6 +228,22 @@ TRAINING_EXAMPLES = {
         "salesman phu trach tuyen r-hcm-20 ten gi",
         "tuyen r-hcm-01 nhan vien ban hang la ai cho toi so dien thoai cua nhan vien ban hang do",
         "cho toi email va so dien thoai cua nvbh tuyen r-hn-02",
+    ],
+    "SALESMAN_PERFORMANCE": [
+        "nhan vien nao co doanh so thap nhat",
+        "nhan vien nao o hcm dang co doanh so thap nhat",
+        "salesman nao doanh so cao nhat",
+        "sm nao ban hang kem nhat",
+        "nhan vien ban hang nao dang co doanh so thap nhat toi can so dien thoai cua saleman do",
+        "ai la nhan vien ban hang gioi nhat thang nay",
+        "nhan vien nao can cai thien doanh so",
+        "top nhan vien ban hang doanh so cao nhat",
+        "sm nao dong gop doanh thu nhieu nhat chi nhanh hcm",
+        "danh sach nhan vien ban hang doanh so thap nhat kem so dien thoai",
+        "nvbh nao ban hang yeu nhat o chi nhanh ha noi",
+        "xep hang nhan vien ban hang theo doanh so",
+        "ai la nguoi ban hang gioi nhat trong thang",
+        "nhan vien sale nao doanh so kem nhat can nhac nho",
     ],
     "OTHER": [
         "xin chao",

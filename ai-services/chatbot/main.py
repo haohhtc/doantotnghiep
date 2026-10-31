@@ -40,6 +40,16 @@ SUGGESTED_QUESTIONS = [
     "Khách hàng nào có doanh số thấp nhất, thuộc tuyến nào, SM nào phụ trách?",
 ]
 
+# Cac intent "xep hang theo 1 chieu co dinh" - neu classifier chon 1 trong so nay nhung chieu
+# nguoi dung THAT SU hoi (phat hien qua tu khoa, dang tin cay hon TF-IDF cho truong hop nay)
+# lai KHAC chieu intent do ho tro, uu tien GENERIC_RANKING (dung dung chieu) hon la tra loi sai
+# chieu nhung dung giong cau. Vd "giam sat nao doanh thu cao nhat" de bi TF-IDF nham thanh
+# SALESMAN_PERFORMANCE (tu vung giong nhau) trong khi dimension that su la SUPERVISOR.
+RANKING_INTENT_DIMENSION = {
+    "TOP_SELLING": "PRODUCT", "SLOW_MOVING": "PRODUCT",
+    "CUSTOMER_PERFORMANCE": "CUSTOMER", "SALESMAN_PERFORMANCE": "SALESMAN",
+}
+
 FALLBACK_ANSWER = (
     "Xin lỗi, tôi chưa hiểu rõ câu hỏi này. Bạn có thể hỏi về: doanh thu/doanh số bán hàng, "
     "sản phẩm bán chạy hoặc bán chậm, tồn kho hiện tại, sản phẩm sắp hết hàng, tình hình nhập "
@@ -66,6 +76,31 @@ def chat(req: ChatRequest):
 
     engine = get_dw_engine()
     intent, confidence = predict_intent(question)
+
+    # Luoi an toan tong quat (xem entities.extract_dimension/handlers.handle_generic_ranking):
+    # dung khi (a) khong intent cu the nao khop, HOAC (b) intent chon duoc la 1 trong nhom "xep
+    # hang theo 1 chieu co dinh" nhung chieu tu khoa phat hien duoc lai KHAC chieu intent do ho
+    # tro - uu tien tin tu khoa ro rang hon vi TF-IDF co the nham lan giua cac tu vung giong
+    # nhau (vd "giam sat"/"nhan vien ban hang"). Khong dung lam "ghi de" cho cac intent khac
+    # (STOCK_*/ROUTE_*/INBOUND_*/SUPPLIER_*) vi GENERIC_RANKING chi phu hop voi metric doanh
+    # thu/so luong tren fact_sellout, khong thay the duoc logic rieng cua cac intent do.
+    dimension = entities.extract_dimension(question)
+    rank_language = entities.has_rank_language(question)
+    expected_dim = RANKING_INTENT_DIMENSION.get(intent)
+    should_use_generic = dimension and rank_language and (intent is None or (
+        intent in RANKING_INTENT_DIMENSION and expected_dim != dimension
+    ) or intent == "REVENUE_TOTAL")
+
+    if should_use_generic:
+        ref_date = entities.resolve_reference_date(engine)
+        start, end, label = entities.extract_date_range(question, ref_date)
+        location = entities.extract_location(question, engine)
+        metric = entities.extract_metric(question)
+        direction = entities.extract_rank_direction(question)
+        limit = entities.extract_limit(question, default=5)
+        answer, source = handlers.handle_generic_ranking(
+            engine, metric, dimension, start, end, label, direction, location, limit)
+        return {"answer": answer, "sourceData": source, "intent": "GENERIC_RANKING", "confidence": confidence}
 
     if intent is None:
         return {"answer": FALLBACK_ANSWER, "sourceData": [], "intent": None, "confidence": confidence}
@@ -106,6 +141,10 @@ def chat(req: ChatRequest):
     elif intent == "ROUTE_SALESMAN_LOOKUP":
         route = entities.extract_route(question, engine)
         answer, source = handlers.handle_route_salesman_lookup(engine, route)
+    elif intent == "SALESMAN_PERFORMANCE":
+        direction = entities.extract_rank_direction(question)
+        limit = entities.extract_limit(question, default=5)
+        answer, source = handlers.handle_salesman_performance(engine, start, end, label, direction, location, limit)
     else:
         answer, source = FALLBACK_ANSWER, []
 

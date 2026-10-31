@@ -8,6 +8,21 @@ from sqlalchemy import text as sql_text
 
 from nlp import normalize
 
+_WORD_CACHE = {}
+
+
+def _has_word(keyword: str, text: str) -> bool:
+    """So khop keyword nhu 1 TU/CUM TU DOC LAP trong text (bien gioi khong phai chu cai/so),
+    khong phai chuoi con nam trong tu khac. BAT BUOC dung ham nay thay vi 'keyword in text' cho
+    cac tu khoa ngan (vd "kho") - bug that da gap: "kho" (kho hang) la chuoi con cua "khong"
+    (phu dinh) nen 'kho' in 'khong dep' tra ve True sai, khien hau nhu cau nao co chu "khong"
+    cung bi nham la dang hoi ve kho."""
+    pattern = _WORD_CACHE.get(keyword)
+    if pattern is None:
+        pattern = re.compile(r"(?<![a-z0-9])" + re.escape(keyword) + r"(?![a-z0-9])")
+        _WORD_CACHE[keyword] = pattern
+    return pattern.search(text) is not None
+
 
 def resolve_reference_date(engine):
     """'Hom nay' cua chatbot = ngay gan nhat THAT SU co du lieu ban hang trong DW, khong phai
@@ -132,7 +147,7 @@ def extract_location(question: str, engine):
     # 2) Nhac toi chi nhanh (ten day du hoac alias thong dung)
     branch_code = None
     for bcode, aliases in BRANCH_ALIASES.items():
-        if any(a in q for a in aliases):
+        if any(_has_word(a, q) for a in aliases):
             branch_code = bcode
             break
     if not branch_code:
@@ -146,7 +161,7 @@ def extract_location(question: str, engine):
     # 3) Co nhac them loai kho (Main/Van/kho loi) va chi nhanh nay chi co DUNG 1 kho loai do
     # -> quy ve thang 1 kho cu the, khong can cong don ca chi nhanh.
     for wtype, keywords in WAREHOUSE_TYPE_KEYWORDS.items():
-        if any(kw in q for kw in keywords):
+        if any(_has_word(kw, q) for kw in keywords):
             matched = [r for r in branch_warehouses if r.warehouse_type == wtype]
             if len(matched) == 1:
                 return {"scope": "warehouse", "warehouse_code": matched[0].warehouse_code,
@@ -176,15 +191,72 @@ def extract_limit(question: str, default=5, max_limit=20):
     return default
 
 
+# --- LUOI AN TOAN TONG QUAT (xem handlers.handle_generic_ranking) ---
+# Thay vi phai viet 1 ham rieng cho moi to hop "doanh thu/so luong theo San pham/KH/NV/Tuyen/
+# Kho/Chi nhanh", chi can nhan dien 2 "slot": DUNG CHI SO gi (metric) va XEP THEO chieu nao
+# (dimension) - roi handlers.handle_generic_ranking tu ghep SQL dung. Ky thuat "slot filling"
+# co dien (khong can LLM), dung lam LUOI AN TOAN khi khong intent cu the nao khop (xem main.py) -
+# giup chatbot tra loi duoc nhieu to hop cau hoi hon, khong chi gioi han trong tap intent da code
+# san, ma van tu giai thich duoc (khong phai hop den nhu LLM).
+DIMENSION_COLUMNS = {
+    # dimension: (cot ma, cot ten hien thi hoac None neu dung luon cot ma)
+    "PRODUCT": ("product_code", "product_name"),
+    "CUSTOMER": ("customer_code", "customer_name"),
+    "SALESMAN": ("salesperson_code", "salesperson_name"),
+    "SUPERVISOR": ("supervisor_code", "supervisor_name"),
+    "ROUTE": ("route_code", "route_name"),
+    "WAREHOUSE": ("warehouse_code", None),
+    "BRANCH": ("branch_code", "branch_name"),
+}
+
+_DIMENSION_KEYWORDS = {
+    "SALESMAN": ["nhan vien ban hang", "nhan vien sale", "salesman", "saleman", " sm ", "nvbh"],
+    "SUPERVISOR": ["giam sat", "quan ly vung", "supervisor"],
+    "CUSTOMER": ["khach hang"],
+    "ROUTE": ["tuyen"],
+    "WAREHOUSE": ["kho"],
+    "BRANCH": ["chi nhanh", "npp"],
+    "PRODUCT": ["san pham", "mat hang"],
+}
+
+
+def extract_dimension(question: str):
+    """Cau hoi dang 'X nao ... nhat' - X la chieu nao (san pham/KH/NV/tuyen/kho/chi nhanh)?
+    Tra ve None neu khong nhan dien duoc chieu nao ro rang."""
+    q = normalize(question)
+    for dim, keywords in _DIMENSION_KEYWORDS.items():
+        if any(_has_word(kw, q) for kw in keywords):
+            return dim
+    return None
+
+
+def extract_metric(question: str, default="REVENUE"):
+    """Hoi theo DOANH THU/DOANH SO (tien) hay SO LUONG (don vi san pham)."""
+    q = normalize(question)
+    if any(_has_word(k, q) for k in ["so luong", "ban duoc bao nhieu", "mua duoc bao nhieu", "so sp"]):
+        return "QUANTITY"
+    if any(_has_word(k, q) for k in ["doanh thu", "doanh so", "tien ban", "gia tri ban"]):
+        return "REVENUE"
+    return default
+
+
 def extract_rank_direction(question: str, default="DESC"):
     """Cau hoi xep hang (KH/SP nao thap nhat/cao nhat...) - tra ve 'ASC' (thap->cao, lay dau la
     thap nhat) hoac 'DESC' (cao->thap, lay dau la cao nhat)."""
     q = normalize(question)
-    if any(k in q for k in _LOW_RANK_KEYWORDS):
+    if any(_has_word(k, q) for k in _LOW_RANK_KEYWORDS):
         return "ASC"
-    if any(k in q for k in _HIGH_RANK_KEYWORDS):
+    if any(_has_word(k, q) for k in _HIGH_RANK_KEYWORDS):
         return "DESC"
     return default
+
+
+def has_rank_language(question: str) -> bool:
+    """True neu cau hoi co ngon ngu XEP HANG ro rang (thap nhat/cao nhat/nhieu nhat/...) - dung
+    de phan biet cau hoi dang 'X nao ... nhat' (can xep hang that su) voi cau hoi tong hop don
+    gian (vd REVENUE_TOTAL khong co y xep hang) - xem main.py."""
+    q = normalize(question)
+    return any(_has_word(k, q) for k in _LOW_RANK_KEYWORDS + _HIGH_RANK_KEYWORDS)
 
 
 def extract_route(question: str, engine):

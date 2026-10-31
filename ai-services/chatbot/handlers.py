@@ -436,6 +436,97 @@ def handle_route_salesman_lookup(engine, route):
     return answer, [dict(row._mapping)]
 
 
+def handle_salesman_performance(engine, start, end, label, direction="ASC", location=None, limit=5):
+    """Xep hang NHAN VIEN BAN HANG (khac CUSTOMER_PERFORMANCE - xep hang khach hang) theo tong
+    doanh so cac don ho ban trong ky, kem SDT/email (JOIN fact_sellout.salesperson_code ->
+    raw_user.username -> raw_employee.user_id, giong cach lay employee cho ROUTE_SALESMAN_LOOKUP)."""
+    from entities import location_label
+
+    where = ["f.so_order_date BETWEEN :start AND :end", "f.salesperson_code IS NOT NULL"]
+    params = {"start": start, "end": end, "limit": limit}
+    loc_sql, loc_params = _location_filter(location, "f.warehouse_code", "f.branch_code")
+    params.update(loc_params)
+
+    order = "ASC" if direction == "ASC" else "DESC"
+    sql = f"""
+        SELECT f.salesperson_code, f.salesperson_name, e.code AS employee_code, e.phone, e.email,
+               SUM(f.line_amount_after_tax) AS revenue, SUM(f.quantity) AS qty, COUNT(DISTINCT f.so_id) AS orders
+        FROM fact_sellout f
+        LEFT JOIN raw_user u ON u.username = f.salesperson_code
+        LEFT JOIN raw_employee e ON e.user_id = u.id
+        WHERE {' AND '.join(where)} {loc_sql}
+        GROUP BY f.salesperson_code, f.salesperson_name, e.code, e.phone, e.email
+        ORDER BY revenue {order} LIMIT :limit
+    """
+    with engine.connect() as conn:
+        rows = conn.execute(sql_text(sql), params).fetchall()
+
+    scope = location_label(location)
+    if not rows:
+        return f"Không có dữ liệu bán hàng theo nhân viên{scope} trong khoảng {label}.", []
+
+    rank_label = "thấp nhất" if direction == "ASC" else "cao nhất"
+    lines = []
+    for i, r in enumerate(rows):
+        phone = r.phone or "chưa cập nhật"
+        lines.append(
+            f'{i+1}. {r.salesperson_name} ({r.employee_code or r.salesperson_code}): doanh thu {_money(r.revenue)}, '
+            f'{_qty(r.qty)} sản phẩm, {r.orders} đơn — SĐT: {phone}'
+        )
+    answer = (f"Top {len(rows)} nhân viên bán hàng có doanh số {rank_label}{scope} trong {label} "
+              f"({start} → {end}):\n" + "\n".join(lines))
+    return answer, [dict(r._mapping) for r in rows]
+
+
+_METRIC_EXPR = {"REVENUE": "SUM(line_amount_after_tax)", "QUANTITY": "SUM(quantity)"}
+_METRIC_LABEL = {"REVENUE": "doanh thu", "QUANTITY": "số lượng bán"}
+_DIMENSION_LABEL = {
+    "PRODUCT": "sản phẩm", "CUSTOMER": "khách hàng", "SALESMAN": "nhân viên bán hàng",
+    "SUPERVISOR": "giám sát bán hàng", "ROUTE": "tuyến", "WAREHOUSE": "kho", "BRANCH": "chi nhánh",
+}
+
+
+def handle_generic_ranking(engine, metric, dimension, start, end, label, direction="DESC", location=None, limit=5):
+    """LUOI AN TOAN TONG QUAT - xem entities.py. Tu dong ghep SQL xep hang tren fact_sellout
+    theo BAT KY dimension nao trong DIMENSION_COLUMNS, khong can 1 ham rieng cho tung to hop.
+    Chi dung khi khong intent cu the nao (TOP_SELLING/CUSTOMER_PERFORMANCE/...) nhan dien duoc -
+    cac intent rieng van uu tien hon vi tra loi chi tiet/gop ngu canh phong phu hon (vd
+    CUSTOMER_PERFORMANCE con kem ca tuyen + SM phu trach, con o day chi co 1 con so xep hang)."""
+    from entities import location_label, DIMENSION_COLUMNS
+
+    code_col, name_col = DIMENSION_COLUMNS[dimension]
+    metric_expr = _METRIC_EXPR.get(metric, _METRIC_EXPR["REVENUE"])
+    order = "ASC" if direction == "ASC" else "DESC"
+    loc_sql, loc_params = _location_filter(location)
+    params = {"start": start, "end": end, "limit": limit, **loc_params}
+
+    select_name = f", {name_col} AS dim_name" if name_col else ""
+    group_name = f", {name_col}" if name_col else ""
+    sql = f"""
+        SELECT {code_col} AS dim_code{select_name}, {metric_expr} AS value
+        FROM fact_sellout
+        WHERE so_order_date BETWEEN :start AND :end {loc_sql} AND {code_col} IS NOT NULL
+        GROUP BY {code_col}{group_name}
+        ORDER BY value {order} LIMIT :limit
+    """
+    with engine.connect() as conn:
+        rows = conn.execute(sql_text(sql), params).fetchall()
+
+    scope = location_label(location)
+    dim_label = _DIMENSION_LABEL.get(dimension, dimension)
+    metric_label = _METRIC_LABEL.get(metric, metric)
+    if not rows:
+        return f"Không có dữ liệu {metric_label} theo {dim_label}{scope} trong khoảng {label}.", []
+
+    rank_word = "thấp nhất" if direction == "ASC" else "cao nhất"
+    fmt_value = _money if metric == "REVENUE" else _qty
+    lines = [f'{i+1}. {(r.dim_name if name_col else r.dim_code) or r.dim_code} ({r.dim_code}): {fmt_value(r.value)}'
+             for i, r in enumerate(rows)]
+    answer = (f"Top {len(rows)} {dim_label} có {metric_label} {rank_word}{scope} trong {label} "
+              f"({start} → {end}):\n" + "\n".join(lines))
+    return answer, [dict(r._mapping) for r in rows]
+
+
 def handle_supplier_analysis(engine):
     sql = """
         SELECT ds.supplier_code, ds.supplier_name, SUM(f.quantity) AS qty, SUM(f.amount) AS amount
