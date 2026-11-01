@@ -139,7 +139,7 @@ export default function SalesOrderPage() {
     fetchRouteInfo(customerId, form.getFieldValue('docDate')).then((info) => {
       form.setFieldsValue({ routeMasterId: info?.routeMasterId, salesmanId: info?.salesmanId });
     });
-    autoFillWarehouse(customerId);
+    autoFillWarehouse(customerId, form.getFieldValue('orderType'));
   }
 
   // Khi NGUOI DUNG tu doi Ngay dat hang - NVBH co the doi theo (gan theo thoi gian trong
@@ -152,24 +152,28 @@ export default function SalesOrderPage() {
     });
   }
 
-  // Kho xuat khong con cho chon tay - tu suy tu Khach hang: khach thuoc chi nhanh nao thi xuat tu
-  // Kho Main cua dung chi nhanh do. Chi goi khi NGUOI DUNG tu doi Khach hang (onChange cua Select),
-  // KHONG goi khi mo lai don cu de sua (giu dung kho da luu cua don do, xem openEditModal).
-  function autoFillWarehouse(customerId) {
+  // Kho xuat khong con cho chon tay - tu suy tu Khach hang + Loai don: khach thuoc chi nhanh nao
+  // thi xuat tu dung chi nhanh do, loai kho theo dung loai don (PRE_ORDER/SAMPLE -> Main, STANDARD
+  // (Van-Sales) -> Van). Goi khi NGUOI DUNG tu doi Khach hang HOAC doi Loai don (xem
+  // handleCustomerSelect/handleOrderTypeChange), KHONG goi khi mo lai don cu de sua (giu dung kho
+  // da luu cua don do, xem openEditModal).
+  function autoFillWarehouse(customerId, orderType) {
     if (!customerId) {
       form.setFieldsValue({ warehouseId: undefined });
       return;
     }
     const customer = customers.find((c) => c.id === customerId);
-    const mainWarehouse = customer?.branch?.id
-      ? warehouses.find((w) => w.branch?.id === customer.branch.id && w.warehouseType === 'MAIN')
+    const wantedType = orderType === 'STANDARD' ? 'VAN' : 'MAIN';
+    const targetWarehouse = customer?.branch?.id
+      ? warehouses.find((w) => w.branch?.id === customer.branch.id && w.warehouseType === wantedType)
       : null;
-    if (!mainWarehouse) {
-      message.error('Khách hàng này thuộc chi nhánh chưa có Kho chính (Main) - vui lòng cấu hình kho trước');
+    if (!targetWarehouse) {
+      const label = wantedType === 'VAN' ? 'Van' : 'chính (Main)';
+      message.error(`Khách hàng này thuộc chi nhánh chưa có Kho ${label} - vui lòng cấu hình kho trước`);
       form.setFieldsValue({ warehouseId: undefined });
       return;
     }
-    form.setFieldsValue({ warehouseId: mainWarehouse.id });
+    form.setFieldsValue({ warehouseId: targetWarehouse.id });
   }
 
   function loadData() {
@@ -219,13 +223,13 @@ export default function SalesOrderPage() {
     setModalOpen(true);
   }
 
-  // Don mau: don gia luon = 0 (mien phi) - ep lai cac dong da them khi doi sang SAMPLE. Kho xuat gio
-  // luon la Kho Main (tu suy tu khach hang - xem autoFillWarehouse) nen khong can xu ly rieng cho
-  // Pre-order nua.
+  // Don mau: don gia luon = 0 (mien phi) - ep lai cac dong da them khi doi sang SAMPLE. Kho xuat
+  // tinh lai theo dung loai don moi (xem autoFillWarehouse) vi STANDARD/PRE_ORDER khac loai kho.
   function handleOrderTypeChange(type) {
     if (type === 'SAMPLE') {
       setDetailRows((prev) => prev.map((d) => ({ ...d, unitPrice: 0 })));
     }
+    autoFillWarehouse(form.getFieldValue('customerId'), type);
   }
 
   function openEditModal(record) {

@@ -113,6 +113,7 @@ public class SalesOrderService {
             throw ApiException.conflict("Loai don hang khong hop le: " + orderType);
         }
         Warehouse warehouse = findWarehouse(dto.getWarehouseId());
+        Customer customer = findCustomer(dto.getCustomerId());
         if ("PRE_ORDER".equals(orderType)) {
             if (dto.getDeliveryDate() == null) {
                 throw ApiException.conflict("Don Pre-order bat buoc phai chon Ngay giao hang");
@@ -121,12 +122,18 @@ public class SalesOrderService {
                 throw ApiException.conflict("Don Pre-order bat buoc xuat tu Kho chinh (Main)");
             }
         }
+        if ("STANDARD".equals(orderType) && !"VAN".equals(warehouse.getWarehouseType())) {
+            throw ApiException.conflict("Don Van-Sales (STANDARD) bat buoc xuat tu Kho Van");
+        }
+        if (!warehouse.getBranch().getId().equals(customer.getBranch().getId())) {
+            throw ApiException.conflict("Kho xuat phai cung chi nhanh voi khach hang");
+        }
 
         order.setOrderType(orderType);
         order.setDeliveryDate(dto.getDeliveryDate());
         order.setRemarks(dto.getRemarks());
         order.setDocDate(dto.getDocDate());
-        order.setCustomer(findCustomer(dto.getCustomerId()));
+        order.setCustomer(customer);
         order.setWarehouse(warehouse);
         order.setRouteMaster(dto.getRouteMasterId() != null ? findRouteMaster(dto.getRouteMasterId()) : null);
         order.setSalesman(dto.getSalesmanId() != null ? findEmployee(dto.getSalesmanId()) : null);
