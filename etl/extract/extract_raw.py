@@ -109,9 +109,9 @@ def extract_sellout(engine):
                 ELSE 'khac'
             END                                               AS sos_order_status_icon_vn,
             CASE so.order_type
-                WHEN 'VAN_SALE' THEN 'Van sale'
-                WHEN 'PRE_SALE' THEN 'Pre-sale'
-                WHEN 'SAMPLE'   THEN 'Mau thu'
+                WHEN 'STANDARD'  THEN 'Van sale'
+                WHEN 'PRE_ORDER' THEN 'Pre-sale'
+                WHEN 'SAMPLE'    THEN 'Mau thu'
                 ELSE so.order_type
             END                                               AS sos_order_type_vn,
             'SALES ORDER'                                     AS source_type,
@@ -217,6 +217,71 @@ def extract_sellout(engine):
         LEFT JOIN raw_delivery_order_item doi ON doi.delivery_order_id = dov.id
                                               AND doi.product_id  = sod.product_id
         WHERE so.status = 'CONFIRMED'
+    """
+    return pd.read_sql(sql, engine)
+
+
+def extract_stock_enriched(engine):
+    """Ton kho hien tai + product info + warehouse info + avg purchase price."""
+    sql = """
+        SELECT
+            s.product_id,
+            p.code          AS product_code,
+            p.name          AS product_name,
+            pc.code         AS category_code,
+            pc.name         AS category_name,
+            pcp.code        AS parent_category_code,
+            pcp.name        AS parent_category_name,
+            s.warehouse_id,
+            w.code          AS warehouse_code,
+            w.name          AS warehouse_name,
+            w.warehouse_type,
+            b.code          AS branch_code,
+            b.name          AS branch_name,
+            s.quantity      AS quantity_on_hand,
+            COALESCE(gr_avg.avg_price, 0) AS avg_unit_price
+        FROM raw_stock s
+        JOIN raw_product p           ON p.id  = s.product_id
+        JOIN raw_product_category pc ON pc.id = p.category_id
+        LEFT JOIN raw_product_category pcp ON pcp.id = pc.parent_id
+        JOIN raw_warehouse w          ON w.id  = s.warehouse_id
+        LEFT JOIN raw_branch b        ON b.id  = w.branch_id
+        LEFT JOIN (
+            SELECT grd.product_id, AVG(grd.unit_price) AS avg_price
+            FROM raw_goods_receipt gr
+            JOIN raw_goods_receipt_detail grd ON grd.goods_receipt_id = gr.id
+            WHERE gr.status = 'CLOSED'
+            GROUP BY grd.product_id
+        ) gr_avg ON gr_avg.product_id = s.product_id
+    """
+    return pd.read_sql(sql, engine)
+
+
+def extract_movement_enriched(engine):
+    """Lich su giao dich kho (stock_transaction) + product + warehouse info."""
+    sql = """
+        SELECT
+            st.id               AS txn_id,
+            DATE(st.created_at) AS txn_date,
+            st.product_id,
+            p.code              AS product_code,
+            p.name              AS product_name,
+            pc.code             AS category_code,
+            pc.name             AS category_name,
+            st.warehouse_id,
+            w.code              AS warehouse_code,
+            w.name              AS warehouse_name,
+            w.warehouse_type,
+            b.code              AS branch_code,
+            b.name              AS branch_name,
+            st.type             AS txn_type,
+            st.reference_type,
+            st.quantity
+        FROM raw_stock_transaction st
+        JOIN raw_product p           ON p.id  = st.product_id
+        JOIN raw_product_category pc ON pc.id = p.category_id
+        JOIN raw_warehouse w          ON w.id  = st.warehouse_id
+        LEFT JOIN raw_branch b        ON b.id  = w.branch_id
     """
     return pd.read_sql(sql, engine)
 

@@ -83,6 +83,19 @@ def main():
     validate.reconcile_stock(oltp, dw, date.today())
     validate.check_monthly_sales(dw)
 
+    from extract.extract_raw import extract_stock_enriched, extract_movement_enriched
+    from transform.transform_tonkho import transform_tonkho, transform_tonkho_movement
+
+    print("\n== 7. fact_tonkho (wide snapshot hom nay) ==")
+    fact_tk = transform_tonkho(extract_stock_enriched(dw))
+    load_facts(dw, fact_tk, "fact_tonkho")
+    print(f"Da nap {len(fact_tk)} dong")
+
+    print("\n== 8. fact_tonkho_movement (wide movement history) ==")
+    fact_mv = transform_tonkho_movement(extract_movement_enriched(dw))
+    load_facts(dw, fact_mv, "fact_tonkho_movement")
+    print(f"Da nap {len(fact_mv)} dong")
+
 
 if __name__ == "__main__":
     main()
