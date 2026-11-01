@@ -413,7 +413,14 @@ export default function SalesOrderPage() {
     { title: 'Loại đơn', dataIndex: 'orderType', key: 'orderType', render: (t) => orderTypeTag(t) },
     { title: 'Yêu cầu gốc', key: 'salesRequest', render: (_, o) => o.salesRequest?.docNumber || '-' },
     { title: 'Kho xuất', key: 'warehouse', render: (_, o) => o.warehouse?.name },
-    { title: 'Ngày giao', dataIndex: 'deliveryDate', key: 'deliveryDate', render: (v) => v || '-' },
+    {
+      title: 'Ngày giao',
+      key: 'deliveryDate',
+      // PRE_ORDER: deliveryDate la ngay hen giao sau, luu rieng. STANDARD/SAMPLE: ban kiem giao
+      // ngay (Van-Sales) nen khong co deliveryDate rieng trong DB - ngay giao chinh la ngay dat
+      // hang, khong phai "thieu du lieu".
+      render: (_, o) => o.deliveryDate || o.docDate,
+    },
     {
       title: 'Tổng tiền',
       dataIndex: 'totalAmount',
