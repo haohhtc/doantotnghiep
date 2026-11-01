@@ -393,6 +393,11 @@ export default function SalesOrderPage() {
     return product?.saleTaxGroup ? Number(product.saleTaxGroup.ratePercent) : 0;
   }
 
+  // Don khong con PENDING (da duyet/da huy): Edit van mo duoc de XEM chi tiet, nhung khoa toan bo
+  // form + an nut Luu/Them dong/Xoa dong - chi con "Dong" de thoat, tranh nham tuong sua duoc don
+  // da chot (backend cung chan o SalesOrderService.requirePending() neu co goi PUT).
+  const isReadOnly = !!editingOrder && editingOrder.status !== 'PENDING';
+
   const totalQty = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0), 0);
   const subtotalAmount = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0) * Number(d.unitPrice || 0), 0);
   const estimatedTax = detailRows.reduce(
@@ -423,7 +428,7 @@ export default function SalesOrderPage() {
         const isPending = record.status === 'PENDING';
         return (
           <Space>
-            <Button icon={<EditOutlined />} disabled={!isPending} onClick={() => openEditModal(record)} />
+            <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
             {isPending && (
               <>
                 <Popconfirm
@@ -470,14 +475,18 @@ export default function SalesOrderPage() {
       key: 'tax',
       render: (_, d) => `${taxRateOf(d.productId)}%`,
     },
-    {
-      title: '',
-      key: 'actions',
-      width: 60,
-      render: (_, record) => (
-        <Button size="small" icon={<DeleteOutlined />} danger onClick={() => handleRemoveDetailRow(record.id)} />
-      ),
-    },
+    ...(isReadOnly
+      ? []
+      : [
+          {
+            title: '',
+            key: 'actions',
+            width: 60,
+            render: (_, record) => (
+              <Button size="small" icon={<DeleteOutlined />} danger onClick={() => handleRemoveDetailRow(record.id)} />
+            ),
+          },
+        ]),
   ];
 
   return (
@@ -517,16 +526,26 @@ export default function SalesOrderPage() {
       <Table rowKey="id" rowSelection={rowSelection} columns={columns} dataSource={filteredOrders} loading={loading} />
 
       <Modal
-        title={editingOrder ? `Sửa đơn hàng ${editingOrder.docNumber}` : 'Thêm đơn hàng'}
+        title={
+          editingOrder
+            ? `${isReadOnly ? 'Xem' : 'Sửa'} đơn hàng ${editingOrder.docNumber}`
+            : 'Thêm đơn hàng'
+        }
         open={modalOpen}
-        onOk={handleSubmit}
+        onOk={isReadOnly ? () => setModalOpen(false) : handleSubmit}
         onCancel={() => setModalOpen(false)}
-        okText="Lưu"
+        okText={isReadOnly ? 'Đóng' : 'Lưu'}
         cancelText="Hủy"
+        cancelButtonProps={isReadOnly ? { style: { display: 'none' } } : undefined}
         width={800}
         destroyOnHidden
       >
-        <Form form={form} layout="vertical">
+        {isReadOnly && (
+          <Text type="warning" style={{ display: 'block', marginBottom: 12 }}>
+            Đơn hàng đã {editingOrder.status === 'CONFIRMED' ? 'được duyệt' : 'hủy'} - chỉ xem, không thể sửa.
+          </Text>
+        )}
+        <Form form={form} layout="vertical" disabled={isReadOnly}>
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item label="Số đơn" name="docNumber" extra={editingOrder ? undefined : 'Để trống để tự sinh số'}>
@@ -604,9 +623,11 @@ export default function SalesOrderPage() {
 
         <div style={{ marginTop: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Text strong>Chi tiết đơn hàng</Text>
-          <Button size="small" icon={<PlusOutlined />} onClick={handleAddDetailRow}>
-            Thêm dòng
-          </Button>
+          {!isReadOnly && (
+            <Button size="small" icon={<PlusOutlined />} onClick={handleAddDetailRow}>
+              Thêm dòng
+            </Button>
+          )}
         </div>
         <Table
           rowKey="id"
