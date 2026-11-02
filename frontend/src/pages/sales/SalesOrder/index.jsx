@@ -65,6 +65,15 @@ export default function SalesOrderPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  // Luoi chinh phan trang server-side (6000+ don, khong the load het 1 lan - xem loadOrders).
+  // searchText go debounce 400ms truoc khi goi API (tranh goi lien tuc moi phim go).
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  // Modal "Nguoi yeu cau" co luoi phan trang RIENG (khong dung chung "orders" cua luoi chinh - o
+  // do chi la 1 trang dang xem, khong phai toan bo don) - xem loadRequesterOrders.
+  const [requesterOrders, setRequesterOrders] = useState([]);
+  const [requesterLoading, setRequesterLoading] = useState(false);
+  const [requesterPagination, setRequesterPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   const [modalOpen, setModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -176,27 +185,80 @@ export default function SalesOrderPage() {
     form.setFieldsValue({ warehouseId: targetWarehouse.id });
   }
 
-  function loadData() {
-    setLoading(true);
-    Promise.all([
-      axiosClient.get('/sales-orders'),
-      axiosClient.get('/customers'),
-      axiosClient.get('/warehouses'),
-      axiosClient.get('/products'),
-    ])
-      .then(([ordersRes, customersRes, warehousesRes, productsRes]) => {
-        setOrders(ordersRes.data.data);
+  // Du lieu tham chieu cho cac Select trong modal (Khach hang/Kho/San pham) - tai 1 lan, khong
+  // phu thuoc phan trang cua luoi chinh. Duoc cache nhe o axiosClient nen vao lai trang khong
+  // phai cho lau.
+  function loadReference() {
+    Promise.all([axiosClient.get('/customers'), axiosClient.get('/warehouses'), axiosClient.get('/products')])
+      .then(([customersRes, warehousesRes, productsRes]) => {
         setCustomers(customersRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setProducts(productsRes.data.data);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu tham chiếu'));
+  }
+
+  // Luoi chinh "Quan ly ban hang" - phan trang + loc server-side (goi API /sales-orders/search,
+  // xem SalesOrderController). opts.resetToFirstPage=true dung khi doi bo loc (chi nhanh/tim kiem)
+  // hoac sau khi tao don moi - don moi luon o dau vi sap xep moi nhat truoc. opts.page/pageSize/
+  // search/branchId cho phep truyen gia tri MOI truc tiep (tranh doc state cu do setState bat
+  // dong bo - vd Table.pagination.onChange hoac nut Tai lai).
+  function loadOrders(opts = {}) {
+    setLoading(true);
+    const page = opts.resetToFirstPage ? 1 : opts.page ?? pagination.current;
+    const pageSize = opts.pageSize ?? pagination.pageSize;
+    const search = opts.search !== undefined ? opts.search : debouncedSearch;
+    const branchId = opts.branchId !== undefined ? opts.branchId : selectedBranchId;
+    axiosClient
+      .get('/sales-orders/search', {
+        params: { page: page - 1, size: pageSize, branchId: branchId || undefined, search: search || undefined },
+      })
+      .then(({ data }) => {
+        setOrders(data.data.content);
+        setPagination({ current: page, pageSize, total: data.data.totalElements });
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu đơn hàng'))
       .finally(() => setLoading(false));
   }
 
+  // Modal "Nguoi yeu cau" - phan trang rieng, dung chung bo loc chi nhanh voi luoi chinh nhung
+  // khong loc theo tu khoa dang go o luoi chinh.
+  function loadRequesterOrders(page = 1, pageSize = requesterPagination.pageSize) {
+    setRequesterLoading(true);
+    axiosClient
+      .get('/sales-orders/search', {
+        params: { page: page - 1, size: pageSize, branchId: selectedBranchId || undefined },
+      })
+      .then(({ data }) => {
+        setRequesterOrders(data.data.content);
+        setRequesterPagination({ current: page, pageSize, total: data.data.totalElements });
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách người yêu cầu'))
+      .finally(() => setRequesterLoading(false));
+  }
+
   useEffect(() => {
-    loadData();
+    loadReference();
   }, []);
+
+  useEffect(() => {
+    if (requesterModalOpen) loadRequesterOrders(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requesterModalOpen]);
+
+  // Go tim kiem debounce 400ms truoc khi anh huong toi API.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchText.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchText]);
+
+  // Doi chi nhanh/tim kiem -> load lai tu trang 1. Doi trang/so dong moi trang -> goi truc tiep
+  // trong onChange cua Table (khong qua effect, tranh doc state cu/goi 2 lan - xem pagination prop).
+  useEffect(() => {
+    loadOrders({ resetToFirstPage: true });
+    setSelectedOrderIds([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBranchId, debouncedSearch]);
 
   useEffect(() => {
     if (!selectedBranchId) { setBranchProducts([]); return; }
@@ -205,13 +267,6 @@ export default function SalesOrderPage() {
       .then(({ data }) => setBranchProducts(data.data))
       .catch(() => setBranchProducts([]));
   }, [selectedBranchId]);
-
-  const filteredOrders = orders.filter((o) => {
-    if (selectedBranchId && o.warehouse?.branch?.id !== selectedBranchId) return false;
-    const keyword = searchText.trim().toLowerCase();
-    if (!keyword) return true;
-    return o.docNumber.toLowerCase().includes(keyword) || (o.customer?.name || '').toLowerCase().includes(keyword);
-  });
 
   function openCreateModal() {
     setEditingOrder(null);
@@ -255,7 +310,7 @@ export default function SalesOrderPage() {
       .delete(`/sales-orders/${record.id}`)
       .then(() => {
         message.success('Đã xóa đơn hàng');
-        loadData();
+        loadOrders();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
@@ -265,7 +320,7 @@ export default function SalesOrderPage() {
       .post(`/sales-orders/${record.id}/confirm`)
       .then(() => {
         message.success('Đã xác nhận đơn hàng và tự động tạo Đơn giao hàng - vào "Xác nhận giao hàng" để xuất kho');
-        loadData();
+        loadOrders();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xác nhận thất bại'));
   }
@@ -275,7 +330,7 @@ export default function SalesOrderPage() {
       .post(`/sales-orders/${record.id}/cancel`)
       .then(() => {
         message.success('Đã hủy đơn hàng');
-        loadData();
+        loadOrders();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Hủy thất bại'));
   }
@@ -303,7 +358,7 @@ export default function SalesOrderPage() {
           Modal.error({ title: 'Một số đơn hàng xác nhận thất bại', content: <div>{failed.map((f) => <div key={f}>{f}</div>)}</div> });
         }
         setSelectedOrderIds([]);
-        loadData();
+        loadOrders();
       })
       .finally(() => setMassConfirming(false));
   }
@@ -384,7 +439,7 @@ export default function SalesOrderPage() {
         .then(() => {
           message.success(editingOrder ? 'Cập nhật thành công' : 'Tạo đơn hàng thành công');
           setModalOpen(false);
-          loadData();
+          loadOrders(editingOrder ? {} : { resetToFirstPage: true });
         })
         .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
@@ -510,9 +565,10 @@ export default function SalesOrderPage() {
         onAdd={openCreateModal}
         addTooltip="Thêm đơn hàng"
         onReload={() => {
-          loadData();
           setSearchText('');
+          setDebouncedSearch('');
           setSelectedOrderIds([]);
+          loadOrders({ resetToFirstPage: true, search: '' });
         }}
         betweenReloadExport={
           <Tooltip title="Người yêu cầu / tạo đơn">
@@ -534,7 +590,24 @@ export default function SalesOrderPage() {
         }
       />
 
-      <Table rowKey="id" rowSelection={rowSelection} columns={columns} dataSource={filteredOrders} loading={loading} />
+      <Table
+        rowKey="id"
+        rowSelection={rowSelection}
+        columns={columns}
+        dataSource={orders}
+        loading={loading}
+        pagination={{
+          current: pagination.current,
+          pageSize: pagination.pageSize,
+          total: pagination.total,
+          showSizeChanger: true,
+          showTotal: (total) => `${total} đơn hàng`,
+          onChange: (page, pageSize) => {
+            loadOrders({ page, pageSize });
+            setSelectedOrderIds([]);
+          },
+        }}
+      />
 
       <Modal
         title={
@@ -726,8 +799,14 @@ export default function SalesOrderPage() {
         <Table
           rowKey="id"
           size="small"
-          dataSource={orders}
-          pagination={{ pageSize: 10 }}
+          dataSource={requesterOrders}
+          loading={requesterLoading}
+          pagination={{
+            current: requesterPagination.current,
+            pageSize: requesterPagination.pageSize,
+            total: requesterPagination.total,
+            onChange: (page, pageSize) => loadRequesterOrders(page, pageSize),
+          }}
           columns={[
             { title: 'Số đơn', dataIndex: 'docNumber', key: 'docNumber' },
             { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },

@@ -1,9 +1,25 @@
 package com.erpqlkho.backend.sales.repository;
 
 import com.erpqlkho.backend.sales.entity.SalesOrder;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
+
+    // Dung cho luoi "Quan ly ban hang" (phan trang server-side) - loc theo chi nhanh (qua kho xuat)
+    // + tim theo so don/ten khach hang, moi nhat truoc. Xem SalesOrderController.search().
+    @org.springframework.data.jpa.repository.Query("""
+            select so from SalesOrder so
+            where (:branchId is null or so.warehouse.branch.id = :branchId)
+              and (:search is null or :search = ''
+                   or lower(so.docNumber) like lower(concat('%', :search, '%'))
+                   or lower(so.customer.name) like lower(concat('%', :search, '%')))
+            order by so.id desc
+            """)
+    Page<SalesOrder> search(@org.springframework.data.repository.query.Param("branchId") Long branchId,
+                             @org.springframework.data.repository.query.Param("search") String search,
+                             Pageable pageable);
 
     // "Da dat hang" (theo don vi co so) cua 1 san pham tai 1 kho: don PENDING/CONFIRMED con giu cho - voi kho
     // Main den khi Don giao hang duoc Xac nhan (hang da sang Kho Van), voi kho Van den khi xuat Hoa don.

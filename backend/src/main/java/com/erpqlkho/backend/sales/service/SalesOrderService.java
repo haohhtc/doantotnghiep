@@ -46,6 +46,11 @@ public class SalesOrderService {
     private final RouteMasterRepository routeMasterRepository;
     private final EmployeeRepository employeeRepository;
 
+    public org.springframework.data.domain.Page<SalesOrder> search(
+            Long branchId, String search, org.springframework.data.domain.Pageable pageable) {
+        return salesOrderRepository.search(branchId, search, pageable);
+    }
+
     public List<SalesOrder> findAll() {
         return salesOrderRepository.findAll();
     }
