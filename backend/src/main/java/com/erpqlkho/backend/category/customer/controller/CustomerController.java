@@ -5,8 +5,10 @@ import com.erpqlkho.backend.category.customer.dto.CustomerRouteInfoDto;
 import com.erpqlkho.backend.category.customer.entity.Customer;
 import com.erpqlkho.backend.category.customer.service.CustomerService;
 import com.erpqlkho.backend.common.response.ApiResponse;
+import com.erpqlkho.backend.common.response.PageResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,6 +32,18 @@ public class CustomerController {
     @GetMapping
     public ApiResponse<List<Customer>> findAll() {
         return ApiResponse.ok(customerService.findAll());
+    }
+
+    // Dung rieng cho luoi "Quan ly khach hang" (phan trang + loc server-side).
+    @GetMapping("/search")
+    public ApiResponse<PageResponse<Customer>> search(
+            @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        var result = customerService.search(branchId, active, search, PageRequest.of(page, size));
+        return ApiResponse.ok(PageResponse.from(result));
     }
 
     @GetMapping("/{id}")

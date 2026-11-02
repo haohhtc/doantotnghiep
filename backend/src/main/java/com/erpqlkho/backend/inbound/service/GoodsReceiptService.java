@@ -40,6 +40,11 @@ public class GoodsReceiptService {
         return goodsReceiptRepository.findAll();
     }
 
+    public org.springframework.data.domain.Page<GoodsReceipt> search(
+            Long branchId, String search, org.springframework.data.domain.Pageable pageable) {
+        return goodsReceiptRepository.search(branchId, search, pageable);
+    }
+
     public GoodsReceipt findById(Long id) {
         return goodsReceiptRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay phieu nhap id=" + id));

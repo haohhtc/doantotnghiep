@@ -28,6 +28,8 @@ export default function CustomersPage() {
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [filterValues, setFilterValues] = useState({});
@@ -37,37 +39,48 @@ export default function CustomersPage() {
   const priceListOptions = priceLists.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }));
   const branchOptions = branches.map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` }));
 
-  function loadData() {
-    setLoading(true);
-    Promise.all([
-      axiosClient.get('/customers'),
-      axiosClient.get('/customer-channels'),
-      axiosClient.get('/price-lists'),
-      axiosClient.get('/branches'),
-    ])
-      .then(([customersRes, channelsRes, priceListsRes, branchesRes]) => {
-        setCustomers(customersRes.data.data);
+  function loadReference() {
+    Promise.all([axiosClient.get('/customer-channels'), axiosClient.get('/price-lists'), axiosClient.get('/branches')])
+      .then(([channelsRes, priceListsRes, branchesRes]) => {
         setChannels(channelsRes.data.data);
         setPriceLists(priceListsRes.data.data);
         setBranches(branchesRes.data.data);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu tham chiếu'));
+  }
+
+  function loadCustomers(opts = {}) {
+    setLoading(true);
+    const page = opts.resetToFirstPage ? 1 : opts.page ?? pagination.current;
+    const pageSize = opts.pageSize ?? pagination.pageSize;
+    const search = opts.search !== undefined ? opts.search : debouncedSearch;
+    const branchId = opts.branchId !== undefined ? opts.branchId : selectedBranchId;
+    const active = 'active' in opts ? opts.active : filterValues.active;
+    axiosClient
+      .get('/customers/search', {
+        params: { page: page - 1, size: pageSize, branchId: branchId || undefined, active: active || undefined, search: search || undefined },
+      })
+      .then(({ data }) => {
+        setCustomers(data.data.content);
+        setPagination({ current: page, pageSize, total: data.data.totalElements });
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách khách hàng'))
       .finally(() => setLoading(false));
   }
 
   useEffect(() => {
-    loadData();
+    loadReference();
   }, []);
 
-  const filteredCustomers = customers.filter((c) => {
-    const keyword = searchText.trim().toLowerCase();
-    if (keyword && !c.code.toLowerCase().includes(keyword) && !c.name.toLowerCase().includes(keyword)) {
-      return false;
-    }
-    if (filterValues.active && String(c.active) !== filterValues.active) return false;
-    if (selectedBranchId && c.branch?.id !== selectedBranchId) return false;
-    return true;
-  });
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchText.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchText]);
+
+  useEffect(() => {
+    loadCustomers({ resetToFirstPage: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBranchId, debouncedSearch, filterValues.active]);
 
   function openCreateModal() {
     setEditingCustomer(null);
@@ -96,7 +109,7 @@ export default function CustomersPage() {
       .delete(`/customers/${record.id}`)
       .then(() => {
         message.success('Đã xóa khách hàng');
-        loadData();
+        loadCustomers();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
@@ -110,7 +123,7 @@ export default function CustomersPage() {
         .then(() => {
           message.success(editingCustomer ? 'Cập nhật thành công' : 'Tạo khách hàng thành công');
           setModalOpen(false);
-          loadData();
+          loadCustomers(editingCustomer ? {} : { resetToFirstPage: true });
         })
         .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
@@ -158,16 +171,30 @@ export default function CustomersPage() {
         onAdd={openCreateModal}
         addTooltip="Thêm khách hàng"
         onReload={() => {
-          loadData();
           setSearchText('');
+          setDebouncedSearch('');
           setFilterValues({});
+          loadCustomers({ resetToFirstPage: true, search: '', active: undefined });
         }}
         filters={[{ name: 'active', label: 'Trạng thái', options: ACTIVE_FILTER_OPTIONS }]}
         filterValues={filterValues}
         onFilterChange={setFilterValues}
       />
 
-      <Table rowKey="id" columns={columns} dataSource={filteredCustomers} loading={loading} />
+      <Table
+        rowKey="id"
+        columns={columns}
+        dataSource={customers}
+        loading={loading}
+        pagination={{
+          current: pagination.current,
+          pageSize: pagination.pageSize,
+          total: pagination.total,
+          showSizeChanger: true,
+          showTotal: (total) => `${total} khách hàng`,
+          onChange: (page, pageSize) => loadCustomers({ page, pageSize }),
+        }}
+      />
 
       <Modal
         title={editingCustomer ? 'Sửa khách hàng' : 'Thêm khách hàng'}

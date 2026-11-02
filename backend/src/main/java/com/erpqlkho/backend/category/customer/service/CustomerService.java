@@ -37,6 +37,11 @@ public class CustomerService {
     private final RouteSalesmanAssignmentRepository routeSalesmanAssignmentRepository;
     private final BranchRepository branchRepository;
 
+    public org.springframework.data.domain.Page<Customer> search(
+            Long branchId, Boolean active, String search, org.springframework.data.domain.Pageable pageable) {
+        return customerRepository.search(branchId, active, search, pageable);
+    }
+
     public List<Customer> findAll() {
         return customerRepository.findAll();
     }

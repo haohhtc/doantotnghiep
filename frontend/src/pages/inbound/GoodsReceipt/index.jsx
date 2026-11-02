@@ -28,6 +28,8 @@ export default function GoodsReceiptPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [modalOpen, setModalOpen] = useState(false);
   const [editingReceipt, setEditingReceipt] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -47,34 +49,47 @@ export default function GoodsReceiptPage() {
     return options.find((o) => o.value === id)?.label || '';
   }
 
-  function loadData() {
-    setLoading(true);
-    Promise.all([
-      axiosClient.get('/goods-receipts'),
-      axiosClient.get('/suppliers'),
-      axiosClient.get('/warehouses'),
-      axiosClient.get('/products'),
-    ])
-      .then(([receiptsRes, suppliersRes, warehousesRes, productsRes]) => {
-        setReceipts(receiptsRes.data.data);
+  function loadReference() {
+    Promise.all([axiosClient.get('/suppliers'), axiosClient.get('/warehouses'), axiosClient.get('/products')])
+      .then(([suppliersRes, warehousesRes, productsRes]) => {
         setSuppliers(suppliersRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setProducts(productsRes.data.data);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu tham chiếu'));
+  }
+
+  function loadReceipts(opts = {}) {
+    setLoading(true);
+    const page = opts.resetToFirstPage ? 1 : opts.page ?? pagination.current;
+    const pageSize = opts.pageSize ?? pagination.pageSize;
+    const search = opts.search !== undefined ? opts.search : debouncedSearch;
+    const branchId = opts.branchId !== undefined ? opts.branchId : selectedBranchId;
+    axiosClient
+      .get('/goods-receipts/search', {
+        params: { page: page - 1, size: pageSize, branchId: branchId || undefined, search: search || undefined },
+      })
+      .then(({ data }) => {
+        setReceipts(data.data.content);
+        setPagination({ current: page, pageSize, total: data.data.totalElements });
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu phiếu nhập'))
       .finally(() => setLoading(false));
   }
 
   useEffect(() => {
-    loadData();
+    loadReference();
   }, []);
 
-  const filteredReceipts = receipts.filter((r) => {
-    if (selectedBranchId && r.warehouse?.branch?.id !== selectedBranchId) return false;
-    const keyword = searchText.trim().toLowerCase();
-    if (!keyword) return true;
-    return r.docNumber.toLowerCase().includes(keyword) || (r.supplier?.name || '').toLowerCase().includes(keyword);
-  });
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchText.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchText]);
+
+  useEffect(() => {
+    loadReceipts({ resetToFirstPage: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBranchId, debouncedSearch]);
 
   function openCreateModal() {
     setEditingReceipt(null);
@@ -103,7 +118,7 @@ export default function GoodsReceiptPage() {
       .delete(`/goods-receipts/${record.id}`)
       .then(() => {
         message.success('Đã xóa phiếu nhập');
-        loadData();
+        loadReceipts();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
@@ -113,7 +128,7 @@ export default function GoodsReceiptPage() {
       .post(`/goods-receipts/${record.id}/confirm`)
       .then(() => {
         message.success('Đã xác nhận phiếu nhập - cộng vào tồn kho');
-        loadData();
+        loadReceipts();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xác nhận thất bại'));
   }
@@ -167,7 +182,7 @@ export default function GoodsReceiptPage() {
         .then(() => {
           message.success(editingReceipt ? 'Cập nhật thành công' : 'Tạo phiếu nhập thành công');
           setModalOpen(false);
-          loadData();
+          loadReceipts(editingReceipt ? {} : { resetToFirstPage: true });
         })
         .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
@@ -253,12 +268,26 @@ export default function GoodsReceiptPage() {
         onAdd={canWrite ? openCreateModal : undefined}
         addTooltip="Thêm phiếu nhập"
         onReload={() => {
-          loadData();
           setSearchText('');
+          setDebouncedSearch('');
+          loadReceipts({ resetToFirstPage: true, search: '' });
         }}
       />
 
-      <Table rowKey="id" columns={columns} dataSource={filteredReceipts} loading={loading} />
+      <Table
+        rowKey="id"
+        columns={columns}
+        dataSource={receipts}
+        loading={loading}
+        pagination={{
+          current: pagination.current,
+          pageSize: pagination.pageSize,
+          total: pagination.total,
+          showSizeChanger: true,
+          showTotal: (total) => `${total} phiếu nhập`,
+          onChange: (page, pageSize) => loadReceipts({ page, pageSize }),
+        }}
+      />
 
       <Modal
         title={editingReceipt ? `Sửa phiếu nhập ${editingReceipt.docNumber}` : 'Thêm phiếu nhập'}
