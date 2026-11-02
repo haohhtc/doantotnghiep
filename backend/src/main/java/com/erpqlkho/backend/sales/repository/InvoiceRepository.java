@@ -10,6 +10,13 @@ import java.util.List;
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     boolean existsByInvoiceNumber(String invoiceNumber);
 
+    // Danh sach rieng sales_order_id dang co Hoa don CON HIEU LUC (khac CANCELLED) - dung cho
+    // trang Ton kho tinh "Da dat hang" (xem InventoriesController) khong can tai toan bo Hoa don
+    // (chi can biet DON NAO da xuat hoa don, khong can chi tiet dong hang).
+    @org.springframework.data.jpa.repository.Query(
+            "select distinct i.salesOrder.id from Invoice i where i.status <> 'CANCELLED'")
+    List<Long> findActiveSalesOrderIds();
+
     // Dung cho luoi "Hoa don" (phan trang server-side) - loc theo chi nhanh (qua Don hang ban ->
     // kho xuat) + tim theo so hoa don/so don hang, moi nhat truoc. Xem InvoiceController.search().
     @org.springframework.data.jpa.repository.Query("""

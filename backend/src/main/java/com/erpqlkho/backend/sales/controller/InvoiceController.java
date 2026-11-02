@@ -37,6 +37,13 @@ public class InvoiceController {
         return ApiResponse.ok(invoiceService.findAll());
     }
 
+    // Dung cho trang Ton kho (nhe hon nhieu so voi tai toan bo Hoa don) - xem
+    // frontend/src/pages/inventory/Inventories/index.jsx.
+    @GetMapping("/active-sales-order-ids")
+    public ApiResponse<List<Long>> activeSalesOrderIds() {
+        return ApiResponse.ok(invoiceService.findActiveSalesOrderIds());
+    }
+
     // Dung rieng cho luoi "Hoa don" (phan trang + loc server-side).
     @GetMapping("/search")
     public ApiResponse<PageResponse<Invoice>> search(

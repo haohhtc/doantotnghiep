@@ -34,6 +34,13 @@ public class DeliveryOrderController {
         return ApiResponse.ok(deliveryOrderService.findAll());
     }
 
+    // Dung cho trang Ton kho (nhe hon nhieu so voi tai toan bo Don giao hang) - xem
+    // frontend/src/pages/inventory/Inventories/index.jsx.
+    @GetMapping("/closed-van-mapping")
+    public ApiResponse<List<com.erpqlkho.backend.sales.repository.DeliveryOrderRepository.ClosedVanMapping>> closedVanMapping() {
+        return ApiResponse.ok(deliveryOrderService.findClosedVanMapping());
+    }
+
     // Dung rieng cho luoi "Don giao hang" (phan trang + loc server-side).
     @GetMapping("/search")
     public ApiResponse<PageResponse<DeliveryOrder>> search(

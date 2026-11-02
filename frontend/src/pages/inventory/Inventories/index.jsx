@@ -35,10 +35,12 @@ export default function InventoriesPage() {
       axiosClient.get('/warehouses', { params: { branchId: selectedBranchId } }),
       axiosClient.get('/stock'),
       axiosClient.get('/sales-orders'),
-      axiosClient.get('/delivery-orders'),
-      axiosClient.get('/invoices'),
+      // 2 endpoint nhe (chi vai cot can thiet) thay cho tai toan bo Don giao hang/Hoa don (4000+
+      // dong moi cai) - truoc day lam trang nay cham ro ret du backend da nhanh hon nhieu.
+      axiosClient.get('/delivery-orders/closed-van-mapping'),
+      axiosClient.get('/invoices/active-sales-order-ids'),
     ])
-      .then(([productsRes, warehousesRes, stockRes, ordersRes, deliveryRes, invoicesRes]) => {
+      .then(([productsRes, warehousesRes, stockRes, ordersRes, vanMappingRes, activeInvoiceIdsRes]) => {
         setBranchProducts(productsRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setStockRows(stockRes.data.data);
@@ -50,13 +52,9 @@ export default function InventoriesPage() {
         //     tai dung kho Van ay cho den khi xuat Hoa don (truoc day bi bo sot, hien 0 sai).
         // Chi tinh hoa don CON HIEU LUC (status != CANCELLED) - don co hoa don da Huy van phai tinh
         // la dang "giu cho" cho den khi xuat hoa don MOI thanh cong.
-        const invoicedOrderIds = new Set(
-          invoicesRes.data.data.filter((i) => i.status !== 'CANCELLED').map((i) => i.salesOrder.id)
-        );
+        const invoicedOrderIds = new Set(activeInvoiceIdsRes.data.data);
         const vanIdByOrderId = {};
-        deliveryRes.data.data
-          .filter((d) => d.status === 'CLOSED' && d.vanWarehouse)
-          .forEach((d) => { vanIdByOrderId[d.salesOrder.id] = d.vanWarehouse.id; });
+        vanMappingRes.data.data.forEach((m) => { vanIdByOrderId[m.salesOrderId] = m.vanWarehouseId; });
         setClosedVanWarehouseIdByOrderId(vanIdByOrderId);
         setPendingOrders(
           ordersRes.data.data.filter((o) => {

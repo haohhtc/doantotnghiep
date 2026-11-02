@@ -61,6 +61,10 @@ public class InvoiceService {
         return invoiceRepository.findByDeliveryOrderIdIn(deliveryOrderIds);
     }
 
+    public List<Long> findActiveSalesOrderIds() {
+        return invoiceRepository.findActiveSalesOrderIds();
+    }
+
     public org.springframework.data.domain.Page<Invoice> search(
             Long branchId, String search, org.springframework.data.domain.Pageable pageable) {
         return invoiceRepository.search(branchId, search, pageable);

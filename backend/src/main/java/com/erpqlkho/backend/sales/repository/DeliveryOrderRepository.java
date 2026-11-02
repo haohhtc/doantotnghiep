@@ -10,6 +10,19 @@ import java.util.List;
 public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, Long> {
     boolean existsByDocNumber(String docNumber);
 
+    // Chieu salesOrderId -> vanWarehouseId cua CAC don giao hang da CLOSED va da chuyen kho that
+    // (vanWarehouse != null) - dung cho trang Ton kho tinh "Da dat hang" (xem InventoriesController)
+    // khong can tai toan bo Don giao hang (chi can 2 cot nay).
+    interface ClosedVanMapping {
+        Long getSalesOrderId();
+        Long getVanWarehouseId();
+    }
+
+    @org.springframework.data.jpa.repository.Query(
+            "select d.salesOrder.id as salesOrderId, d.vanWarehouse.id as vanWarehouseId "
+                    + "from DeliveryOrder d where d.status = 'CLOSED' and d.vanWarehouse is not null")
+    List<ClosedVanMapping> findClosedVanMapping();
+
     // Dung cho luoi "Don giao hang" (phan trang server-side) - loc theo chi nhanh (qua kho xuat)
     // + tim theo so don giao/so don ban, moi nhat truoc. Xem DeliveryOrderController.search().
     @org.springframework.data.jpa.repository.Query("""
