@@ -1,12 +1,28 @@
 package com.erpqlkho.backend.sales.repository;
 
 import com.erpqlkho.backend.sales.entity.Invoice;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     boolean existsByInvoiceNumber(String invoiceNumber);
+
+    // Dung cho luoi "Hoa don" (phan trang server-side) - loc theo chi nhanh (qua Don hang ban ->
+    // kho xuat) + tim theo so hoa don/so don hang, moi nhat truoc. Xem InvoiceController.search().
+    @org.springframework.data.jpa.repository.Query("""
+            select i from Invoice i
+            where (:branchId is null or i.salesOrder.warehouse.branch.id = :branchId)
+              and (:search is null or :search = ''
+                   or lower(i.invoiceNumber) like lower(concat('%', :search, '%'))
+                   or lower(i.salesOrder.docNumber) like lower(concat('%', :search, '%')))
+            order by i.id desc
+            """)
+    Page<Invoice> search(@org.springframework.data.repository.query.Param("branchId") Long branchId,
+                          @org.springframework.data.repository.query.Param("search") String search,
+                          Pageable pageable);
 
     // V49: 1 Don giao hang co the co nhieu hoa don (xuat tung phan) nen tra ve List, khong con la
     // "1 hoa don duy nhat cua don hang" nhu truoc (xem InvoiceService.create()/cancel(),

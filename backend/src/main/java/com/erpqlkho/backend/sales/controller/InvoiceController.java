@@ -1,12 +1,14 @@
 package com.erpqlkho.backend.sales.controller;
 
 import com.erpqlkho.backend.common.response.ApiResponse;
+import com.erpqlkho.backend.common.response.PageResponse;
 import com.erpqlkho.backend.sales.dto.InvoiceDto;
 import com.erpqlkho.backend.sales.dto.VanSaleInvoiceDto;
 import com.erpqlkho.backend.sales.entity.Invoice;
 import com.erpqlkho.backend.sales.service.InvoiceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,6 +35,17 @@ public class InvoiceController {
             return ApiResponse.ok(invoiceService.findByDeliveryOrderIds(deliveryOrderIds));
         }
         return ApiResponse.ok(invoiceService.findAll());
+    }
+
+    // Dung rieng cho luoi "Hoa don" (phan trang + loc server-side).
+    @GetMapping("/search")
+    public ApiResponse<PageResponse<Invoice>> search(
+            @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        var result = invoiceService.search(branchId, search, PageRequest.of(page, size));
+        return ApiResponse.ok(PageResponse.from(result));
     }
 
     @GetMapping("/{id}")

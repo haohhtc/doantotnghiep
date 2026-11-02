@@ -18,18 +18,37 @@ export default function InvoicePage() {
   const [salesReturns, setSalesReturns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [detailInvoice, setDetailInvoice] = useState(null);
   const [returningInvoice, setReturningInvoice] = useState(null);
   const [returnReason, setReturnReason] = useState('');
   const [returnSubmitting, setReturnSubmitting] = useState(false);
 
-  function loadData() {
-    setLoading(true);
-    Promise.all([axiosClient.get('/invoices'), axiosClient.get('/warehouses'), axiosClient.get('/sales-returns')])
-      .then(([invoicesRes, warehousesRes, returnsRes]) => {
-        setInvoices(invoicesRes.data.data);
+  // Du lieu tham chieu nho (kho + 24 phieu tra hang) - tai 1 lan luc vao trang.
+  function loadReference() {
+    Promise.all([axiosClient.get('/warehouses'), axiosClient.get('/sales-returns')])
+      .then(([warehousesRes, returnsRes]) => {
         setWarehouses(warehousesRes.data.data);
         setSalesReturns(returnsRes.data.data);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu tham chiếu'));
+  }
+
+  // Luoi chinh - phan trang + loc server-side (gan 5000 hoa don, khong the load het 1 lan).
+  function loadInvoices(opts = {}) {
+    setLoading(true);
+    const page = opts.resetToFirstPage ? 1 : opts.page ?? pagination.current;
+    const pageSize = opts.pageSize ?? pagination.pageSize;
+    const search = opts.search !== undefined ? opts.search : debouncedSearch;
+    const branchId = opts.branchId !== undefined ? opts.branchId : selectedBranchId;
+    axiosClient
+      .get('/invoices/search', {
+        params: { page: page - 1, size: pageSize, branchId: branchId || undefined, search: search || undefined },
+      })
+      .then(({ data }) => {
+        setInvoices(data.data.content);
+        setPagination({ current: page, pageSize, total: data.data.totalElements });
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách hóa đơn'))
       .finally(() => setLoading(false));
@@ -57,21 +76,24 @@ export default function InvoicePage() {
       .post(`/invoices/${record.id}/cancel`)
       .then(() => {
         message.success('Đã hủy hóa đơn - đã mở lại Đơn giao hàng về "Chờ giao"');
-        loadData();
+        loadInvoices();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Hủy thất bại'));
   }
 
   useEffect(() => {
-    loadData();
+    loadReference();
   }, []);
 
-  const filtered = invoices.filter((i) => {
-    if (selectedBranchId && i.salesOrder?.warehouse?.branch?.id !== selectedBranchId) return false;
-    const keyword = searchText.trim().toLowerCase();
-    if (!keyword) return true;
-    return i.invoiceNumber.toLowerCase().includes(keyword) || (i.salesOrder?.docNumber || '').toLowerCase().includes(keyword);
-  });
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchText.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchText]);
+
+  useEffect(() => {
+    loadInvoices({ resetToFirstPage: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBranchId, debouncedSearch]);
 
   function openReturnModal(record) {
     if (record.status === 'CANCELLED') {
@@ -171,10 +193,27 @@ export default function InvoicePage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số hóa đơn hoặc số đơn hàng..."
-        onReload={loadData}
+        onReload={() => {
+          setSearchText('');
+          setDebouncedSearch('');
+          loadInvoices({ resetToFirstPage: true, search: '' });
+        }}
       />
 
-      <Table rowKey="id" columns={columns} dataSource={filtered} loading={loading} />
+      <Table
+        rowKey="id"
+        columns={columns}
+        dataSource={invoices}
+        loading={loading}
+        pagination={{
+          current: pagination.current,
+          pageSize: pagination.pageSize,
+          total: pagination.total,
+          showSizeChanger: true,
+          showTotal: (total) => `${total} hóa đơn`,
+          onChange: (page, pageSize) => loadInvoices({ page, pageSize }),
+        }}
+      />
 
       <Modal
         title={detailInvoice ? `Chi tiết hóa đơn ${detailInvoice.invoiceNumber}` : ''}

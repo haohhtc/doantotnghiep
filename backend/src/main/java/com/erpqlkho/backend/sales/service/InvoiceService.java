@@ -61,6 +61,11 @@ public class InvoiceService {
         return invoiceRepository.findByDeliveryOrderIdIn(deliveryOrderIds);
     }
 
+    public org.springframework.data.domain.Page<Invoice> search(
+            Long branchId, String search, org.springframework.data.domain.Pageable pageable) {
+        return invoiceRepository.search(branchId, search, pageable);
+    }
+
     public Invoice findById(Long id) {
         return invoiceRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay hoa don id=" + id));
