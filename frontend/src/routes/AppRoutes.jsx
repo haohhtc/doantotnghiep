@@ -49,6 +49,8 @@ import EmployeesPage from '../pages/employees';
 import SalesmanTypesPage from '../pages/salesmanTypes';
 import PlaceholderPage from '../components/PlaceholderPage';
 import ReportPlaceholderPage from '../components/ReportPlaceholderPage';
+import SalesReportPage from '../pages/reports/SalesReport';
+import InventoryReportPage from '../pages/reports/InventoryReport';
 
 export default function AppRoutes() {
   return (
@@ -102,8 +104,8 @@ export default function AppRoutes() {
             <Route path="/salesman-types" element={<SalesmanTypesPage />} />
 
             {/* Module rong cho Nhi (PowerBI) - khong co API/du lieu, xem tonghop.md Nhom 7 */}
-            <Route path="/reports/sales" element={<ReportPlaceholderPage title="Báo cáo bán hàng" />} />
-            <Route path="/reports/inventory" element={<ReportPlaceholderPage title="Báo cáo kho" />} />
+            <Route path="/reports/sales" element={<SalesReportPage />} />
+            <Route path="/reports/inventory" element={<InventoryReportPage />} />
             <Route path="/reports/purchase" element={<ReportPlaceholderPage title="Báo cáo mua hàng" />} />
             <Route path="/reports/catalog" element={<ReportPlaceholderPage title="Báo cáo danh mục" />} />
 

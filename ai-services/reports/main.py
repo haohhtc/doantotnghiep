@@ -1,0 +1,169 @@
+"""
+Report Data API - port 8005
+Cung cap du lieu tong hop tu DW cho Frontend bao cao.
+Chay: uvicorn main:app --reload --port 8005
+"""
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import pymysql
+import pymysql.cursors
+
+app = FastAPI(title="Report Data API", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
+DW_CONFIG = dict(
+    host="localhost", port=3307,
+    user="erp_user", password="erp_password",
+    database="erp_qlkho_dw",
+    charset="utf8mb4",
+    cursorclass=pymysql.cursors.DictCursor,
+)
+
+
+from decimal import Decimal
+
+def _to_json(row):
+    """Chuyen Decimal -> float de FastAPI co the serialize."""
+    return {k: float(v) if isinstance(v, Decimal) else v for k, v in row.items()}
+
+def query(sql, params=None):
+    conn = pymysql.connect(**DW_CONFIG)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(sql, params or ())
+            return [_to_json(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+# BC BAN HANG
+@app.get("/reports/sales")
+def sales_report():
+    monthly = query("""
+        SELECT so_order_year AS nam, so_order_month AS thang,
+               SUM(line_amount_after_tax) AS doanh_so,
+               SUM(quantity) AS so_luong,
+               COUNT(DISTINCT so_order_number) AS so_don
+        FROM fact_sellout
+        WHERE sos_order_type_vn != 'Tra hang'
+        GROUP BY so_order_year, so_order_month
+        ORDER BY so_order_year, so_order_month
+    """)
+
+    top_products = query("""
+        SELECT product_name, product_code,
+               SUM(line_amount_after_tax) AS doanh_so,
+               SUM(quantity) AS so_luong
+        FROM fact_sellout
+        WHERE sos_order_type_vn != 'Tra hang'
+        GROUP BY product_code, product_name
+        ORDER BY doanh_so DESC LIMIT 10
+    """)
+
+    stages = query("""
+        SELECT order_stage, COUNT(DISTINCT so_order_number) AS so_don
+        FROM fact_sellout
+        GROUP BY order_stage
+        ORDER BY order_stage
+    """)
+
+    top_customers = query("""
+        SELECT customer_name, customer_code,
+               SUM(line_amount_after_tax) AS doanh_so,
+               COUNT(DISTINCT so_order_number) AS so_don
+        FROM fact_sellout
+        WHERE sos_order_type_vn != 'Tra hang' AND customer_name IS NOT NULL
+        GROUP BY customer_code, customer_name
+        ORDER BY doanh_so DESC LIMIT 10
+    """)
+
+    summary = query("""
+        SELECT
+            SUM(CASE WHEN sos_order_type_vn != 'Tra hang' THEN line_amount_after_tax ELSE 0 END) AS tong_doanh_so,
+            COUNT(DISTINCT CASE WHEN sos_order_type_vn != 'Tra hang' THEN so_order_number END) AS tong_don,
+            SUM(CASE WHEN sos_order_type_vn != 'Tra hang' THEN quantity ELSE 0 END) AS tong_sl,
+            SUM(CASE WHEN sos_order_type_vn = 'Tra hang' THEN line_amount_after_tax ELSE 0 END) AS tong_tra_hang
+        FROM fact_sellout
+    """)
+
+    return {
+        "monthly": [dict(r) for r in monthly],
+        "top_products": [dict(r) for r in top_products],
+        "stages": [dict(r) for r in stages],
+        "top_customers": [dict(r) for r in top_customers],
+        "summary": dict(summary[0]) if summary else {},
+    }
+
+
+# BC KHO
+@app.get("/reports/inventory")
+def inventory_report():
+    current_stock = query("""
+        SELECT product_code, product_name, category_name,
+               warehouse_code, warehouse_name, warehouse_type, branch_name,
+               quantity_on_hand, avg_unit_price, inventory_value, stock_status
+        FROM fact_tonkho
+        ORDER BY inventory_value DESC
+    """)
+
+    by_category = query("""
+        SELECT category_name,
+               SUM(quantity_on_hand) AS tong_ton,
+               SUM(inventory_value) AS gia_tri
+        FROM fact_tonkho
+        GROUP BY category_name
+        ORDER BY gia_tri DESC
+    """)
+
+    by_warehouse = query("""
+        SELECT warehouse_name, warehouse_type,
+               SUM(quantity_on_hand) AS tong_ton,
+               SUM(inventory_value) AS gia_tri
+        FROM fact_tonkho
+        GROUP BY warehouse_name, warehouse_type
+        ORDER BY gia_tri DESC
+    """)
+
+    monthly_movement = query("""
+        SELECT txn_year AS nam, txn_month AS thang, txn_type_vn AS loai,
+               SUM(ABS(quantity)) AS so_luong
+        FROM fact_tonkho_movement
+        GROUP BY txn_year, txn_month, txn_type_vn
+        ORDER BY txn_year, txn_month, txn_type_vn
+    """)
+
+    stock_status_dist = query("""
+        SELECT stock_status, COUNT(*) AS so_sku
+        FROM fact_tonkho
+        GROUP BY stock_status
+    """)
+
+    summary = query("""
+        SELECT
+            COUNT(DISTINCT product_code) AS so_sku,
+            SUM(quantity_on_hand) AS tong_ton,
+            SUM(inventory_value) AS tong_gia_tri,
+            SUM(CASE WHEN stock_status IN ('Ton thap','Ton thap') THEN 1 ELSE 0 END) AS sku_ton_thap,
+            SUM(CASE WHEN stock_status IN ('Het hang','Het hang') THEN 1 ELSE 0 END) AS sku_het_hang
+        FROM fact_tonkho
+    """)
+
+    return {
+        "current_stock": [dict(r) for r in current_stock],
+        "by_category": [dict(r) for r in by_category],
+        "by_warehouse": [dict(r) for r in by_warehouse],
+        "monthly_movement": [dict(r) for r in monthly_movement],
+        "stock_status_dist": [dict(r) for r in stock_status_dist],
+        "summary": dict(summary[0]) if summary else {},
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8005)
