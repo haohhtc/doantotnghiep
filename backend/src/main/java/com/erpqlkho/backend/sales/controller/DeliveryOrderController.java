@@ -1,11 +1,13 @@
 package com.erpqlkho.backend.sales.controller;
 
 import com.erpqlkho.backend.common.response.ApiResponse;
+import com.erpqlkho.backend.common.response.PageResponse;
 import com.erpqlkho.backend.sales.dto.DeliveryOrderDto;
 import com.erpqlkho.backend.sales.entity.DeliveryOrder;
 import com.erpqlkho.backend.sales.service.DeliveryOrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -24,9 +27,22 @@ public class DeliveryOrderController {
 
     private final DeliveryOrderService deliveryOrderService;
 
+    // Khong doi - Don hang ban can toan bo de tinh "con lai chua giao" khi tao/sua Don giao hang
+    // moi (xem frontend DeliveryOrder/index.jsx, loadComputationData - tai lazy khi mo modal).
     @GetMapping
     public ApiResponse<List<DeliveryOrder>> findAll() {
         return ApiResponse.ok(deliveryOrderService.findAll());
+    }
+
+    // Dung rieng cho luoi "Don giao hang" (phan trang + loc server-side).
+    @GetMapping("/search")
+    public ApiResponse<PageResponse<DeliveryOrder>> search(
+            @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        var result = deliveryOrderService.search(branchId, search, PageRequest.of(page, size));
+        return ApiResponse.ok(PageResponse.from(result));
     }
 
     @GetMapping("/{id}")

@@ -28,13 +28,28 @@ function orderTypeLabel(type) {
 // xem backend/.../sales/service/DeliveryOrderService.java.
 export default function DeliveryOrderPage() {
   const { selectedBranchId } = useBranch();
+  // Luoi chinh (hien thi) - phan trang server-side, chi chua dung 1 trang dang xem.
   const [deliveryOrders, setDeliveryOrders] = useState([]);
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  // invoices: CHI cua cac Don giao hang dang hien tren trang (dung de tinh "con lai chua xuat hoa
+  // don" cho tung dong trong luoi) - tai lai moi khi doi trang, xem loadInvoicesForPage.
+  const [invoices, setInvoices] = useState([]);
+  // salesOrders/fullDeliveryOrders: du lieu TOAN BO, chi dung de TINH TOAN trong modal Tao/Sua
+  // (vd "con lai chua giao" can quet het cac dot giao cu cua 1 don hang, khong phu thuoc trang
+  // dang xem) - tai LUOI khi mo modal (xem loadComputationData), KHONG tai ngay luc vao trang.
   const [salesOrders, setSalesOrders] = useState([]);
+  const [fullDeliveryOrders, setFullDeliveryOrders] = useState([]);
+  const [computationLoaded, setComputationLoaded] = useState(false);
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
-  const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  // Modal "Nguoi xac nhan giao hang" - phan trang rieng (giong modal "Nguoi yeu cau" ben Don ban
+  // hang) - khong dung chung "deliveryOrders" cua luoi chinh vi do chi la 1 trang dang xem.
+  const [confirmedByOrders, setConfirmedByOrders] = useState([]);
+  const [confirmedByLoading, setConfirmedByLoading] = useState(false);
+  const [confirmedByPagination, setConfirmedByPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   const [modalOpen, setModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -57,7 +72,7 @@ export default function DeliveryOrderPage() {
       orderedByProduct[d.product.id] = (orderedByProduct[d.product.id] || 0) + Number(d.baseQuantity);
     });
     const deliveredByProduct = {};
-    deliveryOrders.forEach((d) => {
+    fullDeliveryOrders.forEach((d) => {
       if (d.salesOrder.id !== order.id || d.status === 'CANCELLED' || d.id === excludeDeliveryOrderId) return;
       d.items.forEach((item) => {
         deliveredByProduct[item.product.id] = (deliveredByProduct[item.product.id] || 0) + Number(item.baseQuantity);
@@ -96,36 +111,95 @@ export default function DeliveryOrderPage() {
     return options.find((o) => o.value === id)?.label || '';
   }
 
-  function loadData() {
-    setLoading(true);
-    Promise.all([
-      axiosClient.get('/delivery-orders'),
-      axiosClient.get('/sales-orders'),
-      axiosClient.get('/warehouses'),
-      axiosClient.get('/products'),
-      axiosClient.get('/invoices'),
-    ])
-      .then(([doRes, soRes, whRes, prodRes, invRes]) => {
-        setDeliveryOrders(doRes.data.data);
-        setSalesOrders(soRes.data.data);
+  // Du lieu tham chieu nho (kho/san pham) - tai 1 lan luc vao trang.
+  function loadReference() {
+    Promise.all([axiosClient.get('/warehouses'), axiosClient.get('/products')])
+      .then(([whRes, prodRes]) => {
         setWarehouses(whRes.data.data);
         setProducts(prodRes.data.data);
-        setInvoices(invRes.data.data);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu tham chiếu'));
+  }
+
+  // Luoi chinh - phan trang + loc server-side, sau do tai RIENG hoa don cua dung cac don giao hang
+  // dang hien tren trang (khong tai het 4000+ hoa don) de tinh "con lai chua xuat hoa don".
+  function loadDeliveryOrders(opts = {}) {
+    setLoading(true);
+    const page = opts.resetToFirstPage ? 1 : opts.page ?? pagination.current;
+    const pageSize = opts.pageSize ?? pagination.pageSize;
+    const search = opts.search !== undefined ? opts.search : debouncedSearch;
+    const branchId = opts.branchId !== undefined ? opts.branchId : selectedBranchId;
+    axiosClient
+      .get('/delivery-orders/search', {
+        params: { page: page - 1, size: pageSize, branchId: branchId || undefined, search: search || undefined },
+      })
+      .then(({ data }) => {
+        const content = data.data.content;
+        setDeliveryOrders(content);
+        setPagination({ current: page, pageSize, total: data.data.totalElements });
+        const ids = content.map((d) => d.id);
+        if (ids.length === 0) { setInvoices([]); return; }
+        return axiosClient.get('/invoices', { params: { deliveryOrderIds: ids.join(',') } }).then(({ data: invData }) => {
+          setInvoices(invData.data);
+        });
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu đơn giao hàng'))
       .finally(() => setLoading(false));
   }
 
+  // Du lieu TOAN BO (sales-orders + delivery-orders khong phan trang) chi can khi mo modal Tao/Sua
+  // (tinh "con lai chua giao" phai quet het cac dot giao cu, khong phu thuoc trang dang xem) - tai
+  // lan dau tien mo modal, cache nhe o axiosClient nen mo lai khong phai cho lau.
+  function loadComputationData() {
+    Promise.all([axiosClient.get('/sales-orders'), axiosClient.get('/delivery-orders')])
+      .then(([soRes, doRes]) => {
+        setSalesOrders(soRes.data.data);
+        setFullDeliveryOrders(doRes.data.data);
+        setComputationLoaded(true);
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu tính toán'));
+  }
+
+  // Dung sau moi thao tac tao/sua/xoa/duyet/huy - lam moi ca luoi hien thi LAN du lieu tinh toan
+  // (vi 2 cai co the anh huong lan nhau, vd xoa 1 dot giao se doi "con lai chua giao" cua don khac).
+  function refreshAfterMutation(loadOrdersOpts = {}) {
+    loadDeliveryOrders(loadOrdersOpts);
+    loadComputationData();
+  }
+
   useEffect(() => {
-    loadData();
+    loadReference();
+    // Tai nen (khong chan loading cua luoi chinh) ngay sau khi vao trang - den luc nguoi dung bam
+    // Tao/Sua thi hau het da co san roi (xem loadComputationData).
+    loadComputationData();
   }, []);
 
-  const filtered = deliveryOrders.filter((d) => {
-    if (selectedBranchId && d.warehouse?.branch?.id !== selectedBranchId) return false;
-    const keyword = searchText.trim().toLowerCase();
-    if (!keyword) return true;
-    return d.docNumber.toLowerCase().includes(keyword) || d.salesOrder.docNumber.toLowerCase().includes(keyword);
-  });
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchText.trim()), 400);
+    return () => clearTimeout(t);
+  }, [searchText]);
+
+  useEffect(() => {
+    loadDeliveryOrders({ resetToFirstPage: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBranchId, debouncedSearch]);
+
+  function loadConfirmedByOrders(page = 1, pageSize = confirmedByPagination.pageSize) {
+    setConfirmedByLoading(true);
+    axiosClient
+      .get('/delivery-orders/search', { params: { page: page - 1, size: pageSize, branchId: selectedBranchId || undefined } })
+      .then(({ data }) => {
+        setConfirmedByOrders(data.data.content);
+        setConfirmedByPagination({ current: page, pageSize, total: data.data.totalElements });
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách người xác nhận'))
+      .finally(() => setConfirmedByLoading(false));
+  }
+
+  useEffect(() => {
+    if (confirmedByModalOpen) loadConfirmedByOrders(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmedByModalOpen]);
 
   function openCreateModal() {
     setEditingOrder(null);
@@ -250,7 +324,7 @@ export default function DeliveryOrderPage() {
       .then(({ data }) => {
         message.success(`Đã xuất hóa đơn ${data.data.invoiceNumber}`);
         setInvoicingOrder(null);
-        loadData();
+        refreshAfterMutation();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xuất hóa đơn thất bại'));
   }
@@ -309,7 +383,7 @@ export default function DeliveryOrderPage() {
       .delete(`/delivery-orders/${record.id}`)
       .then(() => {
         message.success('Đã xóa đơn giao hàng');
-        loadData();
+        refreshAfterMutation();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xóa thất bại'));
   }
@@ -322,7 +396,7 @@ export default function DeliveryOrderPage() {
       .post(`/delivery-orders/${record.id}/cancel`)
       .then(() => {
         message.success('Đã hủy đợt giao hàng này - số lượng đã trở lại "còn lại chưa giao" của đơn hàng');
-        loadData();
+        refreshAfterMutation();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Hủy thất bại'));
   }
@@ -335,7 +409,7 @@ export default function DeliveryOrderPage() {
       .post(`/delivery-orders/${record.id}/confirm`)
       .then(() => {
         message.success('Đã xác nhận giao hàng - hàng đã chuyển sang Kho xe tải');
-        loadData();
+        refreshAfterMutation();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xác nhận thất bại'))
       .finally(() => setConfirmingId(null));
@@ -359,7 +433,7 @@ export default function DeliveryOrderPage() {
         .then(() => {
           message.success(editingOrder ? 'Cập nhật thành công' : 'Tạo đơn giao hàng thành công');
           setModalOpen(false);
-          loadData();
+          refreshAfterMutation(editingOrder ? {} : { resetToFirstPage: true });
         })
         .catch((err) => message.error(err.response?.data?.message || 'Thao tác thất bại'));
     });
@@ -469,8 +543,9 @@ export default function DeliveryOrderPage() {
         onAdd={openCreateModal}
         addTooltip="Tạo đơn giao hàng"
         onReload={() => {
-          loadData();
           setSearchText('');
+          setDebouncedSearch('');
+          refreshAfterMutation({ resetToFirstPage: true, search: '' });
         }}
         betweenReloadExport={
           <Tooltip title="Người xác nhận giao hàng">
@@ -479,7 +554,20 @@ export default function DeliveryOrderPage() {
         }
       />
 
-      <Table rowKey="id" columns={columns} dataSource={filtered} loading={loading} />
+      <Table
+        rowKey="id"
+        columns={columns}
+        dataSource={deliveryOrders}
+        loading={loading}
+        pagination={{
+          current: pagination.current,
+          pageSize: pagination.pageSize,
+          total: pagination.total,
+          showSizeChanger: true,
+          showTotal: (total) => `${total} đơn giao hàng`,
+          onChange: (page, pageSize) => loadDeliveryOrders({ page, pageSize }),
+        }}
+      />
 
       <Modal
         title={editingOrder ? `Sửa đơn giao hàng ${editingOrder.docNumber}` : 'Tạo đơn giao hàng'}
@@ -508,7 +596,8 @@ export default function DeliveryOrderPage() {
                 <Select
                   options={salesOrderOptions}
                   placeholder="Chọn đơn hàng đã duyệt"
-                  disabled={!!editingOrder}
+                  disabled={!!editingOrder || !computationLoaded}
+                  loading={!computationLoaded}
                   showSearch
                   optionFilterProp="label"
                   onChange={handleSalesOrderSelect}
@@ -690,8 +779,14 @@ export default function DeliveryOrderPage() {
         <Table
           rowKey="id"
           size="small"
-          dataSource={deliveryOrders}
-          pagination={{ pageSize: 10 }}
+          dataSource={confirmedByOrders}
+          loading={confirmedByLoading}
+          pagination={{
+            current: confirmedByPagination.current,
+            pageSize: confirmedByPagination.pageSize,
+            total: confirmedByPagination.total,
+            onChange: (page, pageSize) => loadConfirmedByOrders(page, pageSize),
+          }}
           columns={[
             { title: 'Số đơn giao', dataIndex: 'docNumber', key: 'docNumber' },
             { title: 'Đơn hàng bán', key: 'salesOrder', render: (_, r) => r.salesOrder?.docNumber },

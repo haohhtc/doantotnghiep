@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -23,8 +24,14 @@ public class InvoiceController {
 
     private final InvoiceService invoiceService;
 
+    // deliveryOrderIds (tuy chon): chi tra ve hoa don cua CAC don giao hang do - dung cho luoi
+    // "Don giao hang" (phan trang) tinh "con lai chua xuat hoa don" cho trang dang xem, khong can
+    // tai het 4000+ hoa don (xem frontend DeliveryOrder/index.jsx). Bo trong -> tra ve toan bo nhu cu.
     @GetMapping
-    public ApiResponse<List<Invoice>> findAll() {
+    public ApiResponse<List<Invoice>> findAll(@RequestParam(required = false) List<Long> deliveryOrderIds) {
+        if (deliveryOrderIds != null && !deliveryOrderIds.isEmpty()) {
+            return ApiResponse.ok(invoiceService.findByDeliveryOrderIds(deliveryOrderIds));
+        }
         return ApiResponse.ok(invoiceService.findAll());
     }
 

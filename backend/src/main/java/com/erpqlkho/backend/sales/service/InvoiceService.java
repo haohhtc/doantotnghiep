@@ -57,6 +57,10 @@ public class InvoiceService {
         return invoiceRepository.findAll();
     }
 
+    public List<Invoice> findByDeliveryOrderIds(List<Long> deliveryOrderIds) {
+        return invoiceRepository.findByDeliveryOrderIdIn(deliveryOrderIds);
+    }
+
     public Invoice findById(Long id) {
         return invoiceRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay hoa don id=" + id));

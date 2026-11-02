@@ -52,6 +52,11 @@ public class DeliveryOrderService {
         return deliveryOrderRepository.findAll();
     }
 
+    public org.springframework.data.domain.Page<DeliveryOrder> search(
+            Long branchId, String search, org.springframework.data.domain.Pageable pageable) {
+        return deliveryOrderRepository.search(branchId, search, pageable);
+    }
+
     public DeliveryOrder findById(Long id) {
         return deliveryOrderRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay don giao hang id=" + id));

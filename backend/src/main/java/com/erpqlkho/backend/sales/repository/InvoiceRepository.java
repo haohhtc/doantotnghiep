@@ -14,4 +14,9 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     List<Invoice> findByDeliveryOrderIdAndStatusNot(Long deliveryOrderId, String status);
 
     List<Invoice> findBySalesOrderIdAndStatusNot(Long salesOrderId, String status);
+
+    // Dung cho luoi "Don giao hang" (phan trang) tinh "con lai chua xuat hoa don" cho tung dong -
+    // chi can hoa don cua CAC don giao dang hien tren trang, khong can toan bo (xem
+    // InvoiceController.findAll(deliveryOrderIds), frontend DeliveryOrder/index.jsx).
+    List<Invoice> findByDeliveryOrderIdIn(List<Long> deliveryOrderIds);
 }

@@ -8,6 +8,14 @@ spring:
       ddl-auto: validate   # schema quan ly boi Flyway, khong de Hibernate tu sinh
     show-sql: false
     open-in-view: false
+    properties:
+      hibernate:
+        # Nhieu entity (SalesOrder, DeliveryOrder, Invoice...) co quan he EAGER - khong co dong
+        # nay, Hibernate N+1: load rieng 1 query cho MOI quan he cua MOI dong (vd GET toan bo
+        # sales_order ~6000 dong co the mat >100s). default_batch_fetch_size gom nhom cac lookup
+        # giong nhau thanh 1 query "WHERE id IN (...)" - giam con vai chuc query thay vi hang chuc
+        # nghin, khong doi logic/du lieu tra ve, chi doi CACH Hibernate truy van.
+        default_batch_fetch_size: 100
   flyway:
     enabled: true
     baseline-on-migrate: true
