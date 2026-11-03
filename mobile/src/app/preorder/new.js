@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   View,
@@ -9,13 +9,16 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import { useSession } from '../../../ctx/SessionContext';
-import { apiClient, errorMessage } from '../../../api/client';
+import { useSession } from '../../ctx/SessionContext';
+import { apiClient, errorMessage } from '../../api/client';
 
-// Sua don Pre-order dang PENDING (API update chi cho sua khi con PENDING - xem
-// SalesOrderService.requirePending()). Nap san du lieu cu, gui PUT thay vi POST.
-export default function EditPreorder() {
-  const { id } = useLocalSearchParams();
+const today = () => new Date().toISOString().slice(0, 10);
+
+// Buoc 1 "them san pham vao gio" (yeu cau tv2, giong anh tham khao "Danh sach hang hoa - Giao
+// sau"): stepper +/- thay vi go tay so luong, gia tu dong tra ve theo bang gia. Buoc 2 (xem lai +
+// xac nhan) o man hinh review.js, nhan gio hang qua route params.
+export default function NewPreorder() {
+  const { customerId: presetCustomerId } = useLocalSearchParams();
   const { session } = useSession();
   const employee = session?.employee;
   const branchId = employee?.user?.branch?.id;
@@ -23,14 +26,13 @@ export default function EditPreorder() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
-  const [warehouseId, setWarehouseId] = useState(null);
+  const [mainWarehouseId, setMainWarehouseId] = useState(null);
 
-  const [customerId, setCustomerId] = useState(null);
+  const [customerId, setCustomerId] = useState(presetCustomerId ? Number(presetCustomerId) : null);
   const [deliveryDate, setDeliveryDate] = useState('');
-  const [remarks, setRemarks] = useState('');
   const [quantities, setQuantities] = useState({});
   const [prices, setPrices] = useState({});
-  const [submitting, setSubmitting] = useState(false);
+
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -40,27 +42,17 @@ export default function EditPreorder() {
         return;
       }
       try {
-        const [orderRes, customersRes, productsRes] = await Promise.all([
-          apiClient.get(`/api/sales-orders/${id}`),
+        const [customersRes, productsRes, warehousesRes] = await Promise.all([
           apiClient.get('/api/customers'),
           apiClient.get(`/api/branches/${branchId}/products`),
+          apiClient.get('/api/warehouses'),
         ]);
-        const order = orderRes.data.data;
-        setCustomerId(order.customer.id);
-        setDeliveryDate(order.deliveryDate || '');
-        setRemarks(order.remarks || '');
-        setWarehouseId(order.warehouse.id);
-        const qty = {};
-        const price = {};
-        order.details.forEach((d) => {
-          qty[d.product.id] = d.quantity;
-          price[d.product.id] = d.unitPrice;
-        });
-        setQuantities(qty);
-        setPrices(price);
-
         setCustomers(customersRes.data.data.filter((c) => c.branch?.id === branchId));
         setProducts(productsRes.data.data.map((a) => a.product));
+        const main = warehousesRes.data.data.find(
+          (w) => w.branch?.id === branchId && w.warehouseType === 'MAIN'
+        );
+        setMainWarehouseId(main?.id || null);
       } catch (e) {
         setError(errorMessage(e));
       } finally {
@@ -68,59 +60,68 @@ export default function EditPreorder() {
       }
     }
     loadData();
-  }, [id, branchId]);
+  }, [branchId]);
 
-  function changeQty(productId, delta) {
-    setQuantities((prev) => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) + delta) }));
+  async function lookupPrice(productId) {
+    if (!customerId || !mainWarehouseId) return;
+    try {
+      const res = await apiClient.get('/api/price-lists/lookup', {
+        params: { productId, customerId, warehouseId: mainWarehouseId, purpose: 'SALE', date: today() },
+      });
+      if (res.data.data != null) {
+        setPrices((prev) => ({ ...prev, [productId]: res.data.data }));
+      }
+    } catch {
+      // Khong tim duoc gia tu dong - de nguoi dung tu sua o man xem lai, khong chan.
+    }
   }
 
-  async function handleSubmit() {
+  function changeQty(productId, delta) {
+    setQuantities((prev) => {
+      const next = Math.max(0, (prev[productId] || 0) + delta);
+      return { ...prev, [productId]: next };
+    });
+    if (!prices[productId]) lookupPrice(productId);
+  }
+
+  const cartLines = Object.entries(quantities)
+    .filter(([, qty]) => qty > 0)
+    .map(([productId, qty]) => {
+      const product = products.find((p) => p.id === Number(productId));
+      return { productId: Number(productId), name: product?.name, quantity: qty, unitPrice: prices[productId] || 0 };
+    });
+  const cartTotal = cartLines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
+
+  function handleGoToReview() {
     if (!customerId) {
-      setError('Chọn khách hàng');
+      setError('Chá»n khÃ¡ch hÃ ng');
       return;
     }
     if (!deliveryDate) {
-      setError('Đơn Pre-order bắt buộc có ngày giao hàng');
+      setError('ÄÆ¡n Pre-order báº¯t buá»™c cÃ³ ngÃ y giao hÃ ng (YYYY-MM-DD)');
       return;
     }
-    const details = Object.entries(quantities)
-      .filter(([, qty]) => qty > 0)
-      .map(([productId, qty]) => ({
-        productId: Number(productId),
-        quantity: qty,
-        unitPrice: Number(prices[productId] || 0),
-      }));
-    if (details.length === 0) {
-      setError('Chọn số lượng cho ít nhất 1 sản phẩm');
+    if (cartLines.length === 0) {
+      setError('Chá»n sá»‘ lÆ°á»£ng cho Ã­t nháº¥t 1 sáº£n pháº©m');
       return;
     }
-
-    setSubmitting(true);
     setError(null);
-    try {
-      await apiClient.put(`/api/sales-orders/${id}`, {
-        docDate: new Date().toISOString().slice(0, 10),
+    router.push({
+      pathname: '/preorder/review',
+      params: {
+        customerId: String(customerId),
+        warehouseId: String(mainWarehouseId),
         deliveryDate,
-        customerId,
-        warehouseId,
-        orderType: 'PRE_ORDER',
-        salesmanId: employee.id,
-        remarks: remarks || null,
-        details,
-      });
-      router.back();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setSubmitting(false);
-    }
+        items: JSON.stringify(cartLines),
+      },
+    });
   }
 
   if (loading) return <ActivityIndicator style={{ marginTop: 40 }} />;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Khách hàng</Text>
+      <Text style={styles.label}>KhÃ¡ch hÃ ng</Text>
       <FlatList
         data={customers}
         horizontal
@@ -136,15 +137,17 @@ export default function EditPreorder() {
         )}
       />
 
-      <Text style={styles.label}>Ngày giao hàng (YYYY-MM-DD)</Text>
-      <TextInput style={styles.input} value={deliveryDate} onChangeText={setDeliveryDate} />
-
-      <Text style={styles.label}>Ghi chú đơn hàng</Text>
-      <TextInput style={styles.input} value={remarks} onChangeText={setRemarks} />
+      <Text style={styles.label}>NgÃ y giao hÃ ng (YYYY-MM-DD)</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="2026-10-20"
+        value={deliveryDate}
+        onChangeText={setDeliveryDate}
+      />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Text style={styles.label}>Sản phẩm</Text>
+      <Text style={styles.label}>Sáº£n pháº©m</Text>
       <FlatList
         data={products}
         keyExtractor={(item) => String(item.id)}
@@ -155,7 +158,7 @@ export default function EditPreorder() {
               <Text style={styles.rowName} numberOfLines={2}>{item.name}</Text>
               <View style={styles.stepper}>
                 <Pressable style={styles.stepBtn} onPress={() => changeQty(item.id, -1)}>
-                  <Text style={styles.stepBtnText}>−</Text>
+                  <Text style={styles.stepBtnText}>âˆ’</Text>
                 </Pressable>
                 <Text style={[styles.stepValue, qty > 0 && styles.stepValueActive]}>{qty}</Text>
                 <Pressable style={styles.stepBtn} onPress={() => changeQty(item.id, 1)}>
@@ -167,9 +170,12 @@ export default function EditPreorder() {
         }}
       />
 
-      <Pressable style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Lưu thay đổi</Text>}
-      </Pressable>
+      {cartLines.length > 0 ? (
+        <Pressable style={styles.cartBar} onPress={handleGoToReview}>
+          <Text style={styles.cartBarText}>Giá» hÃ ng: {cartLines.length} sáº£n pháº©m</Text>
+          <Text style={styles.cartBarText}>{cartTotal.toLocaleString('vi-VN')} Ä‘ â†’</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -189,7 +195,11 @@ const styles = StyleSheet.create({
   stepBtnText: { fontSize: 18, fontWeight: '700', color: '#1677ff' },
   stepValue: { width: 36, textAlign: 'center', fontSize: 15 },
   stepValueActive: { fontWeight: '700', color: '#1677ff' },
-  submitBtn: { backgroundColor: '#1677ff', borderRadius: 8, padding: 14, alignItems: 'center', marginVertical: 16 },
-  submitText: { color: '#fff', fontWeight: '700' },
+  cartBar: {
+    position: 'absolute', left: 16, right: 16, bottom: 16,
+    backgroundColor: '#1677ff', borderRadius: 10, padding: 14,
+    flexDirection: 'row', justifyContent: 'space-between',
+  },
+  cartBarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   error: { color: '#d4380d', marginVertical: 4, textAlign: 'center' },
 });

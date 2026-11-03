@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react';
+﻿import { useCallback, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
-import { apiClient, errorMessage } from '../../../api/client';
+import { apiClient, errorMessage } from '../../api/client';
 
 // Xuat hoa don Van Sale co the sua lai so luong truoc khi xuat (vd ban it hon dat vi het hang) -
 // cong don cac hoa don Van Sale khac da xuat cho cung don de tinh "con lai" dung, giong cach Pre-order
@@ -66,7 +66,7 @@ export default function VanSaleInvoice() {
       .map(([productId, qty]) => ({ productId: Number(productId), quantity: Number(qty) }))
       .filter((it) => it.quantity > 0);
     if (items.length === 0) {
-      setError('Nhập số lượng cho ít nhất 1 sản phẩm');
+      setError('Nháº­p sá»‘ lÆ°á»£ng cho Ã­t nháº¥t 1 sáº£n pháº©m');
       return;
     }
     setError(null);
@@ -89,7 +89,7 @@ export default function VanSaleInvoice() {
       <Text style={styles.title}>{order.docNumber}</Text>
       <Text style={styles.sub}>{order.customer?.name}</Text>
 
-      <Text style={styles.label}>Số lượng xuất hóa đơn (còn lại trong ngoặc)</Text>
+      <Text style={styles.label}>Sá»‘ lÆ°á»£ng xuáº¥t hÃ³a Ä‘Æ¡n (cÃ²n láº¡i trong ngoáº·c)</Text>
       {order.details.map((d) => (
         <View key={d.id} style={styles.row}>
           <Text style={styles.rowName}>
@@ -107,7 +107,7 @@ export default function VanSaleInvoice() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Pressable style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Xuất hóa đơn</Text>}
+        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Xuáº¥t hÃ³a Ä‘Æ¡n</Text>}
       </Pressable>
     </ScrollView>
   );

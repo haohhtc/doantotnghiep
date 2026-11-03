@@ -918,3 +918,18 @@ Theo yêu cầu "test hết toàn bộ hệ thống", mở rộng soát thêm ng
 - Backend `CorsConfig.java`: đổi `setAllowedOrigins()` → `setAllowedOriginPatterns()` (cho phép dùng dấu `*`), mặc định trong `application.yml` mở cho mọi IP LAN phổ biến (`192.168.*.*`, `10.*.*.*`) + `localhost`, mọi cổng — không cần sửa biến `CORS_ALLOWED_ORIGINS` + restart backend mỗi lần đổi mạng nữa (chỉ ảnh hưởng bản web preview mở qua trình duyệt, app thật qua Expo Go không bị CORS chặn).
 
 **Đã test**: giả lập preflight CORS từ 2 origin ngẫu nhiên chưa từng cấu hình (`192.168.77.123:8090`, `10.0.2.55:8090`) — backend đều trả `Access-Control-Allow-Origin` đúng, không cần khai báo trước. Build mobile sạch.
+
+## 🐛 Lỗi thật: "Ghé thăm" → bấm Đặt hàng/Bán hàng bị bật về Tổng quan (2026-11-04)
+
+**Người dùng báo**: "bấm vào khách hàng ghé thăm rồi vào mục 1 và 2 thì nó load ra tổng quan" — đúng là lỗi thật, do chính đợt "Gộp tab Đặt hàng + Bán hàng" (2026-10-21) gây ra.
+
+**Nguyên nhân**: đợt gộp tab trước dùng `options={{ href: null }}` trên `Tabs.Screen name="preorder"`/`"vansale"` để ẩn khỏi thanh tab nhưng vẫn giữ điều hướng được (đúng theo tài liệu Expo Router). Nhưng khi `customers/visit.js` gọi `router.push('/preorder/new')` — điều hướng **sang tab khác** đang bị `href: null` — trên bản web preview việc này không resolve được route (vì `href: null` nghĩa là "không có URL hợp lệ"), Router rơi về tab mặc định (Tổng quan).
+
+**Đã sửa (cách chắc chắn hơn hẳn `href: null`)**: chuyển hẳn `preorder/` và `vansale/` ra **NGOÀI** thư mục `(app)` (không còn là tab, dù ẩn hay hiện) — đưa lên ngang hàng với `(app)` ở `src/app/_layout.js`, đăng ký làm 2 `Stack.Screen` cấp cao nhất (vẫn trong `Stack.Protected guard={!!session}` như `(app)`). Nhờ vậy `router.push('/preorder/new')` là điều hướng tới 1 route cấp cao bình thường, không còn phụ thuộc gì vào cơ chế tab/href nữa — không thể bị lỗi tương tự.
+- Xóa 2 dòng `Tabs.Screen ... options={{ href: null }}` khỏi `(app)/_layout.js` (không cần nữa).
+- Sửa lại import tương đối trong 11 file vừa chuyển (giảm 1 cấp `../`).
+- Tác dụng phụ (không phải lỗi): màn tạo đơn giờ **không còn hiện thanh tab dưới cùng** trong lúc tạo đơn (trước đây do cùng nằm trong Tabs nên tab vẫn hiện) — hợp lý hơn cho luồng tạo mới, không cần sửa gì thêm.
+
+**Ghi chú cho lần sau**: `router.dismissAll()` ở cuối `review.js` (sau khi "Hoàn tất & Gửi dữ liệu") chỉ quay về màn **đầu tiên của chính Stack `preorder`/`vansale`** (tức `new.js`, màn tạo đơn trống) chứ KHÔNG thoát hẳn về `(app)` — không phải lỗi mới (có từ đợt bỏ `index.js` 2026-10-21), chỉ là chưa tối ưu UX, chưa sửa vì không phải lỗi chặn đường và chưa được yêu cầu.
+
+**Chưa test được bằng trình duyệt thật trong phiên này** (không có công cụ browser) — build mobile sạch, cấu trúc route đã xác nhận đúng qua code, nhưng cần bạn bấm thử lại trên web/app để xác nhận hết lỗi.

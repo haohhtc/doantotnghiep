@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
-import { apiClient, errorMessage } from '../../../api/client';
+import { apiClient, errorMessage } from '../../api/client';
 
 const STATUS_LABEL = { PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', CANCELLED: 'Đã hủy' };
 

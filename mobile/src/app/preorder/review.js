@@ -1,8 +1,8 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { useSession } from '../../../ctx/SessionContext';
-import { apiClient, errorMessage } from '../../../api/client';
+import { useSession } from '../../ctx/SessionContext';
+import { apiClient, errorMessage } from '../../api/client';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -23,7 +23,7 @@ export default function ReviewPreorder() {
 
   async function handleSubmit() {
     if (!deliveryDate) {
-      setError('Đơn Pre-order bắt buộc có ngày giao hàng');
+      setError('ÄÆ¡n Pre-order báº¯t buá»™c cÃ³ ngÃ y giao hÃ ng');
       return;
     }
     setSubmitting(true);
@@ -49,7 +49,7 @@ export default function ReviewPreorder() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.sectionTitle}>Sản phẩm ({items.length})</Text>
+      <Text style={styles.sectionTitle}>Sáº£n pháº©m ({items.length})</Text>
       {items.map((l) => (
         <View key={l.productId} style={styles.row}>
           <Text style={styles.rowName} numberOfLines={2}>{l.name}</Text>
@@ -60,17 +60,17 @@ export default function ReviewPreorder() {
       ))}
 
       <View style={styles.totalRow}>
-        <Text style={styles.totalLabel}>Thành tiền</Text>
-        <Text style={styles.totalValue}>{total.toLocaleString('vi-VN')} đ</Text>
+        <Text style={styles.totalLabel}>ThÃ nh tiá»n</Text>
+        <Text style={styles.totalValue}>{total.toLocaleString('vi-VN')} Ä‘</Text>
       </View>
 
-      <Text style={styles.label}>Ngày giao hàng (YYYY-MM-DD)</Text>
+      <Text style={styles.label}>NgÃ y giao hÃ ng (YYYY-MM-DD)</Text>
       <TextInput style={styles.input} value={deliveryDate} onChangeText={setDeliveryDate} />
 
-      <Text style={styles.label}>Ghi chú đơn hàng</Text>
+      <Text style={styles.label}>Ghi chÃº Ä‘Æ¡n hÃ ng</Text>
       <TextInput
         style={[styles.input, styles.noteInput]}
-        placeholder="Điền ghi chú (không bắt buộc)"
+        placeholder="Äiá»n ghi chÃº (khÃ´ng báº¯t buá»™c)"
         value={remarks}
         onChangeText={setRemarks}
         multiline
@@ -79,7 +79,7 @@ export default function ReviewPreorder() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Pressable style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Hoàn tất & Gửi dữ liệu</Text>}
+        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>HoÃ n táº¥t & Gá»­i dá»¯ liá»‡u</Text>}
       </Pressable>
     </ScrollView>
   );

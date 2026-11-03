@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   View,
@@ -9,12 +9,15 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import { useSession } from '../../../ctx/SessionContext';
-import { apiClient, errorMessage } from '../../../api/client';
+import { useSession } from '../../ctx/SessionContext';
+import { apiClient, errorMessage } from '../../api/client';
 
-// Sua don Van Sale dang PENDING (API update chi cho sua khi con PENDING).
-export default function EditVanSale() {
-  const { id } = useLocalSearchParams();
+const today = () => new Date().toISOString().slice(0, 10);
+
+// Buoc 1 "them san pham vao gio" (giong preorder/new.js) - stepper +/- thay vi go tay, gia tu dong
+// tra ve theo bang gia. Buoc 2 (xem lai + xac nhan) o man hinh review.js.
+export default function NewVanSale() {
+  const { customerId: presetCustomerId } = useLocalSearchParams();
   const { session } = useSession();
   const employee = session?.employee;
   const branchId = employee?.user?.branch?.id;
@@ -22,13 +25,11 @@ export default function EditVanSale() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
-  const [warehouseId, setWarehouseId] = useState(null);
+  const [vanWarehouseId, setVanWarehouseId] = useState(null);
 
-  const [customerId, setCustomerId] = useState(null);
-  const [remarks, setRemarks] = useState('');
+  const [customerId, setCustomerId] = useState(presetCustomerId ? Number(presetCustomerId) : null);
   const [quantities, setQuantities] = useState({});
   const [prices, setPrices] = useState({});
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -38,26 +39,17 @@ export default function EditVanSale() {
         return;
       }
       try {
-        const [orderRes, customersRes, productsRes] = await Promise.all([
-          apiClient.get(`/api/sales-orders/${id}`),
+        const [customersRes, productsRes, warehousesRes] = await Promise.all([
           apiClient.get('/api/customers'),
           apiClient.get(`/api/branches/${branchId}/products`),
+          apiClient.get('/api/warehouses'),
         ]);
-        const order = orderRes.data.data;
-        setCustomerId(order.customer.id);
-        setRemarks(order.remarks || '');
-        setWarehouseId(order.warehouse.id);
-        const qty = {};
-        const price = {};
-        order.details.forEach((d) => {
-          qty[d.product.id] = d.quantity;
-          price[d.product.id] = d.unitPrice;
-        });
-        setQuantities(qty);
-        setPrices(price);
-
         setCustomers(customersRes.data.data.filter((c) => c.branch?.id === branchId));
         setProducts(productsRes.data.data.map((a) => a.product));
+        const van = warehousesRes.data.data.find(
+          (w) => w.branch?.id === branchId && w.warehouseType === 'VAN'
+        );
+        setVanWarehouseId(van?.id || null);
       } catch (e) {
         setError(errorMessage(e));
       } finally {
@@ -65,54 +57,67 @@ export default function EditVanSale() {
       }
     }
     loadData();
-  }, [id, branchId]);
+  }, [branchId]);
 
-  function changeQty(productId, delta) {
-    setQuantities((prev) => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) + delta) }));
+  async function lookupPrice(productId) {
+    if (!customerId || !vanWarehouseId) return;
+    try {
+      const res = await apiClient.get('/api/price-lists/lookup', {
+        params: { productId, customerId, warehouseId: vanWarehouseId, purpose: 'SALE', date: today() },
+      });
+      if (res.data.data != null) {
+        setPrices((prev) => ({ ...prev, [productId]: res.data.data }));
+      }
+    } catch {
+      // Khong tim duoc gia tu dong - de nguoi dung tu sua o man xem lai, khong chan.
+    }
   }
 
-  async function handleSubmit() {
-    if (!customerId) {
-      setError('Chọn khách hàng');
-      return;
-    }
-    const details = Object.entries(quantities)
-      .filter(([, qty]) => qty > 0)
-      .map(([productId, qty]) => ({
-        productId: Number(productId),
-        quantity: qty,
-        unitPrice: Number(prices[productId] || 0),
-      }));
-    if (details.length === 0) {
-      setError('Chọn số lượng cho ít nhất 1 sản phẩm');
-      return;
-    }
+  function changeQty(productId, delta) {
+    setQuantities((prev) => {
+      const next = Math.max(0, (prev[productId] || 0) + delta);
+      return { ...prev, [productId]: next };
+    });
+    if (!prices[productId]) lookupPrice(productId);
+  }
 
-    setSubmitting(true);
-    setError(null);
-    try {
-      await apiClient.put(`/api/sales-orders/${id}`, {
-        docDate: new Date().toISOString().slice(0, 10),
-        customerId,
-        warehouseId,
-        orderType: 'STANDARD',
-        salesmanId: employee.id,
-        remarks: remarks || null,
-        details,
-      });
-      router.back();
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setSubmitting(false);
+  const cartLines = Object.entries(quantities)
+    .filter(([, qty]) => qty > 0)
+    .map(([productId, qty]) => {
+      const product = products.find((p) => p.id === Number(productId));
+      return { productId: Number(productId), name: product?.name, quantity: qty, unitPrice: prices[productId] || 0 };
+    });
+  const cartTotal = cartLines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
+
+  function handleGoToReview() {
+    if (!customerId) {
+      setError('Chá»n khÃ¡ch hÃ ng');
+      return;
     }
+    if (!vanWarehouseId) {
+      setError('Chi nhÃ¡nh chÆ°a cÃ³ Kho Van');
+      return;
+    }
+    if (cartLines.length === 0) {
+      setError('Chá»n sá»‘ lÆ°á»£ng cho Ã­t nháº¥t 1 sáº£n pháº©m');
+      return;
+    }
+    setError(null);
+    router.push({
+      pathname: '/vansale/review',
+      params: {
+        customerId: String(customerId),
+        warehouseId: String(vanWarehouseId),
+        items: JSON.stringify(cartLines),
+      },
+    });
   }
 
   if (loading) return <ActivityIndicator style={{ marginTop: 40 }} />;
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Khách hàng</Text>
+      <Text style={styles.label}>KhÃ¡ch hÃ ng</Text>
       <FlatList
         data={customers}
         horizontal
@@ -128,12 +133,9 @@ export default function EditVanSale() {
         )}
       />
 
-      <Text style={styles.label}>Ghi chú đơn hàng</Text>
-      <TextInput style={styles.input} value={remarks} onChangeText={setRemarks} />
-
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Text style={styles.label}>Sản phẩm</Text>
+      <Text style={styles.label}>Sáº£n pháº©m</Text>
       <FlatList
         data={products}
         keyExtractor={(item) => String(item.id)}
@@ -144,7 +146,7 @@ export default function EditVanSale() {
               <Text style={styles.rowName} numberOfLines={2}>{item.name}</Text>
               <View style={styles.stepper}>
                 <Pressable style={styles.stepBtn} onPress={() => changeQty(item.id, -1)}>
-                  <Text style={styles.stepBtnText}>−</Text>
+                  <Text style={styles.stepBtnText}>âˆ’</Text>
                 </Pressable>
                 <Text style={[styles.stepValue, qty > 0 && styles.stepValueActive]}>{qty}</Text>
                 <Pressable style={styles.stepBtn} onPress={() => changeQty(item.id, 1)}>
@@ -156,9 +158,12 @@ export default function EditVanSale() {
         }}
       />
 
-      <Pressable style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Lưu thay đổi</Text>}
-      </Pressable>
+      {cartLines.length > 0 ? (
+        <Pressable style={styles.cartBar} onPress={handleGoToReview}>
+          <Text style={styles.cartBarText}>Giá» hÃ ng: {cartLines.length} sáº£n pháº©m</Text>
+          <Text style={styles.cartBarText}>{cartTotal.toLocaleString('vi-VN')} Ä‘ â†’</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -166,7 +171,6 @@ export default function EditVanSale() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
   label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 6, marginTop: 6 },
-  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 4 },
   chip: { borderWidth: 1, borderColor: '#1677ff', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8 },
   chipActive: { backgroundColor: '#1677ff' },
   chipText: { color: '#1677ff' },
@@ -178,7 +182,11 @@ const styles = StyleSheet.create({
   stepBtnText: { fontSize: 18, fontWeight: '700', color: '#1677ff' },
   stepValue: { width: 36, textAlign: 'center', fontSize: 15 },
   stepValueActive: { fontWeight: '700', color: '#1677ff' },
-  submitBtn: { backgroundColor: '#d4380d', borderRadius: 8, padding: 14, alignItems: 'center', marginVertical: 16 },
-  submitText: { color: '#fff', fontWeight: '700' },
+  cartBar: {
+    position: 'absolute', left: 16, right: 16, bottom: 16,
+    backgroundColor: '#d4380d', borderRadius: 10, padding: 14,
+    flexDirection: 'row', justifyContent: 'space-between',
+  },
+  cartBarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   error: { color: '#d4380d', marginVertical: 4, textAlign: 'center' },
 });
