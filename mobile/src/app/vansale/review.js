@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useSession } from '../../ctx/SessionContext';
@@ -42,7 +42,7 @@ export default function ReviewVanSale() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.sectionTitle}>Sáº£n pháº©m ({items.length})</Text>
+      <Text style={styles.sectionTitle}>Sản phẩm ({items.length})</Text>
       {items.map((l) => (
         <View key={l.productId} style={styles.row}>
           <Text style={styles.rowName} numberOfLines={2}>{l.name}</Text>
@@ -53,14 +53,14 @@ export default function ReviewVanSale() {
       ))}
 
       <View style={styles.totalRow}>
-        <Text style={styles.totalLabel}>ThÃ nh tiá»n</Text>
-        <Text style={styles.totalValue}>{total.toLocaleString('vi-VN')} Ä‘</Text>
+        <Text style={styles.totalLabel}>Thành tiền</Text>
+        <Text style={styles.totalValue}>{total.toLocaleString('vi-VN')} đ</Text>
       </View>
 
-      <Text style={styles.label}>Ghi chÃº Ä‘Æ¡n hÃ ng</Text>
+      <Text style={styles.label}>Ghi chú đơn hàng</Text>
       <TextInput
         style={[styles.input, styles.noteInput]}
-        placeholder="Äiá»n ghi chÃº (khÃ´ng báº¯t buá»™c)"
+        placeholder="Điền ghi chú (không bắt buộc)"
         value={remarks}
         onChangeText={setRemarks}
         multiline
@@ -69,7 +69,7 @@ export default function ReviewVanSale() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Pressable style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>HoÃ n táº¥t & Gá»­i dá»¯ liá»‡u</Text>}
+        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Hoàn tất & Gửi dữ liệu</Text>}
       </Pressable>
     </ScrollView>
   );

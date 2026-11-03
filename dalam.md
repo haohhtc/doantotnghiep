@@ -933,3 +933,13 @@ Theo yêu cầu "test hết toàn bộ hệ thống", mở rộng soát thêm ng
 **Ghi chú cho lần sau**: `router.dismissAll()` ở cuối `review.js` (sau khi "Hoàn tất & Gửi dữ liệu") chỉ quay về màn **đầu tiên của chính Stack `preorder`/`vansale`** (tức `new.js`, màn tạo đơn trống) chứ KHÔNG thoát hẳn về `(app)` — không phải lỗi mới (có từ đợt bỏ `index.js` 2026-10-21), chỉ là chưa tối ưu UX, chưa sửa vì không phải lỗi chặn đường và chưa được yêu cầu.
 
 **Chưa test được bằng trình duyệt thật trong phiên này** (không có công cụ browser) — build mobile sạch, cấu trúc route đã xác nhận đúng qua code, nhưng cần bạn bấm thử lại trên web/app để xác nhận hết lỗi.
+
+## 🐛 Lỗi do chính mình gây ra: chữ tiếng Việt bị vỡ (mojibake) ở 7 file vừa chuyển thư mục (2026-11-04)
+
+**Người dùng báo** (kèm ảnh): màn "Tạo đơn Pre-order" (và Van Sale tương tự) hiện "KhÃ¡ch hÃ ng", "Sá°£n phá°©m" thay vì "Khách hàng", "Sản phẩm".
+
+**Nguyên nhân (lỗi của tôi)**: lúc sửa đường dẫn import sau khi chuyển `preorder/`+`vansale/` ra khỏi `(app)` (mục ngay trên), tôi dùng vòng lặp PowerShell `Get-Content $f.FullName -Raw | ... -replace ... | Set-Content -Encoding UTF8` cho 7 file (`edit.js`, `new.js`, `review.js` của cả 2 thư mục, `invoice.js`). PowerShell 5.1 mặc định **đọc** file không có BOM bằng codepage ANSI của máy (không phải UTF-8), nên các ký tự tiếng Việt nhiều byte bị đọc sai thành nhiều ký tự Latin-1 riêng lẻ — rồi lại bị **ghi** ra dưới dạng UTF-8 (đóng cứng lỗi vào file). 2 file `[id].js` không bị dính vì được sửa riêng bằng công cụ Edit (không qua PowerShell) — đúng là chỉ lỗi ở các file qua vòng lặp đó, khớp với ảnh người dùng gửi.
+
+**Đã sửa**: lấy lại đúng nội dung gốc (tiếng Việt chuẩn) từ commit trước khi chuyển thư mục (`git show <commit cu>:<duong dan cu>`), dùng **Node.js** (đọc/ghi UTF-8 mặc định, không dính lỗi codepage như PowerShell) để áp lại đúng 1 thay đổi cần thiết (sửa `../../../ ` → `../../`) rồi ghi đè vào vị trí mới. Đã quét lại toàn bộ `mobile/src/app` tìm dấu hiệu lỗi encoding (`Ã`, `â€`...) — sạch hoàn toàn. Build mobile sạch.
+
+**Bài học rút ra cho các lần sau**: KHÔNG dùng PowerShell `Get-Content`/`Set-Content` để sửa nội dung file có tiếng Việt mà không chỉ định rõ `-Encoding UTF8` ở **cả 2 đầu đọc và ghi** (ngay cả vậy vẫn có rủi ro với file không-BOM) — ưu tiên dùng công cụ Edit (xử lý đúng UTF-8 tự động) hoặc Node.js cho các thao tác hàng loạt trên nhiều file.

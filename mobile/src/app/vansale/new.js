@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   View,
@@ -91,15 +91,15 @@ export default function NewVanSale() {
 
   function handleGoToReview() {
     if (!customerId) {
-      setError('Chá»n khÃ¡ch hÃ ng');
+      setError('Chọn khách hàng');
       return;
     }
     if (!vanWarehouseId) {
-      setError('Chi nhÃ¡nh chÆ°a cÃ³ Kho Van');
+      setError('Chi nhánh chưa có Kho Van');
       return;
     }
     if (cartLines.length === 0) {
-      setError('Chá»n sá»‘ lÆ°á»£ng cho Ã­t nháº¥t 1 sáº£n pháº©m');
+      setError('Chọn số lượng cho ít nhất 1 sản phẩm');
       return;
     }
     setError(null);
@@ -117,7 +117,7 @@ export default function NewVanSale() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>KhÃ¡ch hÃ ng</Text>
+      <Text style={styles.label}>Khách hàng</Text>
       <FlatList
         data={customers}
         horizontal
@@ -135,7 +135,7 @@ export default function NewVanSale() {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Text style={styles.label}>Sáº£n pháº©m</Text>
+      <Text style={styles.label}>Sản phẩm</Text>
       <FlatList
         data={products}
         keyExtractor={(item) => String(item.id)}
@@ -146,7 +146,7 @@ export default function NewVanSale() {
               <Text style={styles.rowName} numberOfLines={2}>{item.name}</Text>
               <View style={styles.stepper}>
                 <Pressable style={styles.stepBtn} onPress={() => changeQty(item.id, -1)}>
-                  <Text style={styles.stepBtnText}>âˆ’</Text>
+                  <Text style={styles.stepBtnText}>−</Text>
                 </Pressable>
                 <Text style={[styles.stepValue, qty > 0 && styles.stepValueActive]}>{qty}</Text>
                 <Pressable style={styles.stepBtn} onPress={() => changeQty(item.id, 1)}>
@@ -160,8 +160,8 @@ export default function NewVanSale() {
 
       {cartLines.length > 0 ? (
         <Pressable style={styles.cartBar} onPress={handleGoToReview}>
-          <Text style={styles.cartBarText}>Giá» hÃ ng: {cartLines.length} sáº£n pháº©m</Text>
-          <Text style={styles.cartBarText}>{cartTotal.toLocaleString('vi-VN')} Ä‘ â†’</Text>
+          <Text style={styles.cartBarText}>Giỏ hàng: {cartLines.length} sản phẩm</Text>
+          <Text style={styles.cartBarText}>{cartTotal.toLocaleString('vi-VN')} đ →</Text>
         </Pressable>
       ) : null}
     </View>

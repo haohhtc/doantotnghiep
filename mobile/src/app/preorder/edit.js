@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   View,
@@ -76,11 +76,11 @@ export default function EditPreorder() {
 
   async function handleSubmit() {
     if (!customerId) {
-      setError('Chá»n khÃ¡ch hÃ ng');
+      setError('Chọn khách hàng');
       return;
     }
     if (!deliveryDate) {
-      setError('ÄÆ¡n Pre-order báº¯t buá»™c cÃ³ ngÃ y giao hÃ ng');
+      setError('Đơn Pre-order bắt buộc có ngày giao hàng');
       return;
     }
     const details = Object.entries(quantities)
@@ -91,7 +91,7 @@ export default function EditPreorder() {
         unitPrice: Number(prices[productId] || 0),
       }));
     if (details.length === 0) {
-      setError('Chá»n sá»‘ lÆ°á»£ng cho Ã­t nháº¥t 1 sáº£n pháº©m');
+      setError('Chọn số lượng cho ít nhất 1 sản phẩm');
       return;
     }
 
@@ -120,7 +120,7 @@ export default function EditPreorder() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>KhÃ¡ch hÃ ng</Text>
+      <Text style={styles.label}>Khách hàng</Text>
       <FlatList
         data={customers}
         horizontal
@@ -136,15 +136,15 @@ export default function EditPreorder() {
         )}
       />
 
-      <Text style={styles.label}>NgÃ y giao hÃ ng (YYYY-MM-DD)</Text>
+      <Text style={styles.label}>Ngày giao hàng (YYYY-MM-DD)</Text>
       <TextInput style={styles.input} value={deliveryDate} onChangeText={setDeliveryDate} />
 
-      <Text style={styles.label}>Ghi chÃº Ä‘Æ¡n hÃ ng</Text>
+      <Text style={styles.label}>Ghi chú đơn hàng</Text>
       <TextInput style={styles.input} value={remarks} onChangeText={setRemarks} />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Text style={styles.label}>Sáº£n pháº©m</Text>
+      <Text style={styles.label}>Sản phẩm</Text>
       <FlatList
         data={products}
         keyExtractor={(item) => String(item.id)}
@@ -155,7 +155,7 @@ export default function EditPreorder() {
               <Text style={styles.rowName} numberOfLines={2}>{item.name}</Text>
               <View style={styles.stepper}>
                 <Pressable style={styles.stepBtn} onPress={() => changeQty(item.id, -1)}>
-                  <Text style={styles.stepBtnText}>âˆ’</Text>
+                  <Text style={styles.stepBtnText}>−</Text>
                 </Pressable>
                 <Text style={[styles.stepValue, qty > 0 && styles.stepValueActive]}>{qty}</Text>
                 <Pressable style={styles.stepBtn} onPress={() => changeQty(item.id, 1)}>
@@ -168,7 +168,7 @@ export default function EditPreorder() {
       />
 
       <Pressable style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>LÆ°u thay Ä‘á»•i</Text>}
+        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Lưu thay đổi</Text>}
       </Pressable>
     </View>
   );
