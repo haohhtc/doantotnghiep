@@ -22,7 +22,7 @@ export default function PreorderDetail() {
     try {
       const [orderRes, dosRes] = await Promise.all([
         apiClient.get(`/api/sales-orders/${id}`),
-        apiClient.get('/api/delivery-orders'),
+        apiClient.get('/api/delivery-orders', { params: { salesOrderId: id } }),
       ]);
       setOrder(orderRes.data.data);
       const activeDos = dosRes.data.data

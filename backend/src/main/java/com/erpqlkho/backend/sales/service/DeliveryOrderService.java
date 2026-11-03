@@ -52,6 +52,10 @@ public class DeliveryOrderService {
         return deliveryOrderRepository.findAll();
     }
 
+    public List<DeliveryOrder> findBySalesOrderId(Long salesOrderId) {
+        return deliveryOrderRepository.findBySalesOrderId(salesOrderId);
+    }
+
     public org.springframework.data.domain.Page<DeliveryOrder> search(
             Long branchId, String search, org.springframework.data.domain.Pageable pageable) {
         return deliveryOrderRepository.search(branchId, search, pageable);

@@ -23,17 +23,21 @@ export default function OrdersList() {
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
+    if (!employee) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const res = await apiClient.get('/api/sales-orders');
-      const mine = res.data.data.filter(
-        (o) =>
-          employee &&
-          o.salesman?.id === employee.id &&
-          (o.orderType === 'PRE_ORDER' || o.orderType === 'STANDARD')
+      // Loc thang o server theo salesmanId (du lieu that co the toi hang ngan don - tai het ca
+      // bang roi loc o client se rat nang cho mobile, xem SalesOrderController.search()).
+      const res = await apiClient.get('/api/sales-orders/search', {
+        params: { salesmanId: employee.id, size: 500 },
+      });
+      const mine = res.data.data.content.filter(
+        (o) => o.orderType === 'PRE_ORDER' || o.orderType === 'STANDARD'
       );
-      mine.sort((a, b) => b.id - a.id);
       setOrders(mine);
     } catch (e) {
       setError(errorMessage(e));

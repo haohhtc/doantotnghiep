@@ -61,6 +61,10 @@ public class InvoiceService {
         return invoiceRepository.findByDeliveryOrderIdIn(deliveryOrderIds);
     }
 
+    public List<Invoice> findBySalesOrderId(Long salesOrderId) {
+        return invoiceRepository.findBySalesOrderId(salesOrderId);
+    }
+
     public List<Long> findActiveSalesOrderIds() {
         return invoiceRepository.findActiveSalesOrderIds();
     }

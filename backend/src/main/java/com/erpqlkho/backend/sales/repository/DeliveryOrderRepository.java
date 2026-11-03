@@ -10,6 +10,10 @@ import java.util.List;
 public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, Long> {
     boolean existsByDocNumber(String docNumber);
 
+    // App Van-Sale (di dong): xem chi tiet 1 don - chi can Don giao hang cua DUNG don do, khong
+    // tai het toan bo bang (xem DeliveryOrderController, du lieu lon se rat nang cho mobile).
+    java.util.List<DeliveryOrder> findBySalesOrderId(Long salesOrderId);
+
     // Chieu salesOrderId -> vanWarehouseId cua CAC don giao hang da CLOSED va da chuyen kho that
     // (vanWarehouse != null) - dung cho trang Ton kho tinh "Da dat hang" (xem InventoriesController)
     // khong can tai toan bo Don giao hang (chi can 2 cot nay).

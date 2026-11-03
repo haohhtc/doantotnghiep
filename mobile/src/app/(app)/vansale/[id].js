@@ -21,12 +21,12 @@ export default function VanSaleDetail() {
     try {
       const [orderRes, invoicesRes] = await Promise.all([
         apiClient.get(`/api/sales-orders/${id}`),
-        apiClient.get('/api/invoices'),
+        apiClient.get('/api/invoices', { params: { salesOrderId: id } }),
       ]);
       setOrder(orderRes.data.data);
       const map = {};
       invoicesRes.data.data
-        .filter((inv) => inv.salesOrder?.id === Number(id) && inv.deliveryOrder == null && inv.status !== 'CANCELLED')
+        .filter((inv) => inv.deliveryOrder == null && inv.status !== 'CANCELLED')
         .forEach((inv) => {
           inv.items.forEach((it) => {
             map[it.product.id] = (map[it.product.id] || 0) + Number(it.quantity);

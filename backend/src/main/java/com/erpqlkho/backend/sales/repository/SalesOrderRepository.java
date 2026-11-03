@@ -12,12 +12,14 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     @org.springframework.data.jpa.repository.Query("""
             select so from SalesOrder so
             where (:branchId is null or so.warehouse.branch.id = :branchId)
+              and (:salesmanId is null or so.salesman.id = :salesmanId)
               and (:search is null or :search = ''
                    or lower(so.docNumber) like lower(concat('%', :search, '%'))
                    or lower(so.customer.name) like lower(concat('%', :search, '%')))
             order by so.id desc
             """)
     Page<SalesOrder> search(@org.springframework.data.repository.query.Param("branchId") Long branchId,
+                             @org.springframework.data.repository.query.Param("salesmanId") Long salesmanId,
                              @org.springframework.data.repository.query.Param("search") String search,
                              Pageable pageable);
 

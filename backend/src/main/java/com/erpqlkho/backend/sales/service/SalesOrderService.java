@@ -47,8 +47,8 @@ public class SalesOrderService {
     private final EmployeeRepository employeeRepository;
 
     public org.springframework.data.domain.Page<SalesOrder> search(
-            Long branchId, String search, org.springframework.data.domain.Pageable pageable) {
-        return salesOrderRepository.search(branchId, search, pageable);
+            Long branchId, Long salesmanId, String search, org.springframework.data.domain.Pageable pageable) {
+        return salesOrderRepository.search(branchId, salesmanId, search, pageable);
     }
 
     public List<SalesOrder> findAll() {

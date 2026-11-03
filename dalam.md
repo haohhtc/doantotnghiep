@@ -885,3 +885,23 @@ Theo yêu cầu "test hết toàn bộ hệ thống", mở rộng soát thêm ng
 **Quét toàn bộ ~30 API GET chính** (danh mục, kho, bán hàng, mua hàng, hệ thống): tất cả phản hồi 200 OK, không có lỗi 500 ẩn.
 
 **Test phân trang server-side mới** (`/search` của Đơn bán, Phiếu nhập kho, Khách hàng, Hóa đơn, Đơn giao hàng): tất cả hoạt động đúng — lọc theo `branchId` (4.895 + 786 + 530 = 6.211, khớp tổng), tìm theo tên khách hàng thật đều ra đúng kết quả.
+
+## 🐛 Lỗi thật phát hiện: App Van-Sale tải TOÀN BỘ đơn/hóa đơn/đơn giao hàng, rất nặng với data lớn (2026-11-04)
+
+**Người dùng hỏi**: "app đã load nhanh dữ liệu khi có quá nhiều dữ liệu mới không" — đúng là chưa, có lỗi thật.
+
+**Nguyên nhân**: 4 màn hình App Van-Sale gọi API KHÔNG lọc, tải nguyên bảng rồi mới lọc ở client:
+- `orders/index.js`: `GET /api/sales-orders` (toàn bộ) rồi lọc `salesman.id` ở client.
+- `preorder/[id].js`: `GET /api/delivery-orders` (toàn bộ) để tìm 1 đơn giao.
+- `vansale/[id].js`, `vansale/invoice.js`: `GET /api/invoices` (toàn bộ) để tìm hóa đơn của 1 đơn.
+
+**Đo thực tế trên data 6.211 đơn của tv2**: `GET /api/sales-orders` trả về **76,24 MB**, mất **2,2 giây** chỉ trên localhost (không tính độ trễ mạng thật của điện thoại) — hoàn toàn không ổn cho mobile.
+
+**Đã sửa**:
+- `SalesOrderRepository/Service/Controller.search()`: thêm filter `salesmanId` (bên cạnh `branchId`/`search` có sẵn).
+- `InvoiceRepository/Service/Controller`: thêm `findBySalesOrderId()` + filter `?salesOrderId=` cho `GET /api/invoices` (giữ nguyên `?deliveryOrderIds=` cũ).
+- `DeliveryOrderRepository/Service/Controller`: thêm `findBySalesOrderId()` + filter `?salesOrderId=` cho `GET /api/delivery-orders`.
+- Mobile: `orders/index.js` đổi sang gọi `/api/sales-orders/search?salesmanId={id}&size=500`; `preorder/[id].js` → `/api/delivery-orders?salesOrderId={id}`; `vansale/[id].js` + `vansale/invoice.js` → `/api/invoices?salesOrderId={id}`.
+- Không đổi endpoint `GET /api/sales-orders`/`GET /api/delivery-orders` mặc định (vẫn trả toàn bộ) vì trang Tồn kho/Đơn giao hàng web cần tính toán tổng hợp trên toàn bộ danh sách — chỉ thêm tham số lọc tùy chọn, không phá trang nào đang dùng.
+
+**Đã test qua API thật**: NVBH bận nhất trong data (`sale03`, 409 đơn) — trước: 76,24 MB/2,2s cho TOÀN BỘ; sau: **5 MB/0,54s, đúng 409/409 đơn**. Filter Đơn giao hàng + Hóa đơn theo `salesOrderId` test với đơn thật đều trả đúng kết quả (1 đơn giao, 1 hóa đơn). Build mobile (`npx expo export`) sạch.
