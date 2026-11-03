@@ -802,3 +802,21 @@ Giảng viên yêu cầu 3 việc cụ thể cho App Van-Sale: (1) API app gọi
 - Không đổi code backend — thuần điều hướng/giao diện mobile.
 
 **Đã kiểm tra**: build `npx expo export` sạch; rà soát toàn repo không còn chỗ nào điều hướng tới route gốc `/preorder` hoặc `/vansale` (bare, không kèm id/new/edit) — tránh vỡ do xóa 2 file index.js.
+
+## 🔄 Đồng bộ dữ liệu mới của tv2 + 3 lỗi phát hiện khi setup lại từ đầu (2026-11-03)
+
+**Lý do**: tv2 làm dữ liệu demo lúc hệ thống chưa lọc đúng chi nhánh (đơn Hà Nội hiện lẫn qua chi nhánh HCM, bị báo "sai tuyến") — tv2 đã tự sửa + dump lại dữ liệu đúng (push `data-warehouse/schema/03_seed_data.sql`, `etl/seed/01_oltp_dump.sql` mới). Theo yêu cầu: kéo code mới, xóa sạch dữ liệu local, nạp lại dump của tv2, rồi tiếp tục soát lỗi.
+
+**Quy trình đã làm**: `git pull --ff-only` (fast-forward sạch, không conflict) → `docker compose down -v` + `up -d` (xóa sạch volume MySQL local) → nạp `etl/seed/01_oltp_dump.sql` vào OLTP (thủ công, DW thì tự nạp qua `docker-entrypoint-initdb.d`).
+
+**3 lỗi phát hiện + đã sửa khi nạp lại**:
+1. **2 dòng rác đầu file dump** (`etl/seed/01_oltp_dump.sql` và `data-warehouse/schema/03_seed_data.sql`): tv2 dump bằng `mysqldump ... > file 2>&1` nên dính cả 2 dòng cảnh báo/lỗi của lệnh `mysqldump` vào đầu file SQL, làm MySQL nạp lỗi cú pháp ngay dòng 1 → DW **không tự nạp được** dù mount đúng `docker-entrypoint-initdb.d`. Đã xóa 2 dòng đó ở cả 2 file.
+2. **Lệch schema `data-warehouse/schema/01_dimensions.sql`**: dữ liệu thật của tv2 trong `03_seed_data.sql` có nhiều cột hơn schema đang commit (`dim_customer` thiếu 10 cột: channel_code/channel_name/region/province/ward + 6 cột chưa rõ mục đích luôn NULL; `dim_product` thiếu 4 cột: unit_code/tax_rate + 2 cột chưa rõ mục đích; `dim_warehouse` thiếu branch_code/branch_name). Đã thêm đúng cột (kiểu NULL-able, an toàn) vào `01_dimensions.sql` — tv2 xác nhận lại ý nghĩa 8 cột "extra" (luôn NULL, chưa dùng ở đâu) nếu cần dùng sau này.
+3. **`03_seed_data.sql` tham chiếu ~40 bảng chưa từng commit schema** (`fact_sellout` 71 cột, `fact_tonkho`, `fact_tonkho_movement`, `last_date_refresh`, toàn bộ nhóm `raw_*`) — rõ ràng tv2 đã xây 1 tầng raw-staging + fact phẳng riêng cho BI/Power BI nhưng chưa commit CREATE TABLE nào. Không đoán mò type cho 71 cột — đã **bỏ các bảng này khỏi file seed commit** (giữ nguyên 5 dim + 4 fact đã thiết kế trong `erd-dw.md`) để `docker compose up` sạch chạy được hết, không bị đứt giữa chừng. **Cần tv2 commit schema CREATE TABLE cho nhóm bảng này** rồi add lại data sau.
+4. Bổ sung hướng dẫn nạp `etl/seed/01_oltp_dump.sql` vào README (trước đây không ai ghi bước này).
+
+**Lỗi lớn hơn phát hiện SAU khi nạp xong**: dữ liệu mới của tv2 đổi hẳn cách xác định "NVBH thuộc chi nhánh nào" — tất cả tài khoản `sale01..sale35` đều có `user.branch_id = NULL`, chi nhánh giờ suy ra qua **tuyến bán hàng** (`route_salesman_assignment` → `route_master.branch_id`), không còn gán thẳng vào `user` nữa. Toàn bộ backend App Van-Sale (`VanSaleAdvanceService`, `VanSaleReturnService`) đang dùng thẳng `employee.getUser().getBranch()` để suy Kho Main/Kho Van → **mọi NVBH mới đều lỗi "chưa gắn tài khoản/chi nhánh"**.
+
+**Đã sửa**: `EmployeeService.resolveCurrentBranch(employee)` (mới) — ưu tiên `user.branch` (NV kho/quản lý vẫn gán thẳng), nếu rỗng thì tự tra `route_salesman_assignment` lấy tuyến đang phụ trách **tại ngày hôm nay** (effective_date/end_date) → branch của route đó. `findByCurrentUser()` (API `/api/employees/me`, app mobile gọi sau khi đăng nhập) gán tạm chi nhánh suy ra được vào `employee.user.branch` của object trả về (KHÔNG lưu xuống DB) — nhờ vậy **mobile không cần sửa code gì cả**, vẫn đọc đúng `employee.user.branch.id` như trước giờ. `VanSaleAdvanceService`/`VanSaleReturnService.resolveWarehouse()` đổi sang gọi hàm dùng chung này thay vì tự kiểm tra `user.getBranch()`.
+
+**Đã test qua API thật**: tạo tài khoản NVBH test không gán `user.branch_id`, gán vào tuyến `R-HCM-20` (Chi nhánh TP.HCM) qua `route_salesman_assignment` → gọi `/api/employees/me` trả đúng `user.branch` = Chi nhánh TP.HCM → tạo + xác nhận phiếu Ứng hàng thành công, tồn kho đúng (Main −5, Van +5, Kho NV +5). Đã dọn sạch tài khoản/dữ liệu test.

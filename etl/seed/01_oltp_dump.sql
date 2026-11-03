@@ -1,5 +1,3 @@
-mysqldump: [Warning] Using a password on the command line interface can be insecure.
-mysqldump: Error: 'Access denied; you need (at least one of) the PROCESS privilege(s) for this operation' when trying to dump tablespaces
 -- MySQL dump 10.13  Distrib 8.0.46, for Linux (x86_64)
 --
 -- Host: localhost    Database: erp_qlkho_oltp
