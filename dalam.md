@@ -905,3 +905,16 @@ Theo yêu cầu "test hết toàn bộ hệ thống", mở rộng soát thêm ng
 - Không đổi endpoint `GET /api/sales-orders`/`GET /api/delivery-orders` mặc định (vẫn trả toàn bộ) vì trang Tồn kho/Đơn giao hàng web cần tính toán tổng hợp trên toàn bộ danh sách — chỉ thêm tham số lọc tùy chọn, không phá trang nào đang dùng.
 
 **Đã test qua API thật**: NVBH bận nhất trong data (`sale03`, 409 đơn) — trước: 76,24 MB/2,2s cho TOÀN BỘ; sau: **5 MB/0,54s, đúng 409/409 đơn**. Filter Đơn giao hàng + Hóa đơn theo `salesOrderId` test với đơn thật đều trả đúng kết quả (1 đơn giao, 1 hóa đơn). Build mobile (`npx expo export`) sạch.
+
+## 🌐 App tự nhận diện IP máy khi đổi mạng Wi-Fi (nhà/trường...) — không cần sửa tay nữa (2026-11-04)
+
+**Lý do**: người dùng test App Van-Sale ở nhiều nơi (nhà, trường) — mỗi lần đổi Wi-Fi là đổi IP LAN của máy chạy backend, phải sửa tay `EXPO_PUBLIC_API_URL` trong `mobile/.env` + restart Expo, dễ quên dẫn tới lỗi "kiểm tra lại kết nối mạng".
+
+**Đã sửa**:
+- `mobile/src/api/client.js`: thêm `resolveBaseUrl()` — tự suy ra địa chỉ backend thay vì đọc cố định từ `.env`:
+  - Web preview (`Platform.OS === 'web'`): lấy thẳng `window.location.hostname` (đúng dù mở bằng `localhost` hay mở bằng IP LAN từ điện thoại khác).
+  - App thật (Expo Go/dev build): đọc `Constants.expoConfig.hostUri` — chuỗi `"LAN_IP:cổng_metro"` Expo tự dò ra đúng mỗi lần chạy `npx expo start`, bất kể đang ở mạng nào.
+  - `EXPO_PUBLIC_API_URL` trong `.env` vẫn ưu tiên nếu có (dùng khi muốn ép trỏ cứng tới 1 backend khác, vd đã triển khai thật) — để trống thì tự nhận diện.
+- Backend `CorsConfig.java`: đổi `setAllowedOrigins()` → `setAllowedOriginPatterns()` (cho phép dùng dấu `*`), mặc định trong `application.yml` mở cho mọi IP LAN phổ biến (`192.168.*.*`, `10.*.*.*`) + `localhost`, mọi cổng — không cần sửa biến `CORS_ALLOWED_ORIGINS` + restart backend mỗi lần đổi mạng nữa (chỉ ảnh hưởng bản web preview mở qua trình duyệt, app thật qua Expo Go không bị CORS chặn).
+
+**Đã test**: giả lập preflight CORS từ 2 origin ngẫu nhiên chưa từng cấu hình (`192.168.77.123:8090`, `10.0.2.55:8090`) — backend đều trả `Access-Control-Allow-Origin` đúng, không cần khai báo trước. Build mobile sạch.

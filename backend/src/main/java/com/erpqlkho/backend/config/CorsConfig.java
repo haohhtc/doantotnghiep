@@ -17,7 +17,12 @@ public class CorsConfig {
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(allowedOrigins.split(",")));
+        // setAllowedOriginPatterns (khong phai setAllowedOrigins) de ho tro duoc dau * trong tung
+        // muc (vd http://192.168.*.*:*) cung luc voi allowCredentials(true) - Spring chan
+        // setAllowedOrigins("*") + credentials, nhung cho phep pattern. Nho vay khi doi mang
+        // Wi-Fi (nha/truong...) IP LAN doi lien tuc van tu khop dung, khong can sua
+        // CORS_ALLOWED_ORIGINS + restart backend moi lan - xem application.yml.
+        config.setAllowedOriginPatterns(List.of(allowedOrigins.split(",")));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
