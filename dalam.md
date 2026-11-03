@@ -820,3 +820,21 @@ Giảng viên yêu cầu 3 việc cụ thể cho App Van-Sale: (1) API app gọi
 **Đã sửa**: `EmployeeService.resolveCurrentBranch(employee)` (mới) — ưu tiên `user.branch` (NV kho/quản lý vẫn gán thẳng), nếu rỗng thì tự tra `route_salesman_assignment` lấy tuyến đang phụ trách **tại ngày hôm nay** (effective_date/end_date) → branch của route đó. `findByCurrentUser()` (API `/api/employees/me`, app mobile gọi sau khi đăng nhập) gán tạm chi nhánh suy ra được vào `employee.user.branch` của object trả về (KHÔNG lưu xuống DB) — nhờ vậy **mobile không cần sửa code gì cả**, vẫn đọc đúng `employee.user.branch.id` như trước giờ. `VanSaleAdvanceService`/`VanSaleReturnService.resolveWarehouse()` đổi sang gọi hàm dùng chung này thay vì tự kiểm tra `user.getBranch()`.
 
 **Đã test qua API thật**: tạo tài khoản NVBH test không gán `user.branch_id`, gán vào tuyến `R-HCM-20` (Chi nhánh TP.HCM) qua `route_salesman_assignment` → gọi `/api/employees/me` trả đúng `user.branch` = Chi nhánh TP.HCM → tạo + xác nhận phiếu Ứng hàng thành công, tồn kho đúng (Main −5, Van +5, Kho NV +5). Đã dọn sạch tài khoản/dữ liệu test.
+
+## 🔍 Đối chiếu toàn bộ quy tắc đã sửa với 6.211 đơn hàng thật của tv2 (2026-11-03)
+
+Soát lại từng quy tắc nghiệp vụ đã từng sửa (sai tuyến, chiều kho đi/về, tồn âm...) trên toàn bộ dữ liệu lớn của tv2 bằng SQL đối chiếu trực tiếp (không phải test API đơn lẻ):
+
+| Quy tắc | Kết quả |
+|---|---|
+| Kho xuất cùng chi nhánh khách hàng | 0/6.211 đơn sai |
+| Loại đơn đúng loại kho (Pre-order→Main, Van Sale→Van) | Đúng 100% |
+| Tồn kho âm (`stock`, `employee_stock`) | 0 dòng |
+| Sổ cái `stock_transaction` khớp tồn kho hiện tại (mọi product × mọi kho) | Khớp tuyệt đối, 0 lệch |
+| Xuất hóa đơn vượt số đã giao/đã đặt | 0 dòng vượt |
+| 1 đơn nhiều đợt giao (lỗi cũ `sumCommittedBase`) | Dữ liệu này không có đơn nào >1 đợt giao → chưa phát sinh |
+| Trả hàng bắt buộc gắn NVBH | 0/24 phiếu thiếu |
+
+**Lưu ý**: dữ liệu lớn của tv2 sinh thẳng bằng script (không qua API), nên `van_sale_advance`/`van_sale_return`/`employee_stock` đều rỗng — không kiểm tra được App Van-Sale trên data này (đã test riêng bằng API thật ở mục trên).
+
+**1 lỗi dữ liệu thật phát hiện + đã sửa**: quy tắc "Đơn mẫu (SAMPLE) giá = 0" bị vi phạm — 1.125 dòng chi tiết đơn + 411 hóa đơn bị tính tiền thật (tổng ~41,2 triệu đ), do dữ liệu được tạo thẳng bằng SQL nên bỏ qua rule chỉ enforce ở tầng API (`SalesOrderService.applyDto()`). Đã sửa trực tiếp `sales_order_detail`/`invoice_item`/`invoice` của các đơn SAMPLE về đúng 0đ, dump lại `etl/seed/01_oltp_dump.sql` (giữ nguyên format, không dính lại lỗi dòng cảnh báo mysqldump) để lần setup sau không bị lỗi lại.
