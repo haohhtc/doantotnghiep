@@ -17,6 +17,28 @@
 
 **Đã test qua API**: Pre-order thiếu ngày giao / kho Van bị chặn; Đơn mẫu đi hết chuỗi đến hóa đơn 0đ; Trả hàng bắt buộc NVBH; ĐVT sai nhóm bị chặn; Đơn 2 Hộp → base 24, xác nhận giao trừ đúng 24 (90→66); Yêu cầu bán hàng 1 Thùng → chuyển đơn giữ ĐVT; sửa Đơn giao từ 1 Thùng xuống 5 Hộp → trừ 30; Trả hàng 1 Thùng CS001 → cộng 240 vào kho Van. Frontend build sạch (chưa test được bằng trình duyệt thật trong phiên này — cần bạn thao tác thử trên UI).
 
+## 🧪 Dọn đơn cũ + bộ đơn test mới để nhìn cho dễ (2026-09-25) — *ghi chú cá nhân, chưa commit*
+
+**Đã xóa hết** đơn bán, đơn giao, hóa đơn cũ (13 đơn / 10 đơn giao / 6 hóa đơn) trực tiếp trong DB; 4 Yêu cầu bán hàng từng "Đã chuyển" được trả về Nháp; bộ đếm số phiếu về 0 (đơn mới bắt đầu `SO0001`, `DO0001`, `HD0001`). Tồn kho không bị đảo vì đã nâng về mốc 10.000 gói từ trước. Bản sao lưu DB trước khi xóa nằm ở thư mục tạm của phiên làm việc (`oltp_truoc_khi_xoa_don_cu.sql`).
+
+**Bộ đơn test mới đang có sẵn** (tạo đúng như người dùng thật, qua API; giá tự lấy từ bảng giá WinMart):
+| Đơn | Loại | Trạng thái để bạn xem/thử tiếp | Nội dung |
+|---|---|---|---|
+| SO0001 | Thường | Chờ xác nhận → thử bấm ✓ | 2 Hộp CP001 (24 gói) × 40.000 |
+| SO0002 | Thường | Đã duyệt, chưa có đơn giao → thử tạo Đơn giao | 3 Hộp CT001 |
+| SO0003 | Thường | Đã duyệt + `DO0001` chờ giao → thử **Xác nhận giao hàng** | 1 Thùng CS001 (240 gói) |
+| SO0004 | Thường | Đã giao xong (`DO0002`), **chờ xuất hóa đơn** | đặt 5 Hộp CP002, giao thiếu 4 Hộp |
+| SO0005 | Thường | Xong cả chuỗi, hóa đơn `HD0001` | 10 gói OS001 |
+| SO0006 | Pre-order | Chờ xác nhận, ngày giao 05/10 | 4 Hộp CT002 |
+| SO0007 | Hàng mẫu | Xong cả chuỗi, hóa đơn `HD0002` = 0đ | 10 gói TN001 |
+| SO0008 | Thường | Chờ xác nhận, sinh từ Yêu cầu `SR0003` | 2 Hộp SW001 |
+| SO0009 | Thường (xuất từ **Kho Van**) | Đã giao (không chuyển kho), **chờ xuất hóa đơn** | 5 gói OS002 |
+| Trả hàng `RT0001` | – | Đã duyệt, nhân viên bán hàng trả 3 Hộp CS002 vào Kho Van (+30 gói) | |
+
+**Kết quả test: 18/18 đạt.** Kiểm tra được: giá tự lấy theo bảng giá + ĐVT; Pre-order/Hàng mẫu; Yêu cầu → đơn; giao thiếu chuyển đúng số gói Main → Van (CP002: Main −48, Van +48); hóa đơn trừ Kho Van (OS001, TN001 về lại 0 ở Van, Main −10); đơn xuất từ Kho Van không chuyển kho; trả hàng cộng đúng quy đổi Hộp → gói; chặn đặt 100 Thùng vượt tồn; chặn Pre-order thiếu ngày giao; chặn xuất hóa đơn khi chưa giao; chặn xác nhận giao 2 lần; cột "Đã đặt hàng" (CP001 24, CT001 18, CS001 240, CT002 24, SW001 24 gói) khớp. Ghi chú: 1 dòng ban đầu báo lỗi là do tôi tính nhầm kỳ vọng (CT002 nhóm Custas 1 Hộp = 6 gói → 4 Hộp = 24, hệ thống đúng).
+
+**Tồn kho lệch mốc 10.000 sau bộ test:** CP002 Main 9.952 / Van 10.048; OS001 Main 9.990; TN001 Main 9.990; CS002 Van 10.030; CP001 ở Kho Van Hà Nội = 0 (kho mới tạo).
+
 ## 🚚 Mô hình kho 2 tầng Main → Van (V38, 2026-09-25)
 
 **Quy tắc (mỗi chi nhánh 1 Kho Van):**
@@ -838,3 +860,28 @@ Soát lại từng quy tắc nghiệp vụ đã từng sửa (sai tuyến, chi�
 **Lưu ý**: dữ liệu lớn của tv2 sinh thẳng bằng script (không qua API), nên `van_sale_advance`/`van_sale_return`/`employee_stock` đều rỗng — không kiểm tra được App Van-Sale trên data này (đã test riêng bằng API thật ở mục trên).
 
 **1 lỗi dữ liệu thật phát hiện + đã sửa**: quy tắc "Đơn mẫu (SAMPLE) giá = 0" bị vi phạm — 1.125 dòng chi tiết đơn + 411 hóa đơn bị tính tiền thật (tổng ~41,2 triệu đ), do dữ liệu được tạo thẳng bằng SQL nên bỏ qua rule chỉ enforce ở tầng API (`SalesOrderService.applyDto()`). Đã sửa trực tiếp `sales_order_detail`/`invoice_item`/`invoice` của các đơn SAMPLE về đúng 0đ, dump lại `etl/seed/01_oltp_dump.sql` (giữ nguyên format, không dính lại lỗi dòng cảnh báo mysqldump) để lần setup sau không bị lỗi lại.
+
+## 🔍 Test tiếp toàn hệ thống (mở rộng) trên dữ liệu thật của tv2 (2026-11-04)
+
+Theo yêu cầu "test hết toàn bộ hệ thống", mở rộng soát thêm ngoài phần đã làm ở trên:
+
+**Thêm các quy tắc nghiệp vụ đã kiểm (tất cả sạch)**:
+- Giao hàng vượt số đã đặt (over-delivery): 0 vi phạm.
+- Hủy Hóa đơn/Đơn giao hàng rồi xác nhận lại gây trừ/cộng kho trùng (V45/V46): không áp dụng được — data này không có bản ghi nào ở trạng thái CANCELLED (invoice/delivery_order/sales_order).
+- Tag "Trả hàng" lan sang hóa đơn khác (V50): sạch, cả 20 phiếu trả đã duyệt đều gắn đúng `invoice_id` riêng, code frontend (`invoiceStatusTag()`) vẫn match đúng theo `invoice.id`.
+- Tuyến bán hàng chồng ngày hiệu lực (`route_salesman_assignment`): 0 chồng chéo.
+- Tuyến của Khách hàng (`route_master_outlet`) khác chi nhánh khách hàng: 0 vi phạm.
+- NVBH không có tuyến đang hoạt động: có 1 (`sale02`) nhưng tài khoản này chưa từng tạo đơn nào — vô hại, chỉ là dữ liệu seed thừa.
+- Điều chuyển kho / Trả hàng NCC / Phiếu xuất kho: bảng rỗng hoàn toàn trong data này, không có gì để kiểm.
+- Phiếu nhập hàng (Goods Receipt): 60/287 phiếu nhập thẳng vào Kho Van (đúng theo "bổ sung phiếu nhập vốn đầu kỳ" của tv2, không phải lỗi); không có số lượng/đơn giá âm.
+- Cột `base_quantity` (quy đổi ĐVT) ở `sales_order_detail`: 10.379 dòng lịch sử = 0 dù `quantity` > 0 — đối chiếu `delivery_order_item` cùng đơn thì đúng, và toàn bộ 10.379 dòng này đều thuộc đơn **đã xuất hóa đơn xong** nên không ảnh hưởng gì tới "Đã đặt hàng"/"Sẵn sàng bán" đang chạy (0/10.379 dòng còn "sống"). Chỉ là lỗ hổng hiển thị dữ liệu lịch sử, không sửa vì không ảnh hưởng thực tế.
+
+**Phát hiện đáng chú ý**: trang Báo cáo Bán hàng/Tồn kho mới (`ai-services/reports/main.py`, cổng 8005) đọc từ 3 bảng `fact_sellout`/`fact_tonkho`/`fact_tonkho_movement` — đúng 3 bảng đã loại khỏi file seed commit (vì chưa có schema, xem mục trên). Tuy nhiên kiểm lại kỹ thì **2 trang Báo cáo thực tế trên web (`SalesReport`, `InventoryReport`) chỉ là khung nhúng Power BI** (`<iframe>`, hiện hướng dẫn "Chưa có URL nhúng Power BI" khi chưa cấu hình) — **không gọi** `reportsClient.js`/service port 8005 ở đâu cả. Service Python đó + hàm `fetchSalesReport()/fetchInventoryReport()` hiện là code thừa, chưa được gắn vào UI. → Không phải lỗi chặn đường, đã báo nhưng theo yêu cầu người dùng để tv2 tự commit schema sau, không tự đoán.
+
+**AI Chatbot widget** (`AiChatWidget.jsx`, trang chủ, chỉ hiện cho ADMIN/WAREHOUSE_MANAGER): service `ai-services/chatbot/main.py` (cổng 8004) mới là file TODO, chưa có `FastAPI app` nào — nhưng widget code đã bắt lỗi kết nối đúng cách (hiện "Dịch vụ AI Chatbot hiện không phản hồi", không crash trang chủ). Không phải lỗi, chỉ là tính năng chưa code xong (đúng như README ghi).
+
+**Login trả về `branchCode`/`branchName`** (phục vụ AI Chatbot phân quyền): đã test qua API thật, null đúng cho ADMIN, code null-safe. ADMIN/WAREHOUSE_MANAGER (đối tượng duy nhất thấy chatbot) đều có `user.branch_id` gán thẳng nên không dính lỗi "chi nhánh qua tuyến" như App Van-Sale.
+
+**Quét toàn bộ ~30 API GET chính** (danh mục, kho, bán hàng, mua hàng, hệ thống): tất cả phản hồi 200 OK, không có lỗi 500 ẩn.
+
+**Test phân trang server-side mới** (`/search` của Đơn bán, Phiếu nhập kho, Khách hàng, Hóa đơn, Đơn giao hàng): tất cả hoạt động đúng — lọc theo `branchId` (4.895 + 786 + 530 = 6.211, khớp tổng), tìm theo tên khách hàng thật đều ra đúng kết quả.
