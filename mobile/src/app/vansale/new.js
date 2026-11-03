@@ -81,11 +81,18 @@ export default function NewVanSale() {
     if (!prices[productId]) lookupPrice(productId);
   }
 
+  // uomId = don vi ban (saleUom) cua san pham - BAT BUOC gui kem (xem dalam.md 2026-11-04).
   const cartLines = Object.entries(quantities)
     .filter(([, qty]) => qty > 0)
     .map(([productId, qty]) => {
       const product = products.find((p) => p.id === Number(productId));
-      return { productId: Number(productId), name: product?.name, quantity: qty, unitPrice: prices[productId] || 0 };
+      return {
+        productId: Number(productId),
+        name: product?.name,
+        quantity: qty,
+        unitPrice: prices[productId] || 0,
+        uomId: product?.saleUom?.id || null,
+      };
     });
   const cartTotal = cartLines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
 

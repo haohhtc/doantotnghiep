@@ -11,6 +11,7 @@ export default function VanSaleInvoice() {
   const [order, setOrder] = useState(null);
   const [remaining, setRemaining] = useState({});
   const [quantities, setQuantities] = useState({});
+  const [uoms, setUoms] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -37,12 +38,17 @@ export default function VanSaleInvoice() {
 
       const rem = {};
       const initialQty = {};
+      const uomByProduct = {};
       ord.details.forEach((d) => {
         const left = Number(d.quantity) - (alreadyByProduct[d.product.id] || 0);
         rem[d.product.id] = left;
         initialQty[d.product.id] = left > 0 ? String(left) : '';
+        // Dung DUNG uom cua don hang goc (vd Hop) - so luong nhap o man nay cung tinh theo don vi
+        // nay, phai gui kem uomId khi xuat hoa don de khop don gia/so luong (xem dalam.md 2026-11-04).
+        uomByProduct[d.product.id] = d.uom?.id || null;
       });
       setRemaining(rem);
+      setUoms(uomByProduct);
       setQuantities(initialQty);
     } catch (e) {
       setError(errorMessage(e));
@@ -63,7 +69,7 @@ export default function VanSaleInvoice() {
 
   async function handleSubmit() {
     const items = Object.entries(quantities)
-      .map(([productId, qty]) => ({ productId: Number(productId), quantity: Number(qty) }))
+      .map(([productId, qty]) => ({ productId: Number(productId), quantity: Number(qty), uomId: uoms[productId] || null }))
       .filter((it) => it.quantity > 0);
     if (items.length === 0) {
       setError('Nhập số lượng cho ít nhất 1 sản phẩm');

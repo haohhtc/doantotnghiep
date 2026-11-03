@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect, router } from 'expo-router';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { useSession } from '../../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../../api/client';
 
@@ -51,12 +51,13 @@ export default function CustomersList() {
   return (
     <View style={styles.container}>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {loading ? (
+      {loading && customers.length === 0 ? (
         <ActivityIndicator style={{ marginTop: 24 }} />
       ) : (
         <FlatList
           data={customers}
           keyExtractor={(item) => String(item.id)}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
           ListEmptyComponent={<Text style={styles.empty}>Chưa có khách hàng nào.</Text>}
           renderItem={({ item }) => (
             <View style={styles.card}>

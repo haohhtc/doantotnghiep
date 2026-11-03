@@ -76,13 +76,18 @@ export default function EditVanSale() {
       setError('Chọn khách hàng');
       return;
     }
+    // uomId = don vi ban (saleUom) cua san pham - BAT BUOC gui kem (xem dalam.md 2026-11-04).
     const details = Object.entries(quantities)
       .filter(([, qty]) => qty > 0)
-      .map(([productId, qty]) => ({
-        productId: Number(productId),
-        quantity: qty,
-        unitPrice: Number(prices[productId] || 0),
-      }));
+      .map(([productId, qty]) => {
+        const product = products.find((p) => p.id === Number(productId));
+        return {
+          productId: Number(productId),
+          quantity: qty,
+          unitPrice: Number(prices[productId] || 0),
+          uomId: product?.saleUom?.id || null,
+        };
+      });
     if (details.length === 0) {
       setError('Chọn số lượng cho ít nhất 1 sản phẩm');
       return;

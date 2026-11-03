@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect, router } from 'expo-router';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
 import { useSession } from '../../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../../api/client';
 
@@ -78,12 +78,13 @@ export default function AdvanceReturnHistory() {
 
       {!employee ? (
         <Text style={styles.empty}>Tài khoản này chưa gán Nhân viên.</Text>
-      ) : loading ? (
+      ) : loading && tickets.length === 0 ? (
         <ActivityIndicator style={{ marginTop: 24 }} />
       ) : (
         <FlatList
           data={tickets}
           keyExtractor={(item) => String(item.id)}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
           ListEmptyComponent={<Text style={styles.empty}>Chưa có phiếu nào.</Text>}
           renderItem={({ item }) => (
             <Pressable

@@ -37,7 +37,7 @@ export default function ReviewPreorder() {
         orderType: 'PRE_ORDER',
         salesmanId: employee.id,
         remarks: remarks || null,
-        details: items.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPrice })),
+        details: items.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPrice, uomId: l.uomId })),
       });
       router.dismissAll();
     } catch (e) {

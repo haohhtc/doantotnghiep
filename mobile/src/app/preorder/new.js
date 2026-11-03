@@ -84,11 +84,20 @@ export default function NewPreorder() {
     if (!prices[productId]) lookupPrice(productId);
   }
 
+  // uomId = don vi ban (saleUom) cua san pham - BAT BUOC gui kem, vi gia tra ve tu lookupPrice()
+  // la gia theo saleUom (vd Hop), con so luong bam +/- cung la theo Hop. Thieu uomId thi backend
+  // hieu nham so luong la don vi co so (goi) -> tong tien sai gap nhieu lan (xem dalam.md 2026-11-04).
   const cartLines = Object.entries(quantities)
     .filter(([, qty]) => qty > 0)
     .map(([productId, qty]) => {
       const product = products.find((p) => p.id === Number(productId));
-      return { productId: Number(productId), name: product?.name, quantity: qty, unitPrice: prices[productId] || 0 };
+      return {
+        productId: Number(productId),
+        name: product?.name,
+        quantity: qty,
+        unitPrice: prices[productId] || 0,
+        uomId: product?.saleUom?.id || null,
+      };
     });
   const cartTotal = cartLines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
 

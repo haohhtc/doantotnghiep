@@ -943,3 +943,25 @@ Theo yêu cầu "test hết toàn bộ hệ thống", mở rộng soát thêm ng
 **Đã sửa**: lấy lại đúng nội dung gốc (tiếng Việt chuẩn) từ commit trước khi chuyển thư mục (`git show <commit cu>:<duong dan cu>`), dùng **Node.js** (đọc/ghi UTF-8 mặc định, không dính lỗi codepage như PowerShell) để áp lại đúng 1 thay đổi cần thiết (sửa `../../../ ` → `../../`) rồi ghi đè vào vị trí mới. Đã quét lại toàn bộ `mobile/src/app` tìm dấu hiệu lỗi encoding (`Ã`, `â€`...) — sạch hoàn toàn. Build mobile sạch.
 
 **Bài học rút ra cho các lần sau**: KHÔNG dùng PowerShell `Get-Content`/`Set-Content` để sửa nội dung file có tiếng Việt mà không chỉ định rõ `-Encoding UTF8` ở **cả 2 đầu đọc và ghi** (ngay cả vậy vẫn có rủi ro với file không-BOM) — ưu tiên dùng công cụ Edit (xử lý đúng UTF-8 tự động) hoặc Node.js cho các thao tác hàng loạt trên nhiều file.
+
+## 🔄 Thêm nút "Làm mới" (RefreshControl) + phát hiện lỗi NGHIÊM TRỌNG: giá/số lượng lệch đơn vị tính (2026-11-04)
+
+**Theo yêu cầu**: thêm nút reload cho App Van-Sale, kiểm tra lại luồng lấy dữ liệu/xuất dữ liệu (tạo đơn) rồi push git.
+
+**1. Thêm "kéo để làm mới" (pull-to-refresh)** cho 3 màn danh sách còn thiếu (Tổng quan đã có sẵn từ trước): `orders/index.js`, `customers/index.js`, `advance-return/index.js` — dùng `RefreshControl` chuẩn của React Native, chỉ hiện spinner toàn màn ở lần tải đầu, các lần sau kéo xuống là tự tải lại mà không mất danh sách đang xem.
+
+**2. 🐛 LỖI NGHIÊM TRỌNG phát hiện khi test lại luồng tạo đơn**: giá tra về từ `/api/price-lists/lookup` là giá theo **đơn vị bán mặc định của sản phẩm (vd Hộp)**, nhưng số lượng bấm +/- trên app lại được gửi lên **KHÔNG kèm `uomId`** — backend hiểu "không chọn ĐVT" = số lượng đó tính theo **đơn vị cơ sở (Gói)** (quy ước có chủ đích, xem `UomConversionService`). Hậu quả: 1 đơn "bấm 3" bị tính tiền như 3 Hộp (135.000đ) nhưng tồn kho chỉ bị trừ như 3 Gói thay vì 36 Gói (3 Hộp × 12) — **sai lệch tới 12 lần** tùy sản phẩm (6 lần với nhóm Custas). Lỗi này tồn tại từ khi xây app (không phải do session trước), chỉ lộ ra khi test với sản phẩm có hệ số quy đổi ≠ 1.
+
+**Đã sửa**: gửi kèm `uomId: product.saleUom.id` ở tất cả các điểm tạo/sửa/xuất hóa đơn:
+- `preorder/new.js`, `preorder/review.js`, `preorder/edit.js` (Pre-order).
+- `vansale/new.js`, `vansale/review.js`, `vansale/edit.js` (Van Sale).
+- `vansale/invoice.js` (xuất hóa đơn Van Sale) — lấy đúng `uom` đã lưu trong đơn hàng gốc (không phải `saleUom` mặc định) để khớp đơn vị với số "còn lại" đang hiển thị.
+- `preorder/[id].js` (xuất hóa đơn Pre-order) đã đúng từ trước (lấy `uom` từ Đơn giao hàng).
+
+**Đã test lại toàn bộ chuỗi với bản đã sửa** (sản phẩm CP001, hệ số 12): tạo đơn 3 Hộp → `base_quantity` đúng = 36 gói, thành tiền 135.000đ (= 3×45.000) → xác nhận giao: Main −36 gói, Van +36 gói (đúng) → xuất hóa đơn: Van về lại mốc cũ, tổng tiền 145.800đ (135.000 + 8% thuế, khớp). Lặp lại test cho Van Sale (CP002, hệ số 6, 1 Hộp): base_quantity=6, Kho NV + Kho Van trừ đúng, tổng tiền hóa đơn khớp thuế. Đã dọn sạch dữ liệu test.
+
+**2 lỗi dữ liệu phát hiện thêm trong lúc test (đã sửa)**:
+- 4 sản phẩm (CP001/CP002/CT001/CT002) ở 2/3 bảng giá chỉ có duy nhất 1 dòng giá theo đơn vị "Cái" — **không hợp lệ** vì nhóm quy đổi của các sản phẩm này chỉ có Gói/Hộp/Thùng, làm tra giá lỗi 409 hoàn toàn (không tạo được đơn). Đã sửa 8 dòng giá "Cái" ở 2 bảng còn thiếu thành đúng giá Hộp (suy từ giá Hộp đã có ở bảng giá còn lại), xóa 4 dòng "Cái" vô dụng còn sót ở bảng giá gốc.
+- Sản phẩm `SW001` (Kẹo Swing) chưa được gán nhóm quy đổi (`uom_group_id` NULL) dù đã có giá theo Gói/Thùng — đã gán vào nhóm `QC-SNACK` (Gói/Thùng) sẵn có, sửa luôn đơn vị bán mặc định về Gói.
+
+**Ghi nhận, CHƯA sửa (ngoài phạm vi hôm nay)**: phát hiện cột "Sẵn sàng bán" ở Kho Van Hà Nội đang âm rất lớn (vd −638, −752) cho một số sản phẩm — do khối lượng đơn hàng lịch sử rất lớn của tv2 vượt xa tồn kho demo tại kho này, chặn không tạo được đơn Van Sale mới cho các sản phẩm đó. Đây là đặc điểm dữ liệu lịch sử (không phải lỗi logic — đã test riêng bằng cách tăng tạm tồn kho), cần tv2 xem lại cân đối tồn kho demo nếu muốn test Van Sale rộng hơn ở kho này.

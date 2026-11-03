@@ -83,13 +83,19 @@ export default function EditPreorder() {
       setError('Đơn Pre-order bắt buộc có ngày giao hàng');
       return;
     }
+    // uomId = don vi ban (saleUom) cua san pham - BAT BUOC gui kem, cung ly do nhu man new.js
+    // (gia la theo saleUom, thieu uomId backend hieu nham so luong la don vi co so).
     const details = Object.entries(quantities)
       .filter(([, qty]) => qty > 0)
-      .map(([productId, qty]) => ({
-        productId: Number(productId),
-        quantity: qty,
-        unitPrice: Number(prices[productId] || 0),
-      }));
+      .map(([productId, qty]) => {
+        const product = products.find((p) => p.id === Number(productId));
+        return {
+          productId: Number(productId),
+          quantity: qty,
+          unitPrice: Number(prices[productId] || 0),
+          uomId: product?.saleUom?.id || null,
+        };
+      });
     if (details.length === 0) {
       setError('Chọn số lượng cho ít nhất 1 sản phẩm');
       return;
