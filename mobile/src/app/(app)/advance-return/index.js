@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect, router } from 'expo-router';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSession } from '../../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../../api/client';
 
@@ -50,18 +51,23 @@ export default function AdvanceReturnHistory() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabs}>
-        <Pressable
-          style={[styles.tabBtn, mode === 'advance' && styles.tabBtnActive]}
-          onPress={() => setMode('advance')}
-        >
-          <Text style={[styles.tabText, mode === 'advance' && styles.tabTextActive]}>Ứng hàng</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tabBtn, mode === 'return' && styles.tabBtnActive]}
-          onPress={() => setMode('return')}
-        >
-          <Text style={[styles.tabText, mode === 'return' && styles.tabTextActive]}>Trả hàng</Text>
+      <View style={styles.topRow}>
+        <View style={styles.tabs}>
+          <Pressable
+            style={[styles.tabBtn, mode === 'advance' && styles.tabBtnActive]}
+            onPress={() => setMode('advance')}
+          >
+            <Text style={[styles.tabText, mode === 'advance' && styles.tabTextActive]}>Ứng hàng</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.tabBtn, mode === 'return' && styles.tabBtnActive]}
+            onPress={() => setMode('return')}
+          >
+            <Text style={[styles.tabText, mode === 'return' && styles.tabTextActive]}>Trả hàng</Text>
+          </Pressable>
+        </View>
+        <Pressable onPress={load} style={styles.refreshBtn} disabled={loading}>
+          <Ionicons name="refresh" size={20} color="#1677ff" />
         </Pressable>
       </View>
 
@@ -84,7 +90,6 @@ export default function AdvanceReturnHistory() {
         <FlatList
           data={tickets}
           keyExtractor={(item) => String(item.id)}
-          refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
           ListEmptyComponent={<Text style={styles.empty}>Chưa có phiếu nào.</Text>}
           renderItem={({ item }) => (
             <Pressable
@@ -111,7 +116,9 @@ export default function AdvanceReturnHistory() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
-  tabs: { flexDirection: 'row', marginBottom: 12, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#1677ff' },
+  topRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  refreshBtn: { padding: 6 },
+  tabs: { flex: 1, flexDirection: 'row', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#1677ff' },
   tabBtn: { flex: 1, padding: 10, alignItems: 'center' },
   tabBtnActive: { backgroundColor: '#1677ff' },
   tabText: { color: '#1677ff', fontWeight: '600' },

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect, router } from 'expo-router';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSession } from '../../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../../api/client';
 
@@ -62,6 +63,13 @@ export default function OrdersList() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.headerBar}>
+        <Text style={styles.headerTitle}>Đơn hàng ({orders.length})</Text>
+        <Pressable onPress={load} style={styles.refreshBtn} disabled={loading}>
+          <Ionicons name="refresh" size={20} color="#1677ff" />
+        </Pressable>
+      </View>
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {loading && orders.length === 0 ? (
@@ -70,7 +78,6 @@ export default function OrdersList() {
         <FlatList
           data={orders}
           keyExtractor={(item) => String(item.id)}
-          refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
           ListEmptyComponent={
             <Text style={styles.empty}>Chưa có đơn nào. Vào tab Khách hàng → Ghé thăm để tạo đơn mới.</Text>
           }
@@ -101,6 +108,9 @@ export default function OrdersList() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
+  headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  headerTitle: { fontSize: 16, fontWeight: '700' },
+  refreshBtn: { padding: 6 },
   card: { borderWidth: 1, borderColor: '#eee', borderRadius: 8, padding: 12, marginBottom: 10 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   typeBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginRight: 8 },

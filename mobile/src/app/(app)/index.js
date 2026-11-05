@@ -7,8 +7,8 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  RefreshControl,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSession } from '../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../api/client';
 
@@ -61,9 +61,14 @@ export default function Home() {
           <Text style={styles.name}>{session?.fullName}</Text>
           <Text style={styles.sub}>{employee ? employee.code : 'Chưa gán nhân viên'}</Text>
         </View>
-        <Pressable onPress={handleSignOut} style={styles.signOutBtn}>
-          <Text style={styles.signOutText}>Đăng xuất</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Pressable onPress={load} style={styles.refreshBtn} disabled={loading}>
+            <Ionicons name="refresh" size={20} color="#1677ff" />
+          </Pressable>
+          <Pressable onPress={handleSignOut} style={styles.signOutBtn}>
+            <Text style={styles.signOutText}>Đăng xuất</Text>
+          </Pressable>
+        </View>
       </View>
 
       <Text style={styles.sectionTitle}>Tồn kho NV hôm nay</Text>
@@ -78,7 +83,6 @@ export default function Home() {
         <FlatList
           data={stocks}
           keyExtractor={(item) => String(item.product.id)}
-          refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
           ListEmptyComponent={<Text style={styles.empty}>Chưa ứng hàng nào.</Text>}
           ListHeaderComponent={
             stocks.length > 0 ? (
@@ -116,6 +120,7 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 18, fontWeight: 'bold' },
   sub: { fontSize: 13, color: '#666' },
+  refreshBtn: { padding: 8 },
   signOutBtn: { padding: 8 },
   signOutText: { color: '#d4380d' },
   sectionTitle: { fontSize: 15, fontWeight: '600', marginBottom: 8 },

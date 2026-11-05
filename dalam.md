@@ -998,3 +998,13 @@ Triển khai đúng thiết kế đã chốt (xem mục "Yêu cầu Realtime" tr
 **Đã sửa**: `frontend/vite.config.js` thêm `define: { global: 'globalThis' }` — cách polyfill chuẩn, phổ biến cho đúng lỗi `sockjs-client` + Vite này. Restart lại Vite dev server (bắt buộc, thay đổi `vite.config.js` không tự áp dụng như sửa code thường). Build `npm run build` lại sạch.
 
 **Bài học**: mọi thư viện mới thêm vào (đặc biệt loại vốn viết cho Node.js như `sockjs-client`) cần build/chạy thử thật trên trình duyệt trước khi báo xong — không chỉ dựa vào `npm run build` thành công (build không phát hiện được lỗi runtime kiểu này, lỗi chỉ lộ ra khi trang thực sự chạy trong trình duyệt).
+
+## 🔄 Thêm nút "Làm mới" hiện rõ trên App + bỏ thao tác kéo xuống (2026-11-05)
+
+**Phát hiện lúc kiểm tra nút reload**: trang Tồn kho + Xuất kho **bên web đã có sẵn** nút Làm mới (component `TableToolbar` dùng chung, đã gắn `onReload` từ trước) — không phải việc đang treo như ghi nhầm trước đó. Yêu cầu "thêm nút reload" thực ra chỉ còn thiếu bên **App**.
+
+**Đã làm**:
+- Thêm nút icon 🔄 (Ionicons `refresh`) hiện rõ ràng trên 4 màn: Tổng quan (`index.js`), Đơn hàng (`orders/index.js`), Khách hàng (`customers/index.js`), Ứng/Trả hàng (`advance-return/index.js`) — bấm vào gọi lại đúng hàm `load()` sẵn có của từng màn.
+- Theo yêu cầu tiếp theo: **bỏ thao tác kéo xuống để làm mới** (`RefreshControl`) đã thêm trước đó ở 2026-11-04 — chỉ giữ lại nút bấm tường minh, tránh trùng lặp/gây nhầm lẫn.
+
+Build mobile (`npx expo export`) sạch.
