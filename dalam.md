@@ -988,3 +988,13 @@ Triển khai đúng thiết kế đã chốt (xem mục "Yêu cầu Realtime" tr
 **Build**: backend `mvnw clean compile` sạch, frontend `npm run build` sạch (chỉ cảnh báo chunk lớn, không phải lỗi). Đã dọn sạch toàn bộ dữ liệu test (kể cả 1.000 gói dư sót lại từ lượt test trước chưa dọn hết, phát hiện qua đối chiếu sổ cái).
 
 **Phạm vi (đúng thiết kế đã chốt)**: chỉ trang Tồn kho tự cập nhật — các trang khác (Đơn hàng, Khách hàng...) vẫn cần F5 như cũ, trừ khi được yêu cầu mở rộng thêm.
+
+## 🐛 Lỗi thật: trang web trắng/đen hoàn toàn sau khi thêm Realtime (2026-11-05)
+
+**Người dùng báo** (kèm ảnh Console): mở `localhost:5173` bị trắng/đen hoàn toàn, không lên giao diện gì — xảy ra ở cả Cốc Cốc lẫn trình duyệt nhúng VS Code (loại trừ được giả thuyết "do extension Cốc Cốc" từng nghi vấn trước đây).
+
+**Nguyên nhân (lỗi của tôi, do mục Realtime ngay trên)**: Console báo `Uncaught ReferenceError: global is not defined` từ `sockjs-client.js`. Thư viện `sockjs-client` được viết cho môi trường Node.js, cần biến toàn cục `global` — trình duyệt không có biến này. Vite (khác Webpack) **không tự polyfill** `global`, nên lỗi này xảy ra ngay khi tải trang, **trước khi React kịp render gì cả** → toàn bộ trang trắng/đen, không chỉ riêng trang Tồn kho.
+
+**Đã sửa**: `frontend/vite.config.js` thêm `define: { global: 'globalThis' }` — cách polyfill chuẩn, phổ biến cho đúng lỗi `sockjs-client` + Vite này. Restart lại Vite dev server (bắt buộc, thay đổi `vite.config.js` không tự áp dụng như sửa code thường). Build `npm run build` lại sạch.
+
+**Bài học**: mọi thư viện mới thêm vào (đặc biệt loại vốn viết cho Node.js như `sockjs-client`) cần build/chạy thử thật trên trình duyệt trước khi báo xong — không chỉ dựa vào `npm run build` thành công (build không phát hiện được lỗi runtime kiểu này, lỗi chỉ lộ ra khi trang thực sự chạy trong trình duyệt).
