@@ -6,6 +6,7 @@ import com.erpqlkho.backend.category.uom.entity.Uom;
 import com.erpqlkho.backend.category.uomgroup.service.UomConversionService;
 import com.erpqlkho.backend.category.warehouse.entity.Warehouse;
 import com.erpqlkho.backend.inventory.service.EmployeeStockService;
+import com.erpqlkho.backend.inventory.service.InventoryEventPublisher;
 import com.erpqlkho.backend.inventory.service.StockService;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.sales.dto.InvoiceDto;
@@ -52,6 +53,7 @@ public class InvoiceService {
     private final UomConversionService uomConversionService;
     private final StockService stockService;
     private final EmployeeStockService employeeStockService;
+    private final InventoryEventPublisher inventoryEventPublisher;
 
     public List<Invoice> findAll() {
         return invoiceRepository.findAll();
@@ -224,6 +226,7 @@ public class InvoiceService {
             stockService.decrease(item.getProduct(), van, item.getBaseQuantity(), "VAN_SALE_INVOICE", saved.getId());
             employeeStockService.decrease(order.getSalesman(), item.getProduct(), item.getBaseQuantity(), "VAN_SALE_INVOICE", saved.getId());
         }
+        inventoryEventPublisher.publish("VAN_SALE", order.getSalesman().getFullName());
         return saved;
     }
 

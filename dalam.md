@@ -965,3 +965,26 @@ Theo yêu cầu "test hết toàn bộ hệ thống", mở rộng soát thêm ng
 - Sản phẩm `SW001` (Kẹo Swing) chưa được gán nhóm quy đổi (`uom_group_id` NULL) dù đã có giá theo Gói/Thùng — đã gán vào nhóm `QC-SNACK` (Gói/Thùng) sẵn có, sửa luôn đơn vị bán mặc định về Gói.
 
 **Ghi nhận, CHƯA sửa (ngoài phạm vi hôm nay)**: phát hiện cột "Sẵn sàng bán" ở Kho Van Hà Nội đang âm rất lớn (vd −638, −752) cho một số sản phẩm — do khối lượng đơn hàng lịch sử rất lớn của tv2 vượt xa tồn kho demo tại kho này, chặn không tạo được đơn Van Sale mới cho các sản phẩm đó. Đây là đặc điểm dữ liệu lịch sử (không phải lỗi logic — đã test riêng bằng cách tăng tạm tồn kho), cần tv2 xem lại cân đối tồn kho demo nếu muốn test Van Sale rộng hơn ở kho này.
+
+## 📡 Realtime WebSocket cho Web ERP (yêu cầu giảng viên, V51 Realtime) — đã code xong (2026-11-05)
+
+Triển khai đúng thiết kế đã chốt (xem mục "Yêu cầu Realtime" trước đó), có bổ sung theo yêu cầu cụ thể của người dùng: **thông báo phải nêu rõ loại giao dịch** (không chỉ tín hiệu rỗng như bản chốt gốc).
+
+**Backend**:
+- Thêm `spring-boot-starter-websocket`, `WebSocketConfig.java` (endpoint `/ws` SockJS, broker `/topic`).
+- `SecurityConfig.java`: thêm `/ws/**` vào `permitAll` — kênh chỉ phát `{eventType, employeeName}`, KHÔNG có số liệu tồn kho thật, nên chấp nhận không xác thực để tránh phải tích hợp JWT vào STOMP handshake (đúng đơn giản hóa đã chốt).
+- `InventoryEventPublisher.java` (mới, package `inventory.service`): bắn `{eventType: VAN_SALE|ADVANCE|RETURN, employeeName}` lên `/topic/inventory`.
+- Gọi ở 3 chỗ: `VanSaleAdvanceService.confirm()`, `VanSaleReturnService.confirm()`, `InvoiceService.createVanSale()` — ngay sau khi lưu thành công.
+
+**Frontend web** (`pages/inventory/Inventories/index.jsx`): cài `@stomp/stompjs` + `sockjs-client`, kết nối 1 lần khi mở trang, nhận tin hiệu thì `notification.open()` góc màn hình (nội dung: "[Tên NVBH] vừa tạo đơn Van Sale/phiếu Ứng hàng/phiếu Trả hàng") + tự gọi lại `loadData()` — không cần F5.
+
+**Đã test qua API thật** (viết 1 script Node dùng `@stomp/stompjs` đóng vai "web" lắng nghe `/topic/inventory`, kích hoạt giao dịch thật qua API trong lúc lắng nghe): cả 3 loại sự kiện đều bắn tín hiệu đúng và nhận được trong vài trăm ms —
+- Xác nhận Ứng hàng → nhận `{"eventType":"ADVANCE","employeeName":"Hoang Minh Binh (R-HN-01)"}`.
+- Xác nhận Trả hàng → nhận đúng `{"eventType":"RETURN",...}`.
+- Xuất hóa đơn Van Sale → nhận đúng `{"eventType":"VAN_SALE",...}`.
+
+**Đối chiếu tồn kho sau mỗi giao dịch** (đúng yêu cầu "test từ app sang web xem đã trừ đúng kho chưa"): dùng cách đối chiếu sổ cái (`stock_transaction`) — tất cả khớp tuyệt đối, không lệch 1 gói nào ở cả 2 kho (Main/Van) lẫn Kho NV của nhân viên, cho cả 3 sản phẩm test với hệ số quy đổi khác nhau.
+
+**Build**: backend `mvnw clean compile` sạch, frontend `npm run build` sạch (chỉ cảnh báo chunk lớn, không phải lỗi). Đã dọn sạch toàn bộ dữ liệu test (kể cả 1.000 gói dư sót lại từ lượt test trước chưa dọn hết, phát hiện qua đối chiếu sổ cái).
+
+**Phạm vi (đúng thiết kế đã chốt)**: chỉ trang Tồn kho tự cập nhật — các trang khác (Đơn hàng, Khách hàng...) vẫn cần F5 như cũ, trừ khi được yêu cầu mở rộng thêm.

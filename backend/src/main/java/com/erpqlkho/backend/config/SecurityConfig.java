@@ -48,7 +48,10 @@ public class SecurityConfig {
                         .authenticationEntryPoint(restAuthenticationEntryPoint)
                         .accessDeniedHandler(restAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        // /ws/**: khong qua JWT (xem WebSocketConfig.java) - kenh chi phat tin hieu
+                        // "co gi vua doi, tu tai lai" + ten NVBH, KHONG gui kem du lieu ton kho that
+                        // nen chap nhan khong xac thuc, tranh phai tich hop JWT vao STOMP handshake.
+                        .requestMatchers("/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**", "/ws/**").permitAll()
 
                         // Phan quyen: chi ADMIN duoc quan tri.
                         .requestMatchers("/api/roles/**").hasRole("ADMIN")

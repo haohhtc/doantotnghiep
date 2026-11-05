@@ -89,6 +89,13 @@
             <artifactId>spring-boot-starter-mail</artifactId>
         </dependency>
 
+        <!-- WebSocket (STOMP) - bao Web tu lam moi Ton kho + hien thong bao real-time khi App
+             Van-Sale co giao dich moi (xem config/WebSocketConfig.java). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!-- Boilerplate reduction -->
         <dependency>
             <groupId>org.projectlombok</groupId>

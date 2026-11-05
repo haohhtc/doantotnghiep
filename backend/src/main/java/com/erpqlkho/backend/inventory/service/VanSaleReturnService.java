@@ -43,6 +43,7 @@ public class VanSaleReturnService {
     private final EmployeeStockService employeeStockService;
     private final NumberingConfigService numberingConfigService;
     private final UomConversionService uomConversionService;
+    private final InventoryEventPublisher inventoryEventPublisher;
 
     public List<VanSaleReturn> findAll() {
         return vanSaleReturnRepository.findAll();
@@ -103,7 +104,9 @@ public class VanSaleReturnService {
         }
 
         ret.setStatus("CLOSED");
-        return vanSaleReturnRepository.save(ret);
+        VanSaleReturn saved = vanSaleReturnRepository.save(ret);
+        inventoryEventPublisher.publish("RETURN", ret.getEmployee().getFullName());
+        return saved;
     }
 
     private void applyDto(VanSaleReturn ret, VanSaleReturnDto dto) {

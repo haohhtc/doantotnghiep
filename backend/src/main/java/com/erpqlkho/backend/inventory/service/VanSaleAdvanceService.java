@@ -43,6 +43,7 @@ public class VanSaleAdvanceService {
     private final EmployeeStockService employeeStockService;
     private final NumberingConfigService numberingConfigService;
     private final UomConversionService uomConversionService;
+    private final InventoryEventPublisher inventoryEventPublisher;
 
     public List<VanSaleAdvance> findAll() {
         return vanSaleAdvanceRepository.findAll();
@@ -96,7 +97,9 @@ public class VanSaleAdvanceService {
         }
 
         advance.setStatus("CLOSED");
-        return vanSaleAdvanceRepository.save(advance);
+        VanSaleAdvance saved = vanSaleAdvanceRepository.save(advance);
+        inventoryEventPublisher.publish("ADVANCE", advance.getEmployee().getFullName());
+        return saved;
     }
 
     private void applyDto(VanSaleAdvance advance, VanSaleAdvanceDto dto) {
