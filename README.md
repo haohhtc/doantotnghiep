@@ -60,6 +60,11 @@ cp .env.example .env
 docker compose up -d          # khởi động MySQL (OLTP + DW) + Adminer (http://localhost:8081)
 ```
 
+DW (`erp_qlkho_dw`) tự nạp sẵn schema + dữ liệu mẫu qua `docker-entrypoint-initdb.d` (3 file trong `data-warehouse/schema/`). OLTP (`erp_qlkho_oltp`) không mount initdb (Flyway ở bước 2 tự quản lý schema) nên nạp dữ liệu mẫu bằng tay 1 lần (dump đầy đủ cả schema lẫn data, không cần chạy Flyway trước):
+```bash
+docker exec -i erp-mysql-oltp mysql -uroot -proot_password erp_qlkho_oltp < etl/seed/01_oltp_dump.sql
+```
+
 ### 2. Backend (Java Spring Boot)
 ```bash
 cd backend

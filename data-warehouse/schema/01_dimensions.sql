@@ -9,6 +9,11 @@ CREATE TABLE dim_product (
     product_name VARCHAR(255) NOT NULL,
     category_name VARCHAR(150),
     unit VARCHAR(30),
+    -- Them khop voi du lieu seed thuc te cua tv2 (03_seed_data.sql) - xem dalam.md 2026-11-03.
+    unit_code VARCHAR(20),
+    tax_rate DECIMAL(5,2),
+    extra1 VARCHAR(255),                 -- chua ro muc dich, luon NULL trong du lieu hien tai - hoi lai tv2
+    extra2 VARCHAR(255),
     UNIQUE KEY uk_dim_product_source (product_id)
 );
 
@@ -26,6 +31,9 @@ CREATE TABLE dim_warehouse (
     warehouse_code VARCHAR(50) NOT NULL,
     warehouse_name VARCHAR(150) NOT NULL,
     warehouse_type VARCHAR(20),
+    -- Them khop voi du lieu seed thuc te cua tv2 (03_seed_data.sql) - xem dalam.md 2026-11-03.
+    branch_code VARCHAR(50),
+    branch_name VARCHAR(150),
     UNIQUE KEY uk_dim_warehouse_source (warehouse_id)
 );
 
@@ -34,6 +42,18 @@ CREATE TABLE dim_customer (
     customer_id BIGINT NOT NULL,
     customer_code VARCHAR(50) NOT NULL,
     customer_name VARCHAR(255) NOT NULL,
+    -- Them khop voi du lieu seed thuc te cua tv2 (03_seed_data.sql) - xem dalam.md 2026-11-03.
+    channel_code VARCHAR(20),
+    channel_name VARCHAR(100),
+    region VARCHAR(100),
+    province VARCHAR(100),
+    ward VARCHAR(150),
+    extra1 VARCHAR(255),                 -- 6 cot chua ro muc dich, luon NULL trong du lieu hien tai - hoi lai tv2
+    extra2 VARCHAR(255),
+    extra3 VARCHAR(255),
+    extra4 VARCHAR(255),
+    extra5 VARCHAR(255),
+    extra6 VARCHAR(255),
     UNIQUE KEY uk_dim_customer_source (customer_id)
 );
 

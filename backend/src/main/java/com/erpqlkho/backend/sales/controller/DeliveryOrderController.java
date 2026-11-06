@@ -29,8 +29,13 @@ public class DeliveryOrderController {
 
     // Khong doi - Don hang ban can toan bo de tinh "con lai chua giao" khi tao/sua Don giao hang
     // moi (xem frontend DeliveryOrder/index.jsx, loadComputationData - tai lazy khi mo modal).
+    // salesOrderId (tuy chon): chi tra ve Don giao hang cua DUNG 1 don hang ban do - dung cho App
+    // Van-Sale xem chi tiet 1 don (xem mobile preorder/[id].js). Bo trong -> tra ve toan bo nhu cu.
     @GetMapping
-    public ApiResponse<List<DeliveryOrder>> findAll() {
+    public ApiResponse<List<DeliveryOrder>> findAll(@RequestParam(required = false) Long salesOrderId) {
+        if (salesOrderId != null) {
+            return ApiResponse.ok(deliveryOrderService.findBySalesOrderId(salesOrderId));
+        }
         return ApiResponse.ok(deliveryOrderService.findAll());
     }
 

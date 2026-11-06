@@ -1,10 +1,13 @@
 package com.erpqlkho.backend.category.employee.service;
 
+import com.erpqlkho.backend.category.branch.entity.Branch;
 import com.erpqlkho.backend.category.employee.dto.EmployeeDto;
 import com.erpqlkho.backend.category.employee.entity.Employee;
 import com.erpqlkho.backend.category.employee.repository.EmployeeRepository;
 import com.erpqlkho.backend.category.employeeposition.entity.EmployeePosition;
 import com.erpqlkho.backend.category.employeeposition.repository.EmployeePositionRepository;
+import com.erpqlkho.backend.category.routemaster.entity.RouteSalesmanAssignment;
+import com.erpqlkho.backend.category.routemaster.repository.RouteSalesmanAssignmentRepository;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.user.entity.User;
 import com.erpqlkho.backend.user.repository.UserRepository;
@@ -13,6 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 
@@ -25,6 +29,7 @@ public class EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final EmployeePositionRepository employeePositionRepository;
     private final UserRepository userRepository;
+    private final RouteSalesmanAssignmentRepository routeSalesmanAssignmentRepository;
 
     // ?type=NVBH|NV de loc theo tab - bo trong thi tra toan bo.
     public List<Employee> findAll(String type) {
@@ -37,11 +42,36 @@ public class EmployeeService {
     }
 
     // App Van-Sale (di dong): nhan vien dang dang nhap tren app, de app tu suy ra Kho NV/Kho Van
-    // cua minh (xem EmployeeStockService, InvoiceService.createVanSale()).
+    // cua minh (xem EmployeeStockService, InvoiceService.createVanSale()). Neu tai khoan chua gan
+    // thang Chi nhanh (NVBH gio xac dinh chi nhanh qua Tuyen - xem resolveCurrentBranch()), gan tam
+    // chi nhanh suy ra duoc vao object tra ve (KHONG luu xuong DB) de App Van-Sale dung duoc ngay,
+    // khong can doi code mobile (van doc dung field employee.user.branch nhu truoc).
+    @Transactional(readOnly = true)
     public Employee findByCurrentUser() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return employeeRepository.findByUser_Username(username)
+        Employee employee = employeeRepository.findByUser_Username(username)
                 .orElseThrow(() -> ApiException.notFound("Tai khoan dang nhap chua duoc gan voi nhan vien nao"));
+        if (employee.getUser() != null && employee.getUser().getBranch() == null) {
+            employee.getUser().setBranch(resolveCurrentBranch(employee));
+        }
+        return employee;
+    }
+
+    // Chi nhanh hien tai cua 1 NVBH: uu tien user.branch_id (NV kho/quan ly gan thang); neu rong,
+    // suy tu Tuyen ban hang dang phu trach TAI NGAY HOM NAY (route_salesman_assignment ->
+    // route_master.branch_id) - mo hinh moi thay the cho gan Chi nhanh truc tiep (V21 tro di).
+    public Branch resolveCurrentBranch(Employee employee) {
+        if (employee.getUser() != null && employee.getUser().getBranch() != null) {
+            return employee.getUser().getBranch();
+        }
+        LocalDate today = LocalDate.now();
+        return routeSalesmanAssignmentRepository.findByEmployeeIdOrderByEffectiveDateAsc(employee.getId()).stream()
+                .filter(a -> !a.getEffectiveDate().isAfter(today)
+                        && (a.getEndDate() == null || !a.getEndDate().isBefore(today)))
+                .findFirst()
+                .map(RouteSalesmanAssignment::getRouteMaster)
+                .map(rm -> rm.getBranch())
+                .orElse(null);
     }
 
     @Transactional

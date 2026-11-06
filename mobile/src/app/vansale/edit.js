@@ -9,12 +9,11 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import { useSession } from '../../../ctx/SessionContext';
-import { apiClient, errorMessage } from '../../../api/client';
+import { useSession } from '../../ctx/SessionContext';
+import { apiClient, errorMessage } from '../../api/client';
 
-// Sua don Pre-order dang PENDING (API update chi cho sua khi con PENDING - xem
-// SalesOrderService.requirePending()). Nap san du lieu cu, gui PUT thay vi POST.
-export default function EditPreorder() {
+// Sua don Van Sale dang PENDING (API update chi cho sua khi con PENDING).
+export default function EditVanSale() {
   const { id } = useLocalSearchParams();
   const { session } = useSession();
   const employee = session?.employee;
@@ -26,7 +25,6 @@ export default function EditPreorder() {
   const [warehouseId, setWarehouseId] = useState(null);
 
   const [customerId, setCustomerId] = useState(null);
-  const [deliveryDate, setDeliveryDate] = useState('');
   const [remarks, setRemarks] = useState('');
   const [quantities, setQuantities] = useState({});
   const [prices, setPrices] = useState({});
@@ -47,7 +45,6 @@ export default function EditPreorder() {
         ]);
         const order = orderRes.data.data;
         setCustomerId(order.customer.id);
-        setDeliveryDate(order.deliveryDate || '');
         setRemarks(order.remarks || '');
         setWarehouseId(order.warehouse.id);
         const qty = {};
@@ -79,17 +76,18 @@ export default function EditPreorder() {
       setError('Chọn khách hàng');
       return;
     }
-    if (!deliveryDate) {
-      setError('Đơn Pre-order bắt buộc có ngày giao hàng');
-      return;
-    }
+    // uomId = don vi ban (saleUom) cua san pham - BAT BUOC gui kem (xem dalam.md 2026-11-04).
     const details = Object.entries(quantities)
       .filter(([, qty]) => qty > 0)
-      .map(([productId, qty]) => ({
-        productId: Number(productId),
-        quantity: qty,
-        unitPrice: Number(prices[productId] || 0),
-      }));
+      .map(([productId, qty]) => {
+        const product = products.find((p) => p.id === Number(productId));
+        return {
+          productId: Number(productId),
+          quantity: qty,
+          unitPrice: Number(prices[productId] || 0),
+          uomId: product?.saleUom?.id || null,
+        };
+      });
     if (details.length === 0) {
       setError('Chọn số lượng cho ít nhất 1 sản phẩm');
       return;
@@ -100,10 +98,9 @@ export default function EditPreorder() {
     try {
       await apiClient.put(`/api/sales-orders/${id}`, {
         docDate: new Date().toISOString().slice(0, 10),
-        deliveryDate,
         customerId,
         warehouseId,
-        orderType: 'PRE_ORDER',
+        orderType: 'STANDARD',
         salesmanId: employee.id,
         remarks: remarks || null,
         details,
@@ -135,9 +132,6 @@ export default function EditPreorder() {
           </Pressable>
         )}
       />
-
-      <Text style={styles.label}>Ngày giao hàng (YYYY-MM-DD)</Text>
-      <TextInput style={styles.input} value={deliveryDate} onChangeText={setDeliveryDate} />
 
       <Text style={styles.label}>Ghi chú đơn hàng</Text>
       <TextInput style={styles.input} value={remarks} onChangeText={setRemarks} />
@@ -189,7 +183,7 @@ const styles = StyleSheet.create({
   stepBtnText: { fontSize: 18, fontWeight: '700', color: '#1677ff' },
   stepValue: { width: 36, textAlign: 'center', fontSize: 15 },
   stepValueActive: { fontWeight: '700', color: '#1677ff' },
-  submitBtn: { backgroundColor: '#1677ff', borderRadius: 8, padding: 14, alignItems: 'center', marginVertical: 16 },
+  submitBtn: { backgroundColor: '#d4380d', borderRadius: 8, padding: 14, alignItems: 'center', marginVertical: 16 },
   submitText: { color: '#fff', fontWeight: '700' },
   error: { color: '#d4380d', marginVertical: 4, textAlign: 'center' },
 });

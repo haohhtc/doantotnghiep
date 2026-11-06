@@ -9,14 +9,15 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import { useSession } from '../../../ctx/SessionContext';
-import { apiClient, errorMessage } from '../../../api/client';
+import { useSession } from '../../ctx/SessionContext';
+import { apiClient, errorMessage } from '../../api/client';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-// Buoc 1 "them san pham vao gio" (giong preorder/new.js) - stepper +/- thay vi go tay, gia tu dong
-// tra ve theo bang gia. Buoc 2 (xem lai + xac nhan) o man hinh review.js.
-export default function NewVanSale() {
+// Buoc 1 "them san pham vao gio" (yeu cau tv2, giong anh tham khao "Danh sach hang hoa - Giao
+// sau"): stepper +/- thay vi go tay so luong, gia tu dong tra ve theo bang gia. Buoc 2 (xem lai +
+// xac nhan) o man hinh review.js, nhan gio hang qua route params.
+export default function NewPreorder() {
   const { customerId: presetCustomerId } = useLocalSearchParams();
   const { session } = useSession();
   const employee = session?.employee;
@@ -25,11 +26,13 @@ export default function NewVanSale() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
-  const [vanWarehouseId, setVanWarehouseId] = useState(null);
+  const [mainWarehouseId, setMainWarehouseId] = useState(null);
 
   const [customerId, setCustomerId] = useState(presetCustomerId ? Number(presetCustomerId) : null);
+  const [deliveryDate, setDeliveryDate] = useState('');
   const [quantities, setQuantities] = useState({});
   const [prices, setPrices] = useState({});
+
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -46,10 +49,10 @@ export default function NewVanSale() {
         ]);
         setCustomers(customersRes.data.data.filter((c) => c.branch?.id === branchId));
         setProducts(productsRes.data.data.map((a) => a.product));
-        const van = warehousesRes.data.data.find(
-          (w) => w.branch?.id === branchId && w.warehouseType === 'VAN'
+        const main = warehousesRes.data.data.find(
+          (w) => w.branch?.id === branchId && w.warehouseType === 'MAIN'
         );
-        setVanWarehouseId(van?.id || null);
+        setMainWarehouseId(main?.id || null);
       } catch (e) {
         setError(errorMessage(e));
       } finally {
@@ -60,10 +63,10 @@ export default function NewVanSale() {
   }, [branchId]);
 
   async function lookupPrice(productId) {
-    if (!customerId || !vanWarehouseId) return;
+    if (!customerId || !mainWarehouseId) return;
     try {
       const res = await apiClient.get('/api/price-lists/lookup', {
-        params: { productId, customerId, warehouseId: vanWarehouseId, purpose: 'SALE', date: today() },
+        params: { productId, customerId, warehouseId: mainWarehouseId, purpose: 'SALE', date: today() },
       });
       if (res.data.data != null) {
         setPrices((prev) => ({ ...prev, [productId]: res.data.data }));
@@ -81,11 +84,20 @@ export default function NewVanSale() {
     if (!prices[productId]) lookupPrice(productId);
   }
 
+  // uomId = don vi ban (saleUom) cua san pham - BAT BUOC gui kem, vi gia tra ve tu lookupPrice()
+  // la gia theo saleUom (vd Hop), con so luong bam +/- cung la theo Hop. Thieu uomId thi backend
+  // hieu nham so luong la don vi co so (goi) -> tong tien sai gap nhieu lan (xem dalam.md 2026-11-04).
   const cartLines = Object.entries(quantities)
     .filter(([, qty]) => qty > 0)
     .map(([productId, qty]) => {
       const product = products.find((p) => p.id === Number(productId));
-      return { productId: Number(productId), name: product?.name, quantity: qty, unitPrice: prices[productId] || 0 };
+      return {
+        productId: Number(productId),
+        name: product?.name,
+        quantity: qty,
+        unitPrice: prices[productId] || 0,
+        uomId: product?.saleUom?.id || null,
+      };
     });
   const cartTotal = cartLines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
 
@@ -94,8 +106,8 @@ export default function NewVanSale() {
       setError('Chọn khách hàng');
       return;
     }
-    if (!vanWarehouseId) {
-      setError('Chi nhánh chưa có Kho Van');
+    if (!deliveryDate) {
+      setError('Đơn Pre-order bắt buộc có ngày giao hàng (YYYY-MM-DD)');
       return;
     }
     if (cartLines.length === 0) {
@@ -104,10 +116,11 @@ export default function NewVanSale() {
     }
     setError(null);
     router.push({
-      pathname: '/vansale/review',
+      pathname: '/preorder/review',
       params: {
         customerId: String(customerId),
-        warehouseId: String(vanWarehouseId),
+        warehouseId: String(mainWarehouseId),
+        deliveryDate,
         items: JSON.stringify(cartLines),
       },
     });
@@ -131,6 +144,14 @@ export default function NewVanSale() {
             <Text style={[styles.chipText, customerId === item.id && styles.chipTextActive]}>{item.name}</Text>
           </Pressable>
         )}
+      />
+
+      <Text style={styles.label}>Ngày giao hàng (YYYY-MM-DD)</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="2026-10-20"
+        value={deliveryDate}
+        onChangeText={setDeliveryDate}
       />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -171,6 +192,7 @@ export default function NewVanSale() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
   label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 6, marginTop: 6 },
+  input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 4 },
   chip: { borderWidth: 1, borderColor: '#1677ff', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8 },
   chipActive: { backgroundColor: '#1677ff' },
   chipText: { color: '#1677ff' },
@@ -184,7 +206,7 @@ const styles = StyleSheet.create({
   stepValueActive: { fontWeight: '700', color: '#1677ff' },
   cartBar: {
     position: 'absolute', left: 16, right: 16, bottom: 16,
-    backgroundColor: '#d4380d', borderRadius: 10, padding: 14,
+    backgroundColor: '#1677ff', borderRadius: 10, padding: 14,
     flexDirection: 'row', justifyContent: 'space-between',
   },
   cartBarText: { color: '#fff', fontWeight: '700', fontSize: 14 },

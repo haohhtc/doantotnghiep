@@ -1,8 +1,21 @@
-import { useEffect, useState } from 'react';
-import { Typography, Table, message } from 'antd';
+import { useEffect, useRef, useState } from 'react';
+import { Typography, Table, message, notification } from 'antd';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { useBranch } from '../../../contexts/BranchContext';
+
+// Realtime (yeu cau giang vien, xem dalam.md "Realtime"): App Van-Sale co giao dich moi (Ung/Tra
+// hang, hoa don Van Sale) thi backend phat tin hieu qua WebSocket (xem config/WebSocketConfig.java
+// + InventoryEventPublisher) - KHONG kem so lieu ton kho that, chi bao "co gi vua doi" + ten NVBH,
+// trang nay nhan duoc thi tu goi lai loadData() + hien thong bao, khong can F5.
+const EVENT_LABEL = {
+  VAN_SALE: 'vừa tạo đơn Van Sale',
+  ADVANCE: 'vừa tạo phiếu Ứng hàng',
+  RETURN: 'vừa tạo phiếu Trả hàng',
+};
+const WS_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api').replace(/\/api\/?$/, '') + '/ws';
 
 const { Title, Text } = Typography;
 
@@ -70,6 +83,30 @@ export default function InventoriesPage() {
   useEffect(() => {
     loadData();
   }, [selectedBranchId]);
+
+  // Ket noi WebSocket 1 lan khi mo trang - lang nghe /topic/inventory, nhan tin hieu thi hien
+  // thong bao goc man hinh + tu goi lai loadData() (xem comment dau file).
+  const loadDataRef = useRef(loadData);
+  loadDataRef.current = loadData;
+  useEffect(() => {
+    const client = new Client({
+      webSocketFactory: () => new SockJS(WS_URL),
+      reconnectDelay: 5000,
+      onConnect: () => {
+        client.subscribe('/topic/inventory', (msg) => {
+          const { eventType, employeeName } = JSON.parse(msg.body);
+          notification.open({
+            message: 'Cập nhật tồn kho',
+            description: `${employeeName || 'NVBH'} ${EVENT_LABEL[eventType] || 'vừa tạo giao dịch mới'}`,
+            placement: 'topRight',
+          });
+          loadDataRef.current();
+        });
+      },
+    });
+    client.activate();
+    return () => client.deactivate();
+  }, []);
 
   function committedOf(productId, warehouseId) {
     let total = 0;

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect, router } from 'expo-router';
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSession } from '../../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../../api/client';
 
@@ -23,17 +24,21 @@ export default function OrdersList() {
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
+    if (!employee) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const res = await apiClient.get('/api/sales-orders');
-      const mine = res.data.data.filter(
-        (o) =>
-          employee &&
-          o.salesman?.id === employee.id &&
-          (o.orderType === 'PRE_ORDER' || o.orderType === 'STANDARD')
+      // Loc thang o server theo salesmanId (du lieu that co the toi hang ngan don - tai het ca
+      // bang roi loc o client se rat nang cho mobile, xem SalesOrderController.search()).
+      const res = await apiClient.get('/api/sales-orders/search', {
+        params: { salesmanId: employee.id, size: 500 },
+      });
+      const mine = res.data.data.content.filter(
+        (o) => o.orderType === 'PRE_ORDER' || o.orderType === 'STANDARD'
       );
-      mine.sort((a, b) => b.id - a.id);
       setOrders(mine);
     } catch (e) {
       setError(errorMessage(e));
@@ -58,9 +63,16 @@ export default function OrdersList() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.headerBar}>
+        <Text style={styles.headerTitle}>Đơn hàng ({orders.length})</Text>
+        <Pressable onPress={load} style={styles.refreshBtn} disabled={loading}>
+          <Ionicons name="refresh" size={20} color="#1677ff" />
+        </Pressable>
+      </View>
+
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      {loading ? (
+      {loading && orders.length === 0 ? (
         <ActivityIndicator style={{ marginTop: 24 }} />
       ) : (
         <FlatList
@@ -96,6 +108,9 @@ export default function OrdersList() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
+  headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  headerTitle: { fontSize: 16, fontWeight: '700' },
+  refreshBtn: { padding: 6 },
   card: { borderWidth: 1, borderColor: '#eee', borderRadius: 8, padding: 12, marginBottom: 10 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   typeBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginRight: 8 },

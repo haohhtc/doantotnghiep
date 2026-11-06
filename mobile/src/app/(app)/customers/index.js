@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect, router } from 'expo-router';
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSession } from '../../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../../api/client';
 
@@ -50,8 +51,14 @@ export default function CustomersList() {
 
   return (
     <View style={styles.container}>
+      <View style={styles.headerBar}>
+        <Text style={styles.headerTitle}>Khách hàng ({customers.length})</Text>
+        <Pressable onPress={load} style={styles.refreshBtn} disabled={loading}>
+          <Ionicons name="refresh" size={20} color="#1677ff" />
+        </Pressable>
+      </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
-      {loading ? (
+      {loading && customers.length === 0 ? (
         <ActivityIndicator style={{ marginTop: 24 }} />
       ) : (
         <FlatList
@@ -79,6 +86,9 @@ export default function CustomersList() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
+  headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  headerTitle: { fontSize: 16, fontWeight: '700' },
+  refreshBtn: { padding: 6 },
   card: { borderWidth: 1, borderColor: '#eee', borderRadius: 8, padding: 12, marginBottom: 10 },
   name: { fontSize: 15, fontWeight: '700' },
   sub: { fontSize: 13, color: '#666', marginTop: 2 },

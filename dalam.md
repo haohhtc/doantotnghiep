@@ -17,6 +17,28 @@
 
 **Đã test qua API**: Pre-order thiếu ngày giao / kho Van bị chặn; Đơn mẫu đi hết chuỗi đến hóa đơn 0đ; Trả hàng bắt buộc NVBH; ĐVT sai nhóm bị chặn; Đơn 2 Hộp → base 24, xác nhận giao trừ đúng 24 (90→66); Yêu cầu bán hàng 1 Thùng → chuyển đơn giữ ĐVT; sửa Đơn giao từ 1 Thùng xuống 5 Hộp → trừ 30; Trả hàng 1 Thùng CS001 → cộng 240 vào kho Van. Frontend build sạch (chưa test được bằng trình duyệt thật trong phiên này — cần bạn thao tác thử trên UI).
 
+## 🧪 Dọn đơn cũ + bộ đơn test mới để nhìn cho dễ (2026-09-25) — *ghi chú cá nhân, chưa commit*
+
+**Đã xóa hết** đơn bán, đơn giao, hóa đơn cũ (13 đơn / 10 đơn giao / 6 hóa đơn) trực tiếp trong DB; 4 Yêu cầu bán hàng từng "Đã chuyển" được trả về Nháp; bộ đếm số phiếu về 0 (đơn mới bắt đầu `SO0001`, `DO0001`, `HD0001`). Tồn kho không bị đảo vì đã nâng về mốc 10.000 gói từ trước. Bản sao lưu DB trước khi xóa nằm ở thư mục tạm của phiên làm việc (`oltp_truoc_khi_xoa_don_cu.sql`).
+
+**Bộ đơn test mới đang có sẵn** (tạo đúng như người dùng thật, qua API; giá tự lấy từ bảng giá WinMart):
+| Đơn | Loại | Trạng thái để bạn xem/thử tiếp | Nội dung |
+|---|---|---|---|
+| SO0001 | Thường | Chờ xác nhận → thử bấm ✓ | 2 Hộp CP001 (24 gói) × 40.000 |
+| SO0002 | Thường | Đã duyệt, chưa có đơn giao → thử tạo Đơn giao | 3 Hộp CT001 |
+| SO0003 | Thường | Đã duyệt + `DO0001` chờ giao → thử **Xác nhận giao hàng** | 1 Thùng CS001 (240 gói) |
+| SO0004 | Thường | Đã giao xong (`DO0002`), **chờ xuất hóa đơn** | đặt 5 Hộp CP002, giao thiếu 4 Hộp |
+| SO0005 | Thường | Xong cả chuỗi, hóa đơn `HD0001` | 10 gói OS001 |
+| SO0006 | Pre-order | Chờ xác nhận, ngày giao 05/10 | 4 Hộp CT002 |
+| SO0007 | Hàng mẫu | Xong cả chuỗi, hóa đơn `HD0002` = 0đ | 10 gói TN001 |
+| SO0008 | Thường | Chờ xác nhận, sinh từ Yêu cầu `SR0003` | 2 Hộp SW001 |
+| SO0009 | Thường (xuất từ **Kho Van**) | Đã giao (không chuyển kho), **chờ xuất hóa đơn** | 5 gói OS002 |
+| Trả hàng `RT0001` | – | Đã duyệt, nhân viên bán hàng trả 3 Hộp CS002 vào Kho Van (+30 gói) | |
+
+**Kết quả test: 18/18 đạt.** Kiểm tra được: giá tự lấy theo bảng giá + ĐVT; Pre-order/Hàng mẫu; Yêu cầu → đơn; giao thiếu chuyển đúng số gói Main → Van (CP002: Main −48, Van +48); hóa đơn trừ Kho Van (OS001, TN001 về lại 0 ở Van, Main −10); đơn xuất từ Kho Van không chuyển kho; trả hàng cộng đúng quy đổi Hộp → gói; chặn đặt 100 Thùng vượt tồn; chặn Pre-order thiếu ngày giao; chặn xuất hóa đơn khi chưa giao; chặn xác nhận giao 2 lần; cột "Đã đặt hàng" (CP001 24, CT001 18, CS001 240, CT002 24, SW001 24 gói) khớp. Ghi chú: 1 dòng ban đầu báo lỗi là do tôi tính nhầm kỳ vọng (CT002 nhóm Custas 1 Hộp = 6 gói → 4 Hộp = 24, hệ thống đúng).
+
+**Tồn kho lệch mốc 10.000 sau bộ test:** CP002 Main 9.952 / Van 10.048; OS001 Main 9.990; TN001 Main 9.990; CS002 Van 10.030; CP001 ở Kho Van Hà Nội = 0 (kho mới tạo).
+
 ## 🚚 Mô hình kho 2 tầng Main → Van (V38, 2026-09-25)
 
 **Quy tắc (mỗi chi nhánh 1 Kho Van):**
@@ -802,3 +824,187 @@ Giảng viên yêu cầu 3 việc cụ thể cho App Van-Sale: (1) API app gọi
 - Không đổi code backend — thuần điều hướng/giao diện mobile.
 
 **Đã kiểm tra**: build `npx expo export` sạch; rà soát toàn repo không còn chỗ nào điều hướng tới route gốc `/preorder` hoặc `/vansale` (bare, không kèm id/new/edit) — tránh vỡ do xóa 2 file index.js.
+
+## 🔄 Đồng bộ dữ liệu mới của tv2 + 3 lỗi phát hiện khi setup lại từ đầu (2026-11-03)
+
+**Lý do**: tv2 làm dữ liệu demo lúc hệ thống chưa lọc đúng chi nhánh (đơn Hà Nội hiện lẫn qua chi nhánh HCM, bị báo "sai tuyến") — tv2 đã tự sửa + dump lại dữ liệu đúng (push `data-warehouse/schema/03_seed_data.sql`, `etl/seed/01_oltp_dump.sql` mới). Theo yêu cầu: kéo code mới, xóa sạch dữ liệu local, nạp lại dump của tv2, rồi tiếp tục soát lỗi.
+
+**Quy trình đã làm**: `git pull --ff-only` (fast-forward sạch, không conflict) → `docker compose down -v` + `up -d` (xóa sạch volume MySQL local) → nạp `etl/seed/01_oltp_dump.sql` vào OLTP (thủ công, DW thì tự nạp qua `docker-entrypoint-initdb.d`).
+
+**3 lỗi phát hiện + đã sửa khi nạp lại**:
+1. **2 dòng rác đầu file dump** (`etl/seed/01_oltp_dump.sql` và `data-warehouse/schema/03_seed_data.sql`): tv2 dump bằng `mysqldump ... > file 2>&1` nên dính cả 2 dòng cảnh báo/lỗi của lệnh `mysqldump` vào đầu file SQL, làm MySQL nạp lỗi cú pháp ngay dòng 1 → DW **không tự nạp được** dù mount đúng `docker-entrypoint-initdb.d`. Đã xóa 2 dòng đó ở cả 2 file.
+2. **Lệch schema `data-warehouse/schema/01_dimensions.sql`**: dữ liệu thật của tv2 trong `03_seed_data.sql` có nhiều cột hơn schema đang commit (`dim_customer` thiếu 10 cột: channel_code/channel_name/region/province/ward + 6 cột chưa rõ mục đích luôn NULL; `dim_product` thiếu 4 cột: unit_code/tax_rate + 2 cột chưa rõ mục đích; `dim_warehouse` thiếu branch_code/branch_name). Đã thêm đúng cột (kiểu NULL-able, an toàn) vào `01_dimensions.sql` — tv2 xác nhận lại ý nghĩa 8 cột "extra" (luôn NULL, chưa dùng ở đâu) nếu cần dùng sau này.
+3. **`03_seed_data.sql` tham chiếu ~40 bảng chưa từng commit schema** (`fact_sellout` 71 cột, `fact_tonkho`, `fact_tonkho_movement`, `last_date_refresh`, toàn bộ nhóm `raw_*`) — rõ ràng tv2 đã xây 1 tầng raw-staging + fact phẳng riêng cho BI/Power BI nhưng chưa commit CREATE TABLE nào. Không đoán mò type cho 71 cột — đã **bỏ các bảng này khỏi file seed commit** (giữ nguyên 5 dim + 4 fact đã thiết kế trong `erd-dw.md`) để `docker compose up` sạch chạy được hết, không bị đứt giữa chừng. **Cần tv2 commit schema CREATE TABLE cho nhóm bảng này** rồi add lại data sau.
+4. Bổ sung hướng dẫn nạp `etl/seed/01_oltp_dump.sql` vào README (trước đây không ai ghi bước này).
+
+**Lỗi lớn hơn phát hiện SAU khi nạp xong**: dữ liệu mới của tv2 đổi hẳn cách xác định "NVBH thuộc chi nhánh nào" — tất cả tài khoản `sale01..sale35` đều có `user.branch_id = NULL`, chi nhánh giờ suy ra qua **tuyến bán hàng** (`route_salesman_assignment` → `route_master.branch_id`), không còn gán thẳng vào `user` nữa. Toàn bộ backend App Van-Sale (`VanSaleAdvanceService`, `VanSaleReturnService`) đang dùng thẳng `employee.getUser().getBranch()` để suy Kho Main/Kho Van → **mọi NVBH mới đều lỗi "chưa gắn tài khoản/chi nhánh"**.
+
+**Đã sửa**: `EmployeeService.resolveCurrentBranch(employee)` (mới) — ưu tiên `user.branch` (NV kho/quản lý vẫn gán thẳng), nếu rỗng thì tự tra `route_salesman_assignment` lấy tuyến đang phụ trách **tại ngày hôm nay** (effective_date/end_date) → branch của route đó. `findByCurrentUser()` (API `/api/employees/me`, app mobile gọi sau khi đăng nhập) gán tạm chi nhánh suy ra được vào `employee.user.branch` của object trả về (KHÔNG lưu xuống DB) — nhờ vậy **mobile không cần sửa code gì cả**, vẫn đọc đúng `employee.user.branch.id` như trước giờ. `VanSaleAdvanceService`/`VanSaleReturnService.resolveWarehouse()` đổi sang gọi hàm dùng chung này thay vì tự kiểm tra `user.getBranch()`.
+
+**Đã test qua API thật**: tạo tài khoản NVBH test không gán `user.branch_id`, gán vào tuyến `R-HCM-20` (Chi nhánh TP.HCM) qua `route_salesman_assignment` → gọi `/api/employees/me` trả đúng `user.branch` = Chi nhánh TP.HCM → tạo + xác nhận phiếu Ứng hàng thành công, tồn kho đúng (Main −5, Van +5, Kho NV +5). Đã dọn sạch tài khoản/dữ liệu test.
+
+## 🔍 Đối chiếu toàn bộ quy tắc đã sửa với 6.211 đơn hàng thật của tv2 (2026-11-03)
+
+Soát lại từng quy tắc nghiệp vụ đã từng sửa (sai tuyến, chiều kho đi/về, tồn âm...) trên toàn bộ dữ liệu lớn của tv2 bằng SQL đối chiếu trực tiếp (không phải test API đơn lẻ):
+
+| Quy tắc | Kết quả |
+|---|---|
+| Kho xuất cùng chi nhánh khách hàng | 0/6.211 đơn sai |
+| Loại đơn đúng loại kho (Pre-order→Main, Van Sale→Van) | Đúng 100% |
+| Tồn kho âm (`stock`, `employee_stock`) | 0 dòng |
+| Sổ cái `stock_transaction` khớp tồn kho hiện tại (mọi product × mọi kho) | Khớp tuyệt đối, 0 lệch |
+| Xuất hóa đơn vượt số đã giao/đã đặt | 0 dòng vượt |
+| 1 đơn nhiều đợt giao (lỗi cũ `sumCommittedBase`) | Dữ liệu này không có đơn nào >1 đợt giao → chưa phát sinh |
+| Trả hàng bắt buộc gắn NVBH | 0/24 phiếu thiếu |
+
+**Lưu ý**: dữ liệu lớn của tv2 sinh thẳng bằng script (không qua API), nên `van_sale_advance`/`van_sale_return`/`employee_stock` đều rỗng — không kiểm tra được App Van-Sale trên data này (đã test riêng bằng API thật ở mục trên).
+
+**1 lỗi dữ liệu thật phát hiện + đã sửa**: quy tắc "Đơn mẫu (SAMPLE) giá = 0" bị vi phạm — 1.125 dòng chi tiết đơn + 411 hóa đơn bị tính tiền thật (tổng ~41,2 triệu đ), do dữ liệu được tạo thẳng bằng SQL nên bỏ qua rule chỉ enforce ở tầng API (`SalesOrderService.applyDto()`). Đã sửa trực tiếp `sales_order_detail`/`invoice_item`/`invoice` của các đơn SAMPLE về đúng 0đ, dump lại `etl/seed/01_oltp_dump.sql` (giữ nguyên format, không dính lại lỗi dòng cảnh báo mysqldump) để lần setup sau không bị lỗi lại.
+
+## 🔍 Test tiếp toàn hệ thống (mở rộng) trên dữ liệu thật của tv2 (2026-11-04)
+
+Theo yêu cầu "test hết toàn bộ hệ thống", mở rộng soát thêm ngoài phần đã làm ở trên:
+
+**Thêm các quy tắc nghiệp vụ đã kiểm (tất cả sạch)**:
+- Giao hàng vượt số đã đặt (over-delivery): 0 vi phạm.
+- Hủy Hóa đơn/Đơn giao hàng rồi xác nhận lại gây trừ/cộng kho trùng (V45/V46): không áp dụng được — data này không có bản ghi nào ở trạng thái CANCELLED (invoice/delivery_order/sales_order).
+- Tag "Trả hàng" lan sang hóa đơn khác (V50): sạch, cả 20 phiếu trả đã duyệt đều gắn đúng `invoice_id` riêng, code frontend (`invoiceStatusTag()`) vẫn match đúng theo `invoice.id`.
+- Tuyến bán hàng chồng ngày hiệu lực (`route_salesman_assignment`): 0 chồng chéo.
+- Tuyến của Khách hàng (`route_master_outlet`) khác chi nhánh khách hàng: 0 vi phạm.
+- NVBH không có tuyến đang hoạt động: có 1 (`sale02`) nhưng tài khoản này chưa từng tạo đơn nào — vô hại, chỉ là dữ liệu seed thừa.
+- Điều chuyển kho / Trả hàng NCC / Phiếu xuất kho: bảng rỗng hoàn toàn trong data này, không có gì để kiểm.
+- Phiếu nhập hàng (Goods Receipt): 60/287 phiếu nhập thẳng vào Kho Van (đúng theo "bổ sung phiếu nhập vốn đầu kỳ" của tv2, không phải lỗi); không có số lượng/đơn giá âm.
+- Cột `base_quantity` (quy đổi ĐVT) ở `sales_order_detail`: 10.379 dòng lịch sử = 0 dù `quantity` > 0 — đối chiếu `delivery_order_item` cùng đơn thì đúng, và toàn bộ 10.379 dòng này đều thuộc đơn **đã xuất hóa đơn xong** nên không ảnh hưởng gì tới "Đã đặt hàng"/"Sẵn sàng bán" đang chạy (0/10.379 dòng còn "sống"). Chỉ là lỗ hổng hiển thị dữ liệu lịch sử, không sửa vì không ảnh hưởng thực tế.
+
+**Phát hiện đáng chú ý**: trang Báo cáo Bán hàng/Tồn kho mới (`ai-services/reports/main.py`, cổng 8005) đọc từ 3 bảng `fact_sellout`/`fact_tonkho`/`fact_tonkho_movement` — đúng 3 bảng đã loại khỏi file seed commit (vì chưa có schema, xem mục trên). Tuy nhiên kiểm lại kỹ thì **2 trang Báo cáo thực tế trên web (`SalesReport`, `InventoryReport`) chỉ là khung nhúng Power BI** (`<iframe>`, hiện hướng dẫn "Chưa có URL nhúng Power BI" khi chưa cấu hình) — **không gọi** `reportsClient.js`/service port 8005 ở đâu cả. Service Python đó + hàm `fetchSalesReport()/fetchInventoryReport()` hiện là code thừa, chưa được gắn vào UI. → Không phải lỗi chặn đường, đã báo nhưng theo yêu cầu người dùng để tv2 tự commit schema sau, không tự đoán.
+
+**AI Chatbot widget** (`AiChatWidget.jsx`, trang chủ, chỉ hiện cho ADMIN/WAREHOUSE_MANAGER): service `ai-services/chatbot/main.py` (cổng 8004) mới là file TODO, chưa có `FastAPI app` nào — nhưng widget code đã bắt lỗi kết nối đúng cách (hiện "Dịch vụ AI Chatbot hiện không phản hồi", không crash trang chủ). Không phải lỗi, chỉ là tính năng chưa code xong (đúng như README ghi).
+
+**Login trả về `branchCode`/`branchName`** (phục vụ AI Chatbot phân quyền): đã test qua API thật, null đúng cho ADMIN, code null-safe. ADMIN/WAREHOUSE_MANAGER (đối tượng duy nhất thấy chatbot) đều có `user.branch_id` gán thẳng nên không dính lỗi "chi nhánh qua tuyến" như App Van-Sale.
+
+**Quét toàn bộ ~30 API GET chính** (danh mục, kho, bán hàng, mua hàng, hệ thống): tất cả phản hồi 200 OK, không có lỗi 500 ẩn.
+
+**Test phân trang server-side mới** (`/search` của Đơn bán, Phiếu nhập kho, Khách hàng, Hóa đơn, Đơn giao hàng): tất cả hoạt động đúng — lọc theo `branchId` (4.895 + 786 + 530 = 6.211, khớp tổng), tìm theo tên khách hàng thật đều ra đúng kết quả.
+
+## 🐛 Lỗi thật phát hiện: App Van-Sale tải TOÀN BỘ đơn/hóa đơn/đơn giao hàng, rất nặng với data lớn (2026-11-04)
+
+**Người dùng hỏi**: "app đã load nhanh dữ liệu khi có quá nhiều dữ liệu mới không" — đúng là chưa, có lỗi thật.
+
+**Nguyên nhân**: 4 màn hình App Van-Sale gọi API KHÔNG lọc, tải nguyên bảng rồi mới lọc ở client:
+- `orders/index.js`: `GET /api/sales-orders` (toàn bộ) rồi lọc `salesman.id` ở client.
+- `preorder/[id].js`: `GET /api/delivery-orders` (toàn bộ) để tìm 1 đơn giao.
+- `vansale/[id].js`, `vansale/invoice.js`: `GET /api/invoices` (toàn bộ) để tìm hóa đơn của 1 đơn.
+
+**Đo thực tế trên data 6.211 đơn của tv2**: `GET /api/sales-orders` trả về **76,24 MB**, mất **2,2 giây** chỉ trên localhost (không tính độ trễ mạng thật của điện thoại) — hoàn toàn không ổn cho mobile.
+
+**Đã sửa**:
+- `SalesOrderRepository/Service/Controller.search()`: thêm filter `salesmanId` (bên cạnh `branchId`/`search` có sẵn).
+- `InvoiceRepository/Service/Controller`: thêm `findBySalesOrderId()` + filter `?salesOrderId=` cho `GET /api/invoices` (giữ nguyên `?deliveryOrderIds=` cũ).
+- `DeliveryOrderRepository/Service/Controller`: thêm `findBySalesOrderId()` + filter `?salesOrderId=` cho `GET /api/delivery-orders`.
+- Mobile: `orders/index.js` đổi sang gọi `/api/sales-orders/search?salesmanId={id}&size=500`; `preorder/[id].js` → `/api/delivery-orders?salesOrderId={id}`; `vansale/[id].js` + `vansale/invoice.js` → `/api/invoices?salesOrderId={id}`.
+- Không đổi endpoint `GET /api/sales-orders`/`GET /api/delivery-orders` mặc định (vẫn trả toàn bộ) vì trang Tồn kho/Đơn giao hàng web cần tính toán tổng hợp trên toàn bộ danh sách — chỉ thêm tham số lọc tùy chọn, không phá trang nào đang dùng.
+
+**Đã test qua API thật**: NVBH bận nhất trong data (`sale03`, 409 đơn) — trước: 76,24 MB/2,2s cho TOÀN BỘ; sau: **5 MB/0,54s, đúng 409/409 đơn**. Filter Đơn giao hàng + Hóa đơn theo `salesOrderId` test với đơn thật đều trả đúng kết quả (1 đơn giao, 1 hóa đơn). Build mobile (`npx expo export`) sạch.
+
+## 🌐 App tự nhận diện IP máy khi đổi mạng Wi-Fi (nhà/trường...) — không cần sửa tay nữa (2026-11-04)
+
+**Lý do**: người dùng test App Van-Sale ở nhiều nơi (nhà, trường) — mỗi lần đổi Wi-Fi là đổi IP LAN của máy chạy backend, phải sửa tay `EXPO_PUBLIC_API_URL` trong `mobile/.env` + restart Expo, dễ quên dẫn tới lỗi "kiểm tra lại kết nối mạng".
+
+**Đã sửa**:
+- `mobile/src/api/client.js`: thêm `resolveBaseUrl()` — tự suy ra địa chỉ backend thay vì đọc cố định từ `.env`:
+  - Web preview (`Platform.OS === 'web'`): lấy thẳng `window.location.hostname` (đúng dù mở bằng `localhost` hay mở bằng IP LAN từ điện thoại khác).
+  - App thật (Expo Go/dev build): đọc `Constants.expoConfig.hostUri` — chuỗi `"LAN_IP:cổng_metro"` Expo tự dò ra đúng mỗi lần chạy `npx expo start`, bất kể đang ở mạng nào.
+  - `EXPO_PUBLIC_API_URL` trong `.env` vẫn ưu tiên nếu có (dùng khi muốn ép trỏ cứng tới 1 backend khác, vd đã triển khai thật) — để trống thì tự nhận diện.
+- Backend `CorsConfig.java`: đổi `setAllowedOrigins()` → `setAllowedOriginPatterns()` (cho phép dùng dấu `*`), mặc định trong `application.yml` mở cho mọi IP LAN phổ biến (`192.168.*.*`, `10.*.*.*`) + `localhost`, mọi cổng — không cần sửa biến `CORS_ALLOWED_ORIGINS` + restart backend mỗi lần đổi mạng nữa (chỉ ảnh hưởng bản web preview mở qua trình duyệt, app thật qua Expo Go không bị CORS chặn).
+
+**Đã test**: giả lập preflight CORS từ 2 origin ngẫu nhiên chưa từng cấu hình (`192.168.77.123:8090`, `10.0.2.55:8090`) — backend đều trả `Access-Control-Allow-Origin` đúng, không cần khai báo trước. Build mobile sạch.
+
+## 🐛 Lỗi thật: "Ghé thăm" → bấm Đặt hàng/Bán hàng bị bật về Tổng quan (2026-11-04)
+
+**Người dùng báo**: "bấm vào khách hàng ghé thăm rồi vào mục 1 và 2 thì nó load ra tổng quan" — đúng là lỗi thật, do chính đợt "Gộp tab Đặt hàng + Bán hàng" (2026-10-21) gây ra.
+
+**Nguyên nhân**: đợt gộp tab trước dùng `options={{ href: null }}` trên `Tabs.Screen name="preorder"`/`"vansale"` để ẩn khỏi thanh tab nhưng vẫn giữ điều hướng được (đúng theo tài liệu Expo Router). Nhưng khi `customers/visit.js` gọi `router.push('/preorder/new')` — điều hướng **sang tab khác** đang bị `href: null` — trên bản web preview việc này không resolve được route (vì `href: null` nghĩa là "không có URL hợp lệ"), Router rơi về tab mặc định (Tổng quan).
+
+**Đã sửa (cách chắc chắn hơn hẳn `href: null`)**: chuyển hẳn `preorder/` và `vansale/` ra **NGOÀI** thư mục `(app)` (không còn là tab, dù ẩn hay hiện) — đưa lên ngang hàng với `(app)` ở `src/app/_layout.js`, đăng ký làm 2 `Stack.Screen` cấp cao nhất (vẫn trong `Stack.Protected guard={!!session}` như `(app)`). Nhờ vậy `router.push('/preorder/new')` là điều hướng tới 1 route cấp cao bình thường, không còn phụ thuộc gì vào cơ chế tab/href nữa — không thể bị lỗi tương tự.
+- Xóa 2 dòng `Tabs.Screen ... options={{ href: null }}` khỏi `(app)/_layout.js` (không cần nữa).
+- Sửa lại import tương đối trong 11 file vừa chuyển (giảm 1 cấp `../`).
+- Tác dụng phụ (không phải lỗi): màn tạo đơn giờ **không còn hiện thanh tab dưới cùng** trong lúc tạo đơn (trước đây do cùng nằm trong Tabs nên tab vẫn hiện) — hợp lý hơn cho luồng tạo mới, không cần sửa gì thêm.
+
+**Ghi chú cho lần sau**: `router.dismissAll()` ở cuối `review.js` (sau khi "Hoàn tất & Gửi dữ liệu") chỉ quay về màn **đầu tiên của chính Stack `preorder`/`vansale`** (tức `new.js`, màn tạo đơn trống) chứ KHÔNG thoát hẳn về `(app)` — không phải lỗi mới (có từ đợt bỏ `index.js` 2026-10-21), chỉ là chưa tối ưu UX, chưa sửa vì không phải lỗi chặn đường và chưa được yêu cầu.
+
+**Chưa test được bằng trình duyệt thật trong phiên này** (không có công cụ browser) — build mobile sạch, cấu trúc route đã xác nhận đúng qua code, nhưng cần bạn bấm thử lại trên web/app để xác nhận hết lỗi.
+
+## 🐛 Lỗi do chính mình gây ra: chữ tiếng Việt bị vỡ (mojibake) ở 7 file vừa chuyển thư mục (2026-11-04)
+
+**Người dùng báo** (kèm ảnh): màn "Tạo đơn Pre-order" (và Van Sale tương tự) hiện "KhÃ¡ch hÃ ng", "Sá°£n phá°©m" thay vì "Khách hàng", "Sản phẩm".
+
+**Nguyên nhân (lỗi của tôi)**: lúc sửa đường dẫn import sau khi chuyển `preorder/`+`vansale/` ra khỏi `(app)` (mục ngay trên), tôi dùng vòng lặp PowerShell `Get-Content $f.FullName -Raw | ... -replace ... | Set-Content -Encoding UTF8` cho 7 file (`edit.js`, `new.js`, `review.js` của cả 2 thư mục, `invoice.js`). PowerShell 5.1 mặc định **đọc** file không có BOM bằng codepage ANSI của máy (không phải UTF-8), nên các ký tự tiếng Việt nhiều byte bị đọc sai thành nhiều ký tự Latin-1 riêng lẻ — rồi lại bị **ghi** ra dưới dạng UTF-8 (đóng cứng lỗi vào file). 2 file `[id].js` không bị dính vì được sửa riêng bằng công cụ Edit (không qua PowerShell) — đúng là chỉ lỗi ở các file qua vòng lặp đó, khớp với ảnh người dùng gửi.
+
+**Đã sửa**: lấy lại đúng nội dung gốc (tiếng Việt chuẩn) từ commit trước khi chuyển thư mục (`git show <commit cu>:<duong dan cu>`), dùng **Node.js** (đọc/ghi UTF-8 mặc định, không dính lỗi codepage như PowerShell) để áp lại đúng 1 thay đổi cần thiết (sửa `../../../ ` → `../../`) rồi ghi đè vào vị trí mới. Đã quét lại toàn bộ `mobile/src/app` tìm dấu hiệu lỗi encoding (`Ã`, `â€`...) — sạch hoàn toàn. Build mobile sạch.
+
+**Bài học rút ra cho các lần sau**: KHÔNG dùng PowerShell `Get-Content`/`Set-Content` để sửa nội dung file có tiếng Việt mà không chỉ định rõ `-Encoding UTF8` ở **cả 2 đầu đọc và ghi** (ngay cả vậy vẫn có rủi ro với file không-BOM) — ưu tiên dùng công cụ Edit (xử lý đúng UTF-8 tự động) hoặc Node.js cho các thao tác hàng loạt trên nhiều file.
+
+## 🔄 Thêm nút "Làm mới" (RefreshControl) + phát hiện lỗi NGHIÊM TRỌNG: giá/số lượng lệch đơn vị tính (2026-11-04)
+
+**Theo yêu cầu**: thêm nút reload cho App Van-Sale, kiểm tra lại luồng lấy dữ liệu/xuất dữ liệu (tạo đơn) rồi push git.
+
+**1. Thêm "kéo để làm mới" (pull-to-refresh)** cho 3 màn danh sách còn thiếu (Tổng quan đã có sẵn từ trước): `orders/index.js`, `customers/index.js`, `advance-return/index.js` — dùng `RefreshControl` chuẩn của React Native, chỉ hiện spinner toàn màn ở lần tải đầu, các lần sau kéo xuống là tự tải lại mà không mất danh sách đang xem.
+
+**2. 🐛 LỖI NGHIÊM TRỌNG phát hiện khi test lại luồng tạo đơn**: giá tra về từ `/api/price-lists/lookup` là giá theo **đơn vị bán mặc định của sản phẩm (vd Hộp)**, nhưng số lượng bấm +/- trên app lại được gửi lên **KHÔNG kèm `uomId`** — backend hiểu "không chọn ĐVT" = số lượng đó tính theo **đơn vị cơ sở (Gói)** (quy ước có chủ đích, xem `UomConversionService`). Hậu quả: 1 đơn "bấm 3" bị tính tiền như 3 Hộp (135.000đ) nhưng tồn kho chỉ bị trừ như 3 Gói thay vì 36 Gói (3 Hộp × 12) — **sai lệch tới 12 lần** tùy sản phẩm (6 lần với nhóm Custas). Lỗi này tồn tại từ khi xây app (không phải do session trước), chỉ lộ ra khi test với sản phẩm có hệ số quy đổi ≠ 1.
+
+**Đã sửa**: gửi kèm `uomId: product.saleUom.id` ở tất cả các điểm tạo/sửa/xuất hóa đơn:
+- `preorder/new.js`, `preorder/review.js`, `preorder/edit.js` (Pre-order).
+- `vansale/new.js`, `vansale/review.js`, `vansale/edit.js` (Van Sale).
+- `vansale/invoice.js` (xuất hóa đơn Van Sale) — lấy đúng `uom` đã lưu trong đơn hàng gốc (không phải `saleUom` mặc định) để khớp đơn vị với số "còn lại" đang hiển thị.
+- `preorder/[id].js` (xuất hóa đơn Pre-order) đã đúng từ trước (lấy `uom` từ Đơn giao hàng).
+
+**Đã test lại toàn bộ chuỗi với bản đã sửa** (sản phẩm CP001, hệ số 12): tạo đơn 3 Hộp → `base_quantity` đúng = 36 gói, thành tiền 135.000đ (= 3×45.000) → xác nhận giao: Main −36 gói, Van +36 gói (đúng) → xuất hóa đơn: Van về lại mốc cũ, tổng tiền 145.800đ (135.000 + 8% thuế, khớp). Lặp lại test cho Van Sale (CP002, hệ số 6, 1 Hộp): base_quantity=6, Kho NV + Kho Van trừ đúng, tổng tiền hóa đơn khớp thuế. Đã dọn sạch dữ liệu test.
+
+**2 lỗi dữ liệu phát hiện thêm trong lúc test (đã sửa)**:
+- 4 sản phẩm (CP001/CP002/CT001/CT002) ở 2/3 bảng giá chỉ có duy nhất 1 dòng giá theo đơn vị "Cái" — **không hợp lệ** vì nhóm quy đổi của các sản phẩm này chỉ có Gói/Hộp/Thùng, làm tra giá lỗi 409 hoàn toàn (không tạo được đơn). Đã sửa 8 dòng giá "Cái" ở 2 bảng còn thiếu thành đúng giá Hộp (suy từ giá Hộp đã có ở bảng giá còn lại), xóa 4 dòng "Cái" vô dụng còn sót ở bảng giá gốc.
+- Sản phẩm `SW001` (Kẹo Swing) chưa được gán nhóm quy đổi (`uom_group_id` NULL) dù đã có giá theo Gói/Thùng — đã gán vào nhóm `QC-SNACK` (Gói/Thùng) sẵn có, sửa luôn đơn vị bán mặc định về Gói.
+
+**Ghi nhận, CHƯA sửa (ngoài phạm vi hôm nay)**: phát hiện cột "Sẵn sàng bán" ở Kho Van Hà Nội đang âm rất lớn (vd −638, −752) cho một số sản phẩm — do khối lượng đơn hàng lịch sử rất lớn của tv2 vượt xa tồn kho demo tại kho này, chặn không tạo được đơn Van Sale mới cho các sản phẩm đó. Đây là đặc điểm dữ liệu lịch sử (không phải lỗi logic — đã test riêng bằng cách tăng tạm tồn kho), cần tv2 xem lại cân đối tồn kho demo nếu muốn test Van Sale rộng hơn ở kho này.
+
+## 📡 Realtime WebSocket cho Web ERP (yêu cầu giảng viên, V51 Realtime) — đã code xong (2026-11-05)
+
+Triển khai đúng thiết kế đã chốt (xem mục "Yêu cầu Realtime" trước đó), có bổ sung theo yêu cầu cụ thể của người dùng: **thông báo phải nêu rõ loại giao dịch** (không chỉ tín hiệu rỗng như bản chốt gốc).
+
+**Backend**:
+- Thêm `spring-boot-starter-websocket`, `WebSocketConfig.java` (endpoint `/ws` SockJS, broker `/topic`).
+- `SecurityConfig.java`: thêm `/ws/**` vào `permitAll` — kênh chỉ phát `{eventType, employeeName}`, KHÔNG có số liệu tồn kho thật, nên chấp nhận không xác thực để tránh phải tích hợp JWT vào STOMP handshake (đúng đơn giản hóa đã chốt).
+- `InventoryEventPublisher.java` (mới, package `inventory.service`): bắn `{eventType: VAN_SALE|ADVANCE|RETURN, employeeName}` lên `/topic/inventory`.
+- Gọi ở 3 chỗ: `VanSaleAdvanceService.confirm()`, `VanSaleReturnService.confirm()`, `InvoiceService.createVanSale()` — ngay sau khi lưu thành công.
+
+**Frontend web** (`pages/inventory/Inventories/index.jsx`): cài `@stomp/stompjs` + `sockjs-client`, kết nối 1 lần khi mở trang, nhận tin hiệu thì `notification.open()` góc màn hình (nội dung: "[Tên NVBH] vừa tạo đơn Van Sale/phiếu Ứng hàng/phiếu Trả hàng") + tự gọi lại `loadData()` — không cần F5.
+
+**Đã test qua API thật** (viết 1 script Node dùng `@stomp/stompjs` đóng vai "web" lắng nghe `/topic/inventory`, kích hoạt giao dịch thật qua API trong lúc lắng nghe): cả 3 loại sự kiện đều bắn tín hiệu đúng và nhận được trong vài trăm ms —
+- Xác nhận Ứng hàng → nhận `{"eventType":"ADVANCE","employeeName":"Hoang Minh Binh (R-HN-01)"}`.
+- Xác nhận Trả hàng → nhận đúng `{"eventType":"RETURN",...}`.
+- Xuất hóa đơn Van Sale → nhận đúng `{"eventType":"VAN_SALE",...}`.
+
+**Đối chiếu tồn kho sau mỗi giao dịch** (đúng yêu cầu "test từ app sang web xem đã trừ đúng kho chưa"): dùng cách đối chiếu sổ cái (`stock_transaction`) — tất cả khớp tuyệt đối, không lệch 1 gói nào ở cả 2 kho (Main/Van) lẫn Kho NV của nhân viên, cho cả 3 sản phẩm test với hệ số quy đổi khác nhau.
+
+**Build**: backend `mvnw clean compile` sạch, frontend `npm run build` sạch (chỉ cảnh báo chunk lớn, không phải lỗi). Đã dọn sạch toàn bộ dữ liệu test (kể cả 1.000 gói dư sót lại từ lượt test trước chưa dọn hết, phát hiện qua đối chiếu sổ cái).
+
+**Phạm vi (đúng thiết kế đã chốt)**: chỉ trang Tồn kho tự cập nhật — các trang khác (Đơn hàng, Khách hàng...) vẫn cần F5 như cũ, trừ khi được yêu cầu mở rộng thêm.
+
+## 🐛 Lỗi thật: trang web trắng/đen hoàn toàn sau khi thêm Realtime (2026-11-05)
+
+**Người dùng báo** (kèm ảnh Console): mở `localhost:5173` bị trắng/đen hoàn toàn, không lên giao diện gì — xảy ra ở cả Cốc Cốc lẫn trình duyệt nhúng VS Code (loại trừ được giả thuyết "do extension Cốc Cốc" từng nghi vấn trước đây).
+
+**Nguyên nhân (lỗi của tôi, do mục Realtime ngay trên)**: Console báo `Uncaught ReferenceError: global is not defined` từ `sockjs-client.js`. Thư viện `sockjs-client` được viết cho môi trường Node.js, cần biến toàn cục `global` — trình duyệt không có biến này. Vite (khác Webpack) **không tự polyfill** `global`, nên lỗi này xảy ra ngay khi tải trang, **trước khi React kịp render gì cả** → toàn bộ trang trắng/đen, không chỉ riêng trang Tồn kho.
+
+**Đã sửa**: `frontend/vite.config.js` thêm `define: { global: 'globalThis' }` — cách polyfill chuẩn, phổ biến cho đúng lỗi `sockjs-client` + Vite này. Restart lại Vite dev server (bắt buộc, thay đổi `vite.config.js` không tự áp dụng như sửa code thường). Build `npm run build` lại sạch.
+
+**Bài học**: mọi thư viện mới thêm vào (đặc biệt loại vốn viết cho Node.js như `sockjs-client`) cần build/chạy thử thật trên trình duyệt trước khi báo xong — không chỉ dựa vào `npm run build` thành công (build không phát hiện được lỗi runtime kiểu này, lỗi chỉ lộ ra khi trang thực sự chạy trong trình duyệt).
+
+## 🔄 Thêm nút "Làm mới" hiện rõ trên App + bỏ thao tác kéo xuống (2026-11-05)
+
+**Phát hiện lúc kiểm tra nút reload**: trang Tồn kho + Xuất kho **bên web đã có sẵn** nút Làm mới (component `TableToolbar` dùng chung, đã gắn `onReload` từ trước) — không phải việc đang treo như ghi nhầm trước đó. Yêu cầu "thêm nút reload" thực ra chỉ còn thiếu bên **App**.
+
+**Đã làm**:
+- Thêm nút icon 🔄 (Ionicons `refresh`) hiện rõ ràng trên 4 màn: Tổng quan (`index.js`), Đơn hàng (`orders/index.js`), Khách hàng (`customers/index.js`), Ứng/Trả hàng (`advance-return/index.js`) — bấm vào gọi lại đúng hàm `load()` sẵn có của từng màn.
+- Theo yêu cầu tiếp theo: **bỏ thao tác kéo xuống để làm mới** (`RefreshControl`) đã thêm trước đó ở 2026-11-04 — chỉ giữ lại nút bấm tường minh, tránh trùng lặp/gây nhầm lẫn.
+
+Build mobile (`npx expo export`) sạch.

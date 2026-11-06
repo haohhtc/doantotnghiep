@@ -1,7 +1,9 @@
 package com.erpqlkho.backend.inventory.service;
 
+import com.erpqlkho.backend.category.branch.entity.Branch;
 import com.erpqlkho.backend.category.employee.entity.Employee;
 import com.erpqlkho.backend.category.employee.repository.EmployeeRepository;
+import com.erpqlkho.backend.category.employee.service.EmployeeService;
 import com.erpqlkho.backend.category.product.entity.Product;
 import com.erpqlkho.backend.category.product.repository.ProductRepository;
 import com.erpqlkho.backend.category.uom.entity.Uom;
@@ -33,6 +35,7 @@ public class VanSaleReturnService {
 
     private final VanSaleReturnRepository vanSaleReturnRepository;
     private final EmployeeRepository employeeRepository;
+    private final EmployeeService employeeService;
     private final ProductRepository productRepository;
     private final WarehouseRepository warehouseRepository;
     private final UserRepository userRepository;
@@ -40,6 +43,7 @@ public class VanSaleReturnService {
     private final EmployeeStockService employeeStockService;
     private final NumberingConfigService numberingConfigService;
     private final UomConversionService uomConversionService;
+    private final InventoryEventPublisher inventoryEventPublisher;
 
     public List<VanSaleReturn> findAll() {
         return vanSaleReturnRepository.findAll();
@@ -100,7 +104,9 @@ public class VanSaleReturnService {
         }
 
         ret.setStatus("CLOSED");
-        return vanSaleReturnRepository.save(ret);
+        VanSaleReturn saved = vanSaleReturnRepository.save(ret);
+        inventoryEventPublisher.publish("RETURN", ret.getEmployee().getFullName());
+        return saved;
     }
 
     private void applyDto(VanSaleReturn ret, VanSaleReturnDto dto) {
@@ -126,11 +132,11 @@ public class VanSaleReturnService {
     }
 
     private Warehouse resolveWarehouse(Employee employee, String warehouseType) {
-        if (employee.getUser() == null || employee.getUser().getBranch() == null) {
-            throw ApiException.conflict("Nhan vien " + employee.getFullName() + " chua gan tai khoan/chi nhanh, khong xac dinh duoc kho");
+        Branch branch = employeeService.resolveCurrentBranch(employee);
+        if (branch == null) {
+            throw ApiException.conflict("Nhan vien " + employee.getFullName() + " chua gan tai khoan/chi nhanh/tuyen, khong xac dinh duoc kho");
         }
-        Long branchId = employee.getUser().getBranch().getId();
-        return warehouseRepository.findFirstByBranchIdAndWarehouseType(branchId, warehouseType)
+        return warehouseRepository.findFirstByBranchIdAndWarehouseType(branch.getId(), warehouseType)
                 .orElseThrow(() -> ApiException.conflict("Chi nhanh cua nhan vien nay chua co Kho " + warehouseType));
     }
 

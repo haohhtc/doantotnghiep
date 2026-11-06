@@ -28,11 +28,18 @@ public class InvoiceController {
 
     // deliveryOrderIds (tuy chon): chi tra ve hoa don cua CAC don giao hang do - dung cho luoi
     // "Don giao hang" (phan trang) tinh "con lai chua xuat hoa don" cho trang dang xem, khong can
-    // tai het 4000+ hoa don (xem frontend DeliveryOrder/index.jsx). Bo trong -> tra ve toan bo nhu cu.
+    // tai het 4000+ hoa don (xem frontend DeliveryOrder/index.jsx).
+    // salesOrderId (tuy chon): chi tra ve hoa don cua DUNG 1 don hang ban do - dung cho App
+    // Van-Sale xem chi tiet 1 don (xem mobile preorder/vansale [id].js, invoice.js).
+    // Bo ca 2 -> tra ve toan bo nhu cu.
     @GetMapping
-    public ApiResponse<List<Invoice>> findAll(@RequestParam(required = false) List<Long> deliveryOrderIds) {
+    public ApiResponse<List<Invoice>> findAll(@RequestParam(required = false) List<Long> deliveryOrderIds,
+                                               @RequestParam(required = false) Long salesOrderId) {
         if (deliveryOrderIds != null && !deliveryOrderIds.isEmpty()) {
             return ApiResponse.ok(invoiceService.findByDeliveryOrderIds(deliveryOrderIds));
+        }
+        if (salesOrderId != null) {
+            return ApiResponse.ok(invoiceService.findBySalesOrderId(salesOrderId));
         }
         return ApiResponse.ok(invoiceService.findAll());
     }

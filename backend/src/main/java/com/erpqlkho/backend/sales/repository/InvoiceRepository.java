@@ -42,4 +42,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     // chi can hoa don cua CAC don giao dang hien tren trang, khong can toan bo (xem
     // InvoiceController.findAll(deliveryOrderIds), frontend DeliveryOrder/index.jsx).
     List<Invoice> findByDeliveryOrderIdIn(List<Long> deliveryOrderIds);
+
+    // App Van-Sale (di dong): xem chi tiet 1 don - chi can hoa don cua DUNG don do, khong tai het
+    // toan bo bang (xem InvoiceController, du lieu lon se rat nang cho mobile).
+    List<Invoice> findBySalesOrderId(Long salesOrderId);
 }

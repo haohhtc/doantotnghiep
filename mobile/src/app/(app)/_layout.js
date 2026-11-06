@@ -25,10 +25,6 @@ export default function AppLayout() {
           tabBarIcon: ({ color, size }) => <Ionicons name="receipt-outline" size={size} color={color} />,
         }}
       />
-      {/* Dat hang/Ban hang khong con la tab rieng (yeu cau tv2) - tao don chi qua Ghe tham khach
-          hang (customers/visit.js); href: null giu route dieu huong duoc nhung an khoi thanh tab. */}
-      <Tabs.Screen name="preorder" options={{ href: null }} />
-      <Tabs.Screen name="vansale" options={{ href: null }} />
       <Tabs.Screen
         name="advance-return"
         options={{

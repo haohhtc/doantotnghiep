@@ -29,7 +29,9 @@ app:
     secret: ${JWT_SECRET:change-me-to-a-long-random-secret}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    # Mac dinh cho phep moi IP LAN pho bien (192.168.x.x / 10.x.x.x) + localhost, moi cong - khong
+    # can doi bien CORS_ALLOWED_ORIGINS moi lan doi mang Wi-Fi khi test App Van-Sale ban web.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:*,http://127.0.0.1:*,http://192.168.*.*:*,http://10.*.*.*:*}
 
 springdoc:
   swagger-ui:

@@ -39,10 +39,11 @@ public class SalesOrderController {
     @GetMapping("/search")
     public ApiResponse<PageResponse<SalesOrder>> search(
             @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false) Long salesmanId,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        var result = salesOrderService.search(branchId, search, PageRequest.of(page, size));
+        var result = salesOrderService.search(branchId, salesmanId, search, PageRequest.of(page, size));
         return ApiResponse.ok(PageResponse.from(result));
     }
 

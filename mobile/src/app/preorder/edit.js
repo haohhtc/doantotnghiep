@@ -9,16 +9,13 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import { useSession } from '../../../ctx/SessionContext';
-import { apiClient, errorMessage } from '../../../api/client';
+import { useSession } from '../../ctx/SessionContext';
+import { apiClient, errorMessage } from '../../api/client';
 
-const today = () => new Date().toISOString().slice(0, 10);
-
-// Buoc 1 "them san pham vao gio" (yeu cau tv2, giong anh tham khao "Danh sach hang hoa - Giao
-// sau"): stepper +/- thay vi go tay so luong, gia tu dong tra ve theo bang gia. Buoc 2 (xem lai +
-// xac nhan) o man hinh review.js, nhan gio hang qua route params.
-export default function NewPreorder() {
-  const { customerId: presetCustomerId } = useLocalSearchParams();
+// Sua don Pre-order dang PENDING (API update chi cho sua khi con PENDING - xem
+// SalesOrderService.requirePending()). Nap san du lieu cu, gui PUT thay vi POST.
+export default function EditPreorder() {
+  const { id } = useLocalSearchParams();
   const { session } = useSession();
   const employee = session?.employee;
   const branchId = employee?.user?.branch?.id;
@@ -26,13 +23,14 @@ export default function NewPreorder() {
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
-  const [mainWarehouseId, setMainWarehouseId] = useState(null);
+  const [warehouseId, setWarehouseId] = useState(null);
 
-  const [customerId, setCustomerId] = useState(presetCustomerId ? Number(presetCustomerId) : null);
+  const [customerId, setCustomerId] = useState(null);
   const [deliveryDate, setDeliveryDate] = useState('');
+  const [remarks, setRemarks] = useState('');
   const [quantities, setQuantities] = useState({});
   const [prices, setPrices] = useState({});
-
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -42,17 +40,27 @@ export default function NewPreorder() {
         return;
       }
       try {
-        const [customersRes, productsRes, warehousesRes] = await Promise.all([
+        const [orderRes, customersRes, productsRes] = await Promise.all([
+          apiClient.get(`/api/sales-orders/${id}`),
           apiClient.get('/api/customers'),
           apiClient.get(`/api/branches/${branchId}/products`),
-          apiClient.get('/api/warehouses'),
         ]);
+        const order = orderRes.data.data;
+        setCustomerId(order.customer.id);
+        setDeliveryDate(order.deliveryDate || '');
+        setRemarks(order.remarks || '');
+        setWarehouseId(order.warehouse.id);
+        const qty = {};
+        const price = {};
+        order.details.forEach((d) => {
+          qty[d.product.id] = d.quantity;
+          price[d.product.id] = d.unitPrice;
+        });
+        setQuantities(qty);
+        setPrices(price);
+
         setCustomers(customersRes.data.data.filter((c) => c.branch?.id === branchId));
         setProducts(productsRes.data.data.map((a) => a.product));
-        const main = warehousesRes.data.data.find(
-          (w) => w.branch?.id === branchId && w.warehouseType === 'MAIN'
-        );
-        setMainWarehouseId(main?.id || null);
       } catch (e) {
         setError(errorMessage(e));
       } finally {
@@ -60,61 +68,58 @@ export default function NewPreorder() {
       }
     }
     loadData();
-  }, [branchId]);
-
-  async function lookupPrice(productId) {
-    if (!customerId || !mainWarehouseId) return;
-    try {
-      const res = await apiClient.get('/api/price-lists/lookup', {
-        params: { productId, customerId, warehouseId: mainWarehouseId, purpose: 'SALE', date: today() },
-      });
-      if (res.data.data != null) {
-        setPrices((prev) => ({ ...prev, [productId]: res.data.data }));
-      }
-    } catch {
-      // Khong tim duoc gia tu dong - de nguoi dung tu sua o man xem lai, khong chan.
-    }
-  }
+  }, [id, branchId]);
 
   function changeQty(productId, delta) {
-    setQuantities((prev) => {
-      const next = Math.max(0, (prev[productId] || 0) + delta);
-      return { ...prev, [productId]: next };
-    });
-    if (!prices[productId]) lookupPrice(productId);
+    setQuantities((prev) => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) + delta) }));
   }
 
-  const cartLines = Object.entries(quantities)
-    .filter(([, qty]) => qty > 0)
-    .map(([productId, qty]) => {
-      const product = products.find((p) => p.id === Number(productId));
-      return { productId: Number(productId), name: product?.name, quantity: qty, unitPrice: prices[productId] || 0 };
-    });
-  const cartTotal = cartLines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
-
-  function handleGoToReview() {
+  async function handleSubmit() {
     if (!customerId) {
       setError('Chọn khách hàng');
       return;
     }
     if (!deliveryDate) {
-      setError('Đơn Pre-order bắt buộc có ngày giao hàng (YYYY-MM-DD)');
+      setError('Đơn Pre-order bắt buộc có ngày giao hàng');
       return;
     }
-    if (cartLines.length === 0) {
+    // uomId = don vi ban (saleUom) cua san pham - BAT BUOC gui kem, cung ly do nhu man new.js
+    // (gia la theo saleUom, thieu uomId backend hieu nham so luong la don vi co so).
+    const details = Object.entries(quantities)
+      .filter(([, qty]) => qty > 0)
+      .map(([productId, qty]) => {
+        const product = products.find((p) => p.id === Number(productId));
+        return {
+          productId: Number(productId),
+          quantity: qty,
+          unitPrice: Number(prices[productId] || 0),
+          uomId: product?.saleUom?.id || null,
+        };
+      });
+    if (details.length === 0) {
       setError('Chọn số lượng cho ít nhất 1 sản phẩm');
       return;
     }
+
+    setSubmitting(true);
     setError(null);
-    router.push({
-      pathname: '/preorder/review',
-      params: {
-        customerId: String(customerId),
-        warehouseId: String(mainWarehouseId),
+    try {
+      await apiClient.put(`/api/sales-orders/${id}`, {
+        docDate: new Date().toISOString().slice(0, 10),
         deliveryDate,
-        items: JSON.stringify(cartLines),
-      },
-    });
+        customerId,
+        warehouseId,
+        orderType: 'PRE_ORDER',
+        salesmanId: employee.id,
+        remarks: remarks || null,
+        details,
+      });
+      router.back();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   if (loading) return <ActivityIndicator style={{ marginTop: 40 }} />;
@@ -138,12 +143,10 @@ export default function NewPreorder() {
       />
 
       <Text style={styles.label}>Ngày giao hàng (YYYY-MM-DD)</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="2026-10-20"
-        value={deliveryDate}
-        onChangeText={setDeliveryDate}
-      />
+      <TextInput style={styles.input} value={deliveryDate} onChangeText={setDeliveryDate} />
+
+      <Text style={styles.label}>Ghi chú đơn hàng</Text>
+      <TextInput style={styles.input} value={remarks} onChangeText={setRemarks} />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -170,12 +173,9 @@ export default function NewPreorder() {
         }}
       />
 
-      {cartLines.length > 0 ? (
-        <Pressable style={styles.cartBar} onPress={handleGoToReview}>
-          <Text style={styles.cartBarText}>Giỏ hàng: {cartLines.length} sản phẩm</Text>
-          <Text style={styles.cartBarText}>{cartTotal.toLocaleString('vi-VN')} đ →</Text>
-        </Pressable>
-      ) : null}
+      <Pressable style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
+        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Lưu thay đổi</Text>}
+      </Pressable>
     </View>
   );
 }
@@ -195,11 +195,7 @@ const styles = StyleSheet.create({
   stepBtnText: { fontSize: 18, fontWeight: '700', color: '#1677ff' },
   stepValue: { width: 36, textAlign: 'center', fontSize: 15 },
   stepValueActive: { fontWeight: '700', color: '#1677ff' },
-  cartBar: {
-    position: 'absolute', left: 16, right: 16, bottom: 16,
-    backgroundColor: '#1677ff', borderRadius: 10, padding: 14,
-    flexDirection: 'row', justifyContent: 'space-between',
-  },
-  cartBarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  submitBtn: { backgroundColor: '#1677ff', borderRadius: 8, padding: 14, alignItems: 'center', marginVertical: 16 },
+  submitText: { color: '#fff', fontWeight: '700' },
   error: { color: '#d4380d', marginVertical: 4, textAlign: 'center' },
 });
