@@ -37,10 +37,12 @@ class ChatRequest(BaseModel):
 
 SUGGESTED_QUESTIONS = [
     "Doanh thu tháng này là bao nhiêu?",
+    "Doanh thu tháng này tăng hay giảm so với tháng trước?",
     "Sản phẩm nào bán chạy nhất?",
     "Sản phẩm nào sắp hết hàng?",
     "Tồn kho hiện tại theo từng kho?",
     "Sản phẩm nào bán chậm, tồn lâu?",
+    "Danh mục sản phẩm nào doanh thu cao nhất?",
     "Tình hình nhập hàng tháng này?",
     "Nhà cung cấp nào nhập nhiều nhất?",
     "Khách hàng nào có doanh số thấp nhất, thuộc tuyến nào, SM nào phụ trách?",
@@ -57,10 +59,11 @@ RANKING_INTENT_DIMENSION = {
 }
 
 FALLBACK_ANSWER = (
-    "Xin lỗi, tôi chưa hiểu rõ câu hỏi này. Bạn có thể hỏi về: doanh thu/doanh số bán hàng, "
-    "sản phẩm bán chạy hoặc bán chậm, tồn kho hiện tại, sản phẩm sắp hết hàng, tình hình nhập "
-    "hàng, nhà cung cấp, hoặc khách hàng nào doanh số cao/thấp nhất (kèm tuyến, salesman phụ "
-    "trách). Ví dụ: \"Sản phẩm nào sắp hết hàng?\""
+    "Xin lỗi, tôi chưa hiểu rõ câu hỏi này. Bạn có thể hỏi về: doanh thu/doanh số bán hàng (kể cả "
+    "so sánh tăng/giảm so với kỳ trước), sản phẩm bán chạy hoặc bán chậm, tồn kho hiện tại, sản "
+    "phẩm sắp hết hàng, tình hình nhập hàng, nhà cung cấp, danh mục sản phẩm hoặc kênh bán hàng "
+    "nào hiệu quả nhất, hoặc khách hàng/nhân viên bán hàng nào doanh số cao/thấp nhất (kèm tuyến, "
+    "salesman phụ trách). Ví dụ: \"Doanh thu tháng này tăng hay giảm so với tháng trước?\""
 )
 
 
@@ -87,6 +90,12 @@ def chat(req: ChatRequest):
 
     engine = get_dw_engine()
     intent, confidence = predict_intent(question)
+
+    # Cau ngan nhu "doanh thu thang truoc" (chi neu TEN ky, khong co y so sanh) de bi TF-IDF
+    # nham voi REVENUE_COMPARISON vi trung nhieu char n-gram voi cac cau mau dai hon - chi giu
+    # REVENUE_COMPARISON khi cau THAT SU co ngon ngu so sanh, khong thi coi nhu REVENUE_TOTAL.
+    if intent == "REVENUE_COMPARISON" and not entities.has_comparison_language(question):
+        intent = "REVENUE_TOTAL"
 
     # Luoi an toan tong quat (xem entities.extract_dimension/handlers.handle_generic_ranking):
     # dung khi (a) khong intent cu the nao khop, HOAC (b) intent chon duoc la 1 trong nhom "xep
@@ -136,6 +145,8 @@ def chat(req: ChatRequest):
 
     if intent == "REVENUE_TOTAL":
         answer, source = handlers.handle_revenue_total(engine, start, end, label, product, location)
+    elif intent == "REVENUE_COMPARISON":
+        answer, source = handlers.handle_revenue_comparison(engine, start, end, label, location)
     elif intent == "TOP_SELLING":
         limit = entities.extract_limit(question, default=5)
         answer, source = handlers.handle_top_selling(engine, start, end, label, limit, location)

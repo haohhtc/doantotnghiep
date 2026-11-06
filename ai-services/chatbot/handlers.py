@@ -60,6 +60,50 @@ def handle_revenue_total(engine, start, end, label, product=None, location=None)
                       "quantity": float(qty), "orderCount": order_count}]
 
 
+def handle_revenue_comparison(engine, start, end, label, location=None):
+    """So sanh doanh thu ky dang hoi voi ky LIEN TRUOC cung do dai (xem
+    entities.previous_period) - tra loi % tang/giam, khong chi 1 con so tong nhu REVENUE_TOTAL."""
+    from entities import location_label, previous_period
+
+    prev_start, prev_end = previous_period(start, end)
+    loc_sql, loc_params = _location_filter(location)
+    params = {"start": start, "end": end, "pstart": prev_start, "pend": prev_end, **loc_params}
+    sql = f"""
+        SELECT
+            COALESCE(SUM(CASE WHEN so_order_date BETWEEN :start AND :end
+                               THEN line_amount_after_tax ELSE 0 END), 0) AS cur_rev,
+            COALESCE(SUM(CASE WHEN so_order_date BETWEEN :pstart AND :pend
+                               THEN line_amount_after_tax ELSE 0 END), 0) AS prev_rev
+        FROM fact_sellout WHERE so_order_date BETWEEN :pstart AND :end {loc_sql}
+    """
+    with engine.connect() as conn:
+        cur_rev, prev_rev = conn.execute(sql_text(sql), params).fetchone()
+
+    scope = location_label(location)
+    source = [{"start": str(start), "end": str(end), "currentRevenue": float(cur_rev),
+               "previousStart": str(prev_start), "previousEnd": str(prev_end),
+               "previousRevenue": float(prev_rev)}]
+
+    if cur_rev == 0 and prev_rev == 0:
+        return (f"Không có dữ liệu doanh thu{scope} để so sánh giữa {label} ({start} → {end}) "
+                f"và kỳ liền trước ({prev_start} → {prev_end})."), source
+    if prev_rev == 0:
+        answer = (f"Doanh thu{scope} {label} ({start} → {end}): {_money(cur_rev)}.\n"
+                  f"Kỳ liền trước ({prev_start} → {prev_end}) chưa có doanh thu nên không tính "
+                  f"được % tăng/giảm.")
+        return answer, source
+
+    delta = cur_rev - prev_rev
+    pct = float(delta) / float(prev_rev) * 100
+    trend = "tăng" if delta >= 0 else "giảm"
+    answer = (
+        f"Doanh thu{scope} {label} ({start} → {end}): {_money(cur_rev)}.\n"
+        f"Kỳ liền trước ({prev_start} → {prev_end}): {_money(prev_rev)}.\n"
+        f"=> {trend} {abs(pct):.1f}% ({_money(abs(delta))}) so với kỳ liền trước."
+    )
+    return answer, source
+
+
 def handle_top_selling(engine, start, end, label, limit=5, location=None):
     from entities import location_label
     loc_sql, loc_params = _location_filter(location)
@@ -495,6 +539,7 @@ _METRIC_LABEL = {"REVENUE": "doanh thu", "QUANTITY": "số lượng bán"}
 _DIMENSION_LABEL = {
     "PRODUCT": "sản phẩm", "CUSTOMER": "khách hàng", "SALESMAN": "nhân viên bán hàng",
     "SUPERVISOR": "giám sát bán hàng", "ROUTE": "tuyến", "WAREHOUSE": "kho", "BRANCH": "chi nhánh",
+    "CATEGORY": "danh mục sản phẩm", "CHANNEL": "kênh bán hàng",
 }
 
 

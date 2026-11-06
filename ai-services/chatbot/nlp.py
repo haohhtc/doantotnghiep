@@ -22,6 +22,8 @@ import unicodedata
 # da the hien, bang ngon ngu tu nhien.
 INTENTS = [
     "REVENUE_TOTAL",      # Tong doanh thu / doanh so ban hang theo thoi gian
+    "REVENUE_COMPARISON", # So sanh doanh thu ky nay voi ky lien truoc (tang/giam bao nhieu %) -
+                           # khac REVENUE_TOTAL (chi 1 con so tong, khong so sanh)
     "TOP_SELLING",        # San pham ban chay nhat
     "SLOW_MOVING",        # San pham ban cham / ton lau
     "STOCK_CURRENT",      # Ton kho hien tai cua 1 san pham
@@ -60,6 +62,21 @@ TRAINING_EXAMPLES = {
         "ket qua kinh doanh thang nay ra sao",
         "doanh thu san pham co ma nay tai chi nhanh ha noi",
         "doanh so ban hang cua kho van thang nay",
+    ],
+    "REVENUE_COMPARISON": [
+        "doanh thu thang nay tang hay giam so voi thang truoc",
+        "so sanh doanh thu thang nay va thang truoc",
+        "doanh thu tuan nay tang truong bao nhieu phan tram",
+        "doanh so thang nay so voi thang truoc the nao",
+        "tang truong doanh thu thang nay",
+        "doanh thu tang hay giam so voi ky truoc",
+        "so sanh doanh so ban hang voi thang truoc",
+        "doanh thu 7 ngay qua tang giam bao nhieu so voi 7 ngay truoc do",
+        "ty le tang truong doanh thu thang nay",
+        "doanh thu chi nhanh hcm thang nay tang hay giam so voi thang truoc",
+        "doanh so tuan nay co tot hon tuan truoc khong",
+        "so voi ky truoc doanh thu bien dong the nao",
+        "doanh thu quy nay tang bao nhieu phan tram so voi quy truoc",
     ],
     "TOP_SELLING": [
         "san pham nao ban chay nhat",

@@ -58,20 +58,23 @@ def extract_date_range(question: str, ref_date: date):
     if "hom qua" in q:
         d = ref_date - timedelta(days=1)
         return d, d, "hom qua"
+    # "nay" kiem truoc "truoc"/"qua": cau hoi so sanh ("thang nay tang/giam so voi thang truoc")
+    # thuong chua CA HAI cum - ky dang hoi chinh (chu ngu cua cau) phai la ky "nay", "truoc" chi
+    # la ky doi chieu (xem handlers.handle_revenue_comparison tu tinh ky truoc tu ky chinh).
+    if "tuan nay" in q:
+        this_monday = ref_date - timedelta(days=ref_date.weekday())
+        return this_monday, ref_date, "tuan nay"
     if "tuan truoc" in q or "tuan qua" in q:
         this_monday = ref_date - timedelta(days=ref_date.weekday())
         last_monday = this_monday - timedelta(days=7)
         return last_monday, last_monday + timedelta(days=6), "tuan truoc"
-    if "tuan nay" in q:
-        this_monday = ref_date - timedelta(days=ref_date.weekday())
-        return this_monday, ref_date, "tuan nay"
+    if "thang nay" in q:
+        return ref_date.replace(day=1), ref_date, "thang nay"
     if "thang truoc" in q:
         first_this_month = ref_date.replace(day=1)
         last_day_prev = first_this_month - timedelta(days=1)
         first_prev = last_day_prev.replace(day=1)
         return first_prev, last_day_prev, "thang truoc"
-    if "thang nay" in q:
-        return ref_date.replace(day=1), ref_date, "thang nay"
     if "quy nay" in q:
         quarter_start_month = (ref_date.month - 1) // 3 * 3 + 1
         return date(ref_date.year, quarter_start_month, 1), ref_date, "quy nay"
@@ -79,6 +82,16 @@ def extract_date_range(question: str, ref_date: date):
         return date(ref_date.year, 1, 1), ref_date, "nam nay"
 
     return ref_date - timedelta(days=29), ref_date, "30 ngay gan day"
+
+
+def previous_period(start: date, end: date):
+    """Ky LIEN NGAY TRUOC, CUNG DO DAI voi [start, end] - dung cho cau hoi so sanh tang/giam
+    (vd 'thang nay' dai 30 ngay -> ky truoc la 30 ngay lien truoc do, khong nhat thiet dung
+    "thang truoc" theo lich neu [start,end] khong phai tron 1 thang)."""
+    length_days = (end - start).days + 1
+    prev_end = start - timedelta(days=1)
+    prev_start = prev_end - timedelta(days=length_days - 1)
+    return prev_start, prev_end
 
 
 def extract_product(question: str, engine):
@@ -207,6 +220,8 @@ DIMENSION_COLUMNS = {
     "ROUTE": ("route_code", "route_name"),
     "WAREHOUSE": ("warehouse_code", None),
     "BRANCH": ("branch_code", "branch_name"),
+    "CATEGORY": ("category_code", "category_name"),
+    "CHANNEL": ("customer_channel_code", "customer_channel_name"),
 }
 
 _DIMENSION_KEYWORDS = {
@@ -216,6 +231,10 @@ _DIMENSION_KEYWORDS = {
     "ROUTE": ["tuyen"],
     "WAREHOUSE": ["kho"],
     "BRANCH": ["chi nhanh", "npp"],
+    # "danh muc"/"nhom" phai kiem tra TRUOC "san pham" o duoi - "danh muc san pham nao ban chay
+    # nhat" chua ca 2 cum, phai uu tien CATEGORY (dict Python giu dung thu tu khai bao tu 3.7+).
+    "CATEGORY": ["danh muc san pham", "danh muc", "nhom san pham", "nganh hang"],
+    "CHANNEL": ["kenh ban hang", "kenh phan phoi", "kenh"],
     "PRODUCT": ["san pham", "mat hang"],
 }
 
@@ -257,6 +276,21 @@ def has_rank_language(question: str) -> bool:
     gian (vd REVENUE_TOTAL khong co y xep hang) - xem main.py."""
     q = normalize(question)
     return any(_has_word(k, q) for k in _LOW_RANK_KEYWORDS + _HIGH_RANK_KEYWORDS)
+
+
+_COMPARISON_KEYWORDS = [
+    "so sanh", "so voi", "tang truong", "tang hay giam", "bien dong", "tang bao nhieu",
+    "giam bao nhieu", "tot hon", "kem hon", "cao hon", "thap hon",
+]
+
+
+def has_comparison_language(question: str) -> bool:
+    """True neu cau hoi THAT SU mang y so sanh 2 ky voi nhau (vd 'so voi', 'tang truong',
+    'tang hay giam') - dung lam luoi an toan cho REVENUE_COMPARISON: cau ngan nhu 'doanh thu
+    thang truoc' chi nhac TEN ky (de extract_date_range doc), khong co y so sanh, de bi TF-IDF
+    nham voi REVENUE_COMPARISON vi trung nhieu char n-gram voi cau mau dai hon - xem main.py."""
+    q = normalize(question)
+    return any(_has_word(k, q) for k in _COMPARISON_KEYWORDS)
 
 
 def extract_route(question: str, engine):
