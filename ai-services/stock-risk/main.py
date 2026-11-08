@@ -37,10 +37,20 @@ RISK_HORIZON_DAYS = 14  # cua so du bao dung de danh gia rui ro (du dai de co th
 REORDER_SAFETY_FACTOR = 1.5  # muc ton kho an toan = du bao * he so nay
 
 
-def _current_stock_by_product(engine, warehouse_id: int | None):
-    """Ton kho hien tai (snapshot moi nhat trong DW) theo tung san pham - cong don tat ca kho
-    neu khong loc warehouse_id, chi lay 1 kho neu co loc."""
-    where_wh = "AND dw.warehouse_id = :warehouse_id" if warehouse_id is not None else ""
+def _current_stock_by_product(engine, warehouse_id: int | None, branch_code: str | None):
+    """Ton kho hien tai (snapshot moi nhat trong DW) theo tung san pham. Mac dinh cong don tat
+    ca kho; neu co warehouse_id chi lay dung 1 kho do (dropdown chon kho cu the o trang chi
+    tiet). Neu co branch_code (trang chu loc theo chi nhanh dang chon o BranchSelector) CHI tinh
+    tren kho MAIN cua chi nhanh do, khong cong ca kho VAN/DAMAGE - ton o kho luu dong (VAN) la
+    hang dang tren duong giao/da xuat hoa don, khong phai ton "san co the nhap bu" nen cong vao
+    se lam loang/che mat rui ro thieu hang that o kho chinh."""
+    where_parts = []
+    if warehouse_id is not None:
+        where_parts.append("dw.warehouse_id = :warehouse_id")
+    if branch_code is not None:
+        where_parts.append("dw.branch_code = :branch_code")
+        where_parts.append("dw.warehouse_type = 'MAIN'")
+    where_sql = ("AND " + " AND ".join(where_parts)) if where_parts else ""
     sql = f"""
         SELECT dp.product_id, dp.product_code, dp.product_name,
                COALESCE(SUM(f.quantity_on_hand), 0) AS current_stock
@@ -48,11 +58,15 @@ def _current_stock_by_product(engine, warehouse_id: int | None):
         LEFT JOIN fact_inventory_snapshot f ON f.product_key = dp.product_key
             AND f.time_key = (SELECT MAX(time_key) FROM fact_inventory_snapshot)
         LEFT JOIN dim_warehouse dw ON dw.warehouse_key = f.warehouse_key
-        WHERE 1=1 {where_wh}
+        WHERE 1=1 {where_sql}
         GROUP BY dp.product_id, dp.product_code, dp.product_name
         ORDER BY dp.product_id
     """
-    params = {"warehouse_id": warehouse_id} if warehouse_id is not None else {}
+    params = {}
+    if warehouse_id is not None:
+        params["warehouse_id"] = warehouse_id
+    if branch_code is not None:
+        params["branch_code"] = branch_code
     with engine.connect() as conn:
         rows = conn.execute(sql_text(sql), params).fetchall()
     return [dict(r._mapping) for r in rows]
@@ -100,9 +114,9 @@ def health():
 
 
 @app.get("/stock-risk")
-async def stock_risk(warehouseId: int | None = None):
+async def stock_risk(warehouseId: int | None = None, branchCode: str | None = None):
     engine = get_dw_engine()
-    products = _current_stock_by_product(engine, warehouseId)
+    products = _current_stock_by_product(engine, warehouseId, branchCode)
     if not products:
         return []
 

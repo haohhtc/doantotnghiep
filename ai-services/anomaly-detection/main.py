@@ -35,18 +35,24 @@ IQR_FENCE_FACTOR = 1.5
 SEVERE_IQR_FACTOR = 3.0  # lech > 3 lan IQR so voi lien gioi -> HIGH, con lai (van bat thuong) -> MEDIUM
 
 
-def _daily_movement(engine) -> pd.DataFrame:
-    """Tong SL giao dich kho THEO NGAY, theo tung san pham + loai giao dich (IN/OUT/ADJUST),
-    cong don tat ca kho (khop cach lam cua AI-02 Stock Risk - khong tach theo warehouseId vi
-    API contract khong yeu cau)."""
-    sql = """
-        SELECT dp.product_id, f.movement_type, dt.full_date AS d, SUM(f.quantity) AS qty
+def _daily_movement(engine, branch_code: str | None) -> pd.DataFrame:
+    """Tong SL giao dich kho THEO NGAY, theo tung san pham + loai giao dich (IN/OUT/ADJUST). Mac
+    dinh cong don tat ca kho; neu co branch_code (vd trang chu loc theo chi nhanh dang chon o
+    BranchSelector) chi tinh tren cac kho CUNG chi nhanh do - ca du lieu lan khoang "binh thuong"
+    (IQR) deu rieng theo chi nhanh, tranh bi loang boi quy mo cac chi nhanh khac."""
+    where_branch = "WHERE dw.branch_code = :branch_code" if branch_code is not None else ""
+    sql = f"""
+        SELECT dp.product_id, dp.product_code, dp.product_name, f.movement_type,
+               dt.full_date AS d, SUM(f.quantity) AS qty
         FROM fact_stock_movement f
         JOIN dim_product dp ON dp.product_key = f.product_key
         JOIN dim_time dt ON dt.time_key = f.time_key
-        GROUP BY dp.product_id, f.movement_type, dt.full_date
+        JOIN dim_warehouse dw ON dw.warehouse_key = f.warehouse_key
+        {where_branch}
+        GROUP BY dp.product_id, dp.product_code, dp.product_name, f.movement_type, dt.full_date
     """
-    return pd.read_sql(sql_text(sql), engine)
+    params = {"branch_code": branch_code} if branch_code is not None else {}
+    return pd.read_sql(sql_text(sql), engine, params=params)
 
 
 def _iqr_bounds(values: pd.Series):
@@ -74,9 +80,10 @@ def health():
 def anomalies(
     from_date: date = Query(..., alias="from", description="Ngay bat dau (YYYY-MM-DD)"),
     to_date: date = Query(..., alias="to", description="Ngay ket thuc (YYYY-MM-DD)"),
+    branchCode: str | None = None,
 ):
     engine = get_dw_engine()
-    df = _daily_movement(engine)
+    df = _daily_movement(engine, branchCode)
     if df.empty:
         return []
     df["d"] = pd.to_datetime(df["d"]).dt.date
@@ -89,12 +96,16 @@ def anomalies(
         low, high, iqr = _iqr_bounds(history)
 
         in_range = group[(group["d"] >= from_date) & (group["d"] <= to_date)]
+        product_code = group["product_code"].iloc[0]
+        product_name = group["product_name"].iloc[0]
         for _, row in in_range.iterrows():
             qty = float(row["qty"])
             if qty < low or qty > high:
                 results.append({
                     "date": str(row["d"]),
                     "productId": int(product_id),
+                    "productCode": product_code,
+                    "productName": product_name,
                     "type": movement_type,
                     "quantity": qty,
                     "expectedRange": [round(low, 2), round(high, 2)],
