@@ -21,14 +21,17 @@ export async function fetchForecast(productId, horizonDays = 7) {
   return data;
 }
 
-export async function fetchStockRisk(warehouseId) {
-  const { data } = await stockRiskClient.get('/stock-risk', {
-    params: warehouseId ? { warehouseId } : {},
-  });
+export async function fetchStockRisk(warehouseId, branchCode) {
+  const params = {};
+  if (warehouseId) params.warehouseId = warehouseId;
+  else if (branchCode) params.branchCode = branchCode;
+  const { data } = await stockRiskClient.get('/stock-risk', { params });
   return data;
 }
 
-export async function fetchAnomalies(from, to) {
-  const { data } = await anomalyClient.get('/anomalies', { params: { from, to } });
+export async function fetchAnomalies(from, to, branchCode) {
+  const params = { from, to };
+  if (branchCode) params.branchCode = branchCode;
+  const { data } = await anomalyClient.get('/anomalies', { params });
   return data;
 }

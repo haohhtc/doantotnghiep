@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import axiosClient from '../../../api/axiosClient';
 import { fetchStockRisk, fetchForecast } from '../../../api/aiClient';
+import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
 
@@ -14,6 +15,10 @@ const { Title, Text } = Typography;
 // giao dien cho 2 service AI tu xay dung, khong phai mock - xem AI-SERVICES-README.
 const RISK_COLOR = { HIGH: 'red', MEDIUM: 'gold', LOW: 'green', UNKNOWN: 'default' };
 const RISK_LABEL = { HIGH: 'Nguy cơ cao', MEDIUM: 'Cần theo dõi', LOW: 'Ổn định', UNKNOWN: 'Chưa rõ' };
+// Gia tri rieng cho lua chon "toan he thong" trong dropdown kho - tach biet voi trang thai
+// chua-xac-dinh (undefined) dung truoc khi co mac dinh theo chi nhanh, tranh nham lan giua
+// "chua chon gi (dang cho default)" va "nguoi dung CHU DONG chon xem toan he thong".
+const ALL_SYSTEM = '__ALL__';
 const HORIZON_OPTIONS = [
   { label: '7 ngày', value: 7 },
   { label: '14 ngày', value: 14 },
@@ -21,9 +26,11 @@ const HORIZON_OPTIONS = [
 ];
 
 export default function StockRiskPage() {
+  const { selectedBranch, loading: branchLoading } = useBranch();
   const [rows, setRows] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [warehouseId, setWarehouseId] = useState(undefined);
+  const [defaulted, setDefaulted] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [forecastOpen, setForecastOpen] = useState(false);
@@ -34,7 +41,7 @@ export default function StockRiskPage() {
 
   function loadRisk() {
     setLoading(true);
-    fetchStockRisk(warehouseId)
+    fetchStockRisk(warehouseId === ALL_SYSTEM ? undefined : warehouseId)
       .then((data) => setRows(data))
       .catch((err) => message.error(err.response?.data?.detail || 'Không tải được dữ liệu cảnh báo tồn kho - kiểm tra service Stock Risk (port 8002) đã chạy chưa'))
       .finally(() => setLoading(false));
@@ -44,10 +51,24 @@ export default function StockRiskPage() {
     axiosClient.get('/warehouses').then(({ data }) => setWarehouses(data.data)).catch(() => setWarehouses([]));
   }, []);
 
+  // Mac dinh chon kho CHINH (MAIN) cua chi nhanh dang duoc chon o BranchSelector (header) - khop
+  // voi widget o trang chu, thay vi mac dinh cong don TOAN HE THONG lam loang tin hieu rui ro. Chi
+  // chay 1 LAN khi da co du ca danh sach kho lan chi nhanh (tranh goi API 2 lan - 1 lan "tat ca
+  // kho" truoc khi co context, 1 lan dung kho mac dinh). Nguoi dung van co the tu doi kho khac.
   useEffect(() => {
-    loadRisk();
+    if (!defaulted && !branchLoading && warehouses.length) {
+      const mainWarehouse = selectedBranch
+        ? warehouses.find((w) => w.branch?.code === selectedBranch.code && w.warehouseType === 'MAIN')
+        : null;
+      setWarehouseId(mainWarehouse ? mainWarehouse.id : ALL_SYSTEM);
+      setDefaulted(true);
+    }
+  }, [defaulted, branchLoading, selectedBranch, warehouses]);
+
+  useEffect(() => {
+    if (defaulted) loadRisk();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [warehouseId]);
+  }, [warehouseId, defaulted]);
 
   function openForecast(record, horizon = forecastHorizon) {
     setForecastProduct(record);
@@ -64,7 +85,10 @@ export default function StockRiskPage() {
     if (forecastProduct) openForecast(forecastProduct, value);
   }
 
-  const warehouseOptions = warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` }));
+  const warehouseOptions = [
+    { value: ALL_SYSTEM, label: 'Tất cả kho (toàn hệ thống)' },
+    ...warehouses.map((w) => ({ value: w.id, label: `${w.code} - ${w.name}` })),
+  ];
 
   const columns = [
     { title: 'Mã SP', dataIndex: 'productCode', key: 'productCode' },
@@ -109,8 +133,6 @@ export default function StockRiskPage() {
 
       <Space style={{ marginBottom: 16 }}>
         <Select
-          allowClear
-          placeholder="Tất cả kho (tổng toàn hệ thống)"
           options={warehouseOptions}
           value={warehouseId}
           onChange={setWarehouseId}
