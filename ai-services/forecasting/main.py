@@ -102,6 +102,7 @@ def _forecast_series(series: pd.Series, horizon: int) -> np.ndarray:
             model = ExponentialSmoothing(
                 series,
                 trend="add",
+                damped_trend=True,  # chan xu huong ngoai suy vo han - xem canh bao duoi
                 seasonal="add",
                 seasonal_periods=SEASONAL_PERIOD,
                 initialization_method="estimated",
@@ -110,6 +111,15 @@ def _forecast_series(series: pd.Series, horizon: int) -> np.ndarray:
         result = np.clip(preds.to_numpy(), 0, None)
         if not np.isfinite(result).all():
             raise ValueError("Holt-Winters tra ve gia tri khong hop le (NaN/inf)")
+
+        # Luoi an toan thong ke: mot ngay DOT BIEN (vd don hang rat lon bat thuong) ngay cuoi
+        # chuoi lich su van co the khien thanh phan XU HUONG (trend) cua Holt-Winters ngoai suy
+        # qua da cho nhung ngay toi (du da bat damped_trend) - gioi han du bao moi ngay khong
+        # vuot qua 3 lan phan vi 95% CUA CHINH LICH SU san pham do (ben vung voi 1-2 ngay dot
+        # bien trong ca tram ngay, khac voi dung max() se bi chinh dot bien keo theo).
+        cap = float(series.quantile(0.95)) * 3
+        if cap > 0:
+            result = np.clip(result, 0, cap)
         return result
     except Exception:
         # Chuoi qua thua/nhieu so 0 lam Holt-Winters khong hoi tu duoc (hay gap thuc te) -
