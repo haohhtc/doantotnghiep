@@ -466,7 +466,10 @@ export default function DeliveryOrderPage() {
             {record.status === 'CLOSED' && hasRemainingToInvoice(record) && (
               <Button icon={<FileTextOutlined />} title="Xuất hóa đơn" onClick={() => openInvoiceModal(record)} />
             )}
-            <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
+            {/* Khong con disabled khi khong DRAFT - but luon mo duoc popup nhu ben Don hang ban (tv2
+                bao loi bam vao day o don da xong khong thay gi). Khong con Sua duoc thi roi sang
+                xem lai y het nut con mat (openViewModal), chi dung Sua that khi con DRAFT. */}
+            <Button icon={<EditOutlined />} onClick={() => (isDraft ? openEditModal(record) : openViewModal(record))} />
             <Popconfirm title="Xóa đơn giao hàng này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
               <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
             </Popconfirm>
