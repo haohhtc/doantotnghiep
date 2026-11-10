@@ -22,15 +22,33 @@ DW_CONFIG = dict(
     user="erp_user", password="erp_password",
     database="erp_qlkho_dw",
     charset="utf8mb4",
+    init_command="SET NAMES 'utf8mb4' COLLATE 'utf8mb4_0900_ai_ci'",
     cursorclass=pymysql.cursors.DictCursor,
 )
 
 
 from decimal import Decimal
+import datetime
+
+def _fix_encoding(v):
+    """MySQL DWH server tra ve latin1 bytes du lieu utf8mb4 → giai ma lai."""
+    try:
+        return v.encode('latin-1').decode('utf-8')
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        return v
 
 def _to_json(row):
-    """Chuyen Decimal -> float de FastAPI co the serialize."""
-    return {k: float(v) if isinstance(v, Decimal) else v for k, v in row.items()}
+    result = {}
+    for k, v in row.items():
+        if isinstance(v, Decimal):
+            result[k] = float(v)
+        elif isinstance(v, str):
+            result[k] = _fix_encoding(v)
+        elif isinstance(v, (datetime.date, datetime.datetime)):
+            result[k] = v.isoformat()
+        else:
+            result[k] = v
+    return result
 
 def query(sql, params=None):
     conn = pymysql.connect(**DW_CONFIG)
@@ -162,6 +180,70 @@ def inventory_report():
         "stock_status_dist": [dict(r) for r in stock_status_dist],
         "summary": dict(summary[0]) if summary else {},
     }
+
+
+# BC BAN HANG - JOIN dim_customer + raw_branch/region de fill NULL columns
+@app.get("/reports/sellout")
+def sellout_report():
+    rows = query("""
+        SELECT
+            fs.so_order_number, fs.so_order_date, fs.so_order_year, fs.so_order_month,
+            fs.sos_order_type_vn, fs.so_order_status_vn, fs.order_stage,
+            fs.branch_code, fs.branch_name,
+            COALESCE(fs.region_name, rr.name)         AS region_name,
+            fs.selling_zone_name,
+            fs.route_code, fs.route_name,
+            fs.salesperson_code, fs.salesperson_name, fs.supervisor_name,
+            fs.customer_code, fs.customer_name,
+            COALESCE(fs.customer_province, dc.province_name) AS customer_province,
+            COALESCE(fs.customer_district, dc.district_name) AS customer_district,
+            COALESCE(fs.customer_ward,     dc.ward_name)     AS customer_ward,
+            fs.customer_channel_name,
+            fs.product_code, fs.product_name, fs.product_uom_code,
+            fs.category_name, fs.parent_category_name,
+            fs.quantity, fs.unit_price,
+            fs.line_amount_before_discount, fs.discount_amount, fs.line_amount,
+            fs.tax_rate, fs.tax_amount, fs.line_amount_after_tax,
+            fs.so_link_number, fs.invoice_number
+        FROM fact_sellout fs
+        LEFT JOIN dim_customer  dc ON fs.customer_code = dc.customer_code
+        LEFT JOIN raw_branch    rb ON fs.branch_code   = rb.code
+        LEFT JOIN raw_region    rr ON rb.region_id     = rr.id
+        ORDER BY
+            (fs.selling_zone_name IS NULL),
+            fs.so_order_date DESC
+    """)
+    return {"rows": rows, "count": len(rows)}
+
+
+# BC KHO - Ton kho hien tai
+@app.get("/reports/tonkho")
+def tonkho_detail():
+    rows = query("""
+        SELECT
+            snapshot_date, product_code, product_name,
+            category_name, parent_category_name,
+            warehouse_code, warehouse_name, warehouse_type, branch_name,
+            quantity_on_hand, avg_unit_price, inventory_value, stock_status
+        FROM fact_tonkho
+        ORDER BY branch_name, warehouse_name, product_name
+    """)
+    return {"rows": rows, "count": len(rows)}
+
+
+# BC KHO - Bien dong kho (Nhap/Xuat/Chuyen)
+@app.get("/reports/tonkho-movement")
+def tonkho_movement():
+    rows = query("""
+        SELECT
+            txn_date, txn_type_vn, reference_type_vn,
+            product_code, product_name, category_name,
+            warehouse_code, warehouse_name, warehouse_type, branch_name,
+            quantity
+        FROM fact_tonkho_movement
+        ORDER BY txn_date DESC
+    """)
+    return {"rows": rows, "count": len(rows)}
 
 
 if __name__ == "__main__":
