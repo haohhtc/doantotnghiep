@@ -1007,4 +1007,12 @@ Triển khai đúng thiết kế đã chốt (xem mục "Yêu cầu Realtime" tr
 - Thêm nút icon 🔄 (Ionicons `refresh`) hiện rõ ràng trên 4 màn: Tổng quan (`index.js`), Đơn hàng (`orders/index.js`), Khách hàng (`customers/index.js`), Ứng/Trả hàng (`advance-return/index.js`) — bấm vào gọi lại đúng hàm `load()` sẵn có của từng màn.
 - Theo yêu cầu tiếp theo: **bỏ thao tác kéo xuống để làm mới** (`RefreshControl`) đã thêm trước đó ở 2026-11-04 — chỉ giữ lại nút bấm tường minh, tránh trùng lặp/gây nhầm lẫn.
 
+## 🐛 tv2 báo lỗi: mở đơn giao hàng đã xong không thấy popup (2026-11-10)
+
+**tv2 báo**: mở lại 1 đơn giao hàng đã tạo xong thì không thấy hiển thị gì, trong khi bên Đơn hàng bán bấm vào luôn ra popup xem lại.
+
+**Nguyên nhân**: trang Đơn giao hàng (`frontend/src/pages/sales/DeliveryOrder/index.jsx`) tách riêng 2 nút — bút chì (Sửa) chỉ bấm được khi đơn còn `DRAFT` (`disabled={!isDraft}`), con mắt (Xem) thì luôn bấm được. Bên Đơn hàng bán chỉ có 1 nút bút chì, luôn bấm được (không DRAFT thì tự khóa form lại, không phải khóa cả nút). Tv2 quen thao tác kiểu Đơn hàng bán nên bấm nhầm vào bút chì đang bị khóa mờ của đơn đã CLOSED/CANCELLED → không có gì hiện ra.
+
+**Đã sửa**: bỏ `disabled={!isDraft}` ở nút bút chì. Bấm vào bút chì: nếu còn DRAFT thì mở modal Sửa như cũ; nếu không còn DRAFT thì tự động mở popup Xem sẵn có (`openViewModal`) thay vì không làm gì. Nút con mắt giữ nguyên, không mất chức năng gì. Không đụng tới trang Hóa đơn (kiểm tra lại: chỉ có 1 nút Xem, luôn bấm được ở mọi trạng thái, không có lỗi tương tự).
+
 Build mobile (`npx expo export`) sạch.
