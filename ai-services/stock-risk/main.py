@@ -14,6 +14,7 @@
 #   - suggestedReorderQty = max(0, forecastDemand * REORDER_SAFETY_FACTOR - currentStock) - nhap
 #     them du de ton kho dat muc an toan (= du bao * he so an toan), khong nhap am.
 # Chay thu: uvicorn main:app --reload --port 8002
+import asyncio
 import os
 
 import httpx
@@ -120,8 +121,12 @@ async def stock_risk(warehouseId: int | None = None, branchCode: str | None = No
     if not products:
         return []
 
+    # Goi forecasting SONG SONG cho tat ca san pham (asyncio.gather) thay vi tuan tu - voi
+    # 13 san pham, goi tuan tu moi cai ~0.5-1s (Holt-Winters fit) cong don thanh 6-11+ giay,
+    # du lau de nguoi dung tuong la mat ket noi/timeout. Song song chi con gioi han boi san
+    # pham cham nhat, nhanh hon nhieu lan.
     async with httpx.AsyncClient() as client:
-        demands = [await _forecast_demand(client, p["product_id"]) for p in products]
+        demands = await asyncio.gather(*(_forecast_demand(client, p["product_id"]) for p in products))
 
     forecasting_unreachable = all(d is None for d in demands)
     if forecasting_unreachable:
