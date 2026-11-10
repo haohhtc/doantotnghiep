@@ -51,6 +51,8 @@ import PlaceholderPage from '../components/PlaceholderPage';
 import ReportPlaceholderPage from '../components/ReportPlaceholderPage';
 import SalesReportPage from '../pages/reports/SalesReport';
 import InventoryReportPage from '../pages/reports/InventoryReport';
+import StockRiskPage from '../pages/ai/StockRisk';
+import AnomalyDetectionPage from '../pages/ai/AnomalyDetection';
 
 export default function AppRoutes() {
   return (
@@ -102,6 +104,11 @@ export default function AppRoutes() {
             <Route path="/employees" element={<EmployeesPage />} />
             <Route path="/employee-positions" element={<EmployeePositionsPage />} />
             <Route path="/salesman-types" element={<SalesmanTypesPage />} />
+
+            {/* AI-01/02/03 (Du bao / Canh bao ton kho / Phat hien bat thuong) - tu xay dung,
+                goi truc tiep ai-services/forecasting,stock-risk,anomaly-detection (8001-8003) */}
+            <Route path="/ai/stock-risk" element={<StockRiskPage />} />
+            <Route path="/ai/anomalies" element={<AnomalyDetectionPage />} />
 
             {/* Module rong cho Nhi (PowerBI) - khong co API/du lieu, xem tonghop.md Nhom 7 */}
             <Route path="/reports/sales" element={<SalesReportPage />} />

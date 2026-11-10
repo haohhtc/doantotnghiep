@@ -5,7 +5,7 @@ import {
   DatabaseOutlined, SafetyOutlined, LogoutOutlined, MenuFoldOutlined,
   MenuUnfoldOutlined, UserOutlined, EnvironmentOutlined, GlobalOutlined, BankOutlined,
   ContainerOutlined, ClusterOutlined, CompassOutlined, TagOutlined, IdcardOutlined, BarChartOutlined,
-  ShoppingOutlined,
+  ShoppingOutlined, AlertOutlined, WarningOutlined, RobotOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '../utils/auth';
@@ -122,6 +122,14 @@ function buildMenuItems(role) {
   ];
 
   items.push({
+    key: 'ai-thong-minh', icon: <RobotOutlined />, label: 'AI thông minh',
+    children: [
+      { key: '/ai/stock-risk', icon: <WarningOutlined />, label: <Link to="/ai/stock-risk">Cảnh báo tồn kho</Link> },
+      { key: '/ai/anomalies', icon: <AlertOutlined />, label: <Link to="/ai/anomalies">Phát hiện bất thường</Link> },
+    ],
+  });
+
+  items.push({
     key: 'bao-cao', icon: <BarChartOutlined />, label: 'Báo cáo',
     children: [
       { key: '/reports/sales', label: <Link to="/reports/sales">BC bán hàng</Link> },
@@ -198,6 +206,8 @@ const BREADCRUMB_MAP = {
   '/system/approval-process': ['Hệ thống', 'Quy trình duyệt'],
   '/system/settings': ['Hệ thống', 'Cài đặt hệ thống'],
   '/system/email-config': ['Hệ thống', 'Cấu hình Email'],
+  '/ai/stock-risk': ['AI thông minh', 'Cảnh báo tồn kho'],
+  '/ai/anomalies': ['AI thông minh', 'Phát hiện bất thường'],
   '/reports/sales': ['Báo cáo', 'BC bán hàng'],
   '/reports/inventory': ['Báo cáo', 'BC kho'],
   '/reports/purchase': ['Báo cáo', 'BC mua hàng'],
@@ -253,6 +263,8 @@ const MENU_ANCESTOR_KEYS = {
   '/system/approval-process': ['he-thong'],
   '/system/settings': ['he-thong'],
   '/system/email-config': ['he-thong'],
+  '/ai/stock-risk': ['ai-thong-minh'],
+  '/ai/anomalies': ['ai-thong-minh'],
   '/reports/sales': ['bao-cao'],
   '/reports/inventory': ['bao-cao'],
   '/reports/purchase': ['bao-cao'],
