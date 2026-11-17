@@ -41,6 +41,29 @@ public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, Lo
                                 @org.springframework.data.repository.query.Param("search") String search,
                                 Pageable pageable);
 
+    // Dung cho man hinh "Phieu in nhanh" (Sales Order / Picking List / Delivery Note Printing) -
+    // loc server-side theo khoang Ngay lap + Loai don + Trang thai in, TRANH tai toan bo bang (vai
+    // nghin don, moi don long nhieu quan he EAGER) nhu /delivery-orders (khong phan trang/loc) vi
+    // qua nang cho man hinh nay. onlyNotPrinted: null = tat ca, true = printCount=0, false = printCount>0.
+    @org.springframework.data.jpa.repository.Query("""
+            select d from DeliveryOrder d
+            where d.status <> 'CANCELLED'
+              and (:branchId is null or d.warehouse.branch.id = :branchId)
+              and (:fromDate is null or d.docDate >= :fromDate)
+              and (:toDate is null or d.docDate <= :toDate)
+              and (:orderType is null or d.salesOrder.orderType = :orderType)
+              and (:onlyNotPrinted is null
+                   or (:onlyNotPrinted = true and d.printCount = 0)
+                   or (:onlyNotPrinted = false and d.printCount > 0))
+            order by d.docDate desc, d.id desc
+            """)
+    Page<DeliveryOrder> searchForPrint(@org.springframework.data.repository.query.Param("branchId") Long branchId,
+                                        @org.springframework.data.repository.query.Param("fromDate") java.time.LocalDate fromDate,
+                                        @org.springframework.data.repository.query.Param("toDate") java.time.LocalDate toDate,
+                                        @org.springframework.data.repository.query.Param("orderType") String orderType,
+                                        @org.springframework.data.repository.query.Param("onlyNotPrinted") Boolean onlyNotPrinted,
+                                        Pageable pageable);
+
     // V49: 1 Don hang ban co the co nhieu Don giao hang (giao nhieu dot) nen tra ve List, khong con
     // la "1 don giao duy nhat cua don hang" nhu truoc (xem DeliveryOrderService.create() tinh "con
     // lai bao nhieu chua giao", InvoiceService tim dot giao can xuat hoa don).

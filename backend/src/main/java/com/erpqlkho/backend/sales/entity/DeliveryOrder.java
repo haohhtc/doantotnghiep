@@ -16,6 +16,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -68,4 +69,12 @@ public class DeliveryOrder extends BaseEntity {
     @OneToMany(mappedBy = "deliveryOrder", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @OrderBy("id ASC")
     private List<DeliveryOrderItem> items = new ArrayList<>();
+
+    // So lan da in (Phieu giao hang/Phieu xuat kho tong) + lan in gan nhat - cap nhat o
+    // DeliveryOrderService.markPrinted(), goi tu man hinh "Phieu in nhanh" (V55).
+    @Column(name = "print_count", nullable = false)
+    private Integer printCount = 0;
+
+    @Column(name = "last_printed_at")
+    private LocalDateTime lastPrintedAt;
 }

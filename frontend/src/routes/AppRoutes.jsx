@@ -27,6 +27,7 @@ import PurchaseGoodsReturnPage from '../pages/purchase/GoodsReturn';
 import PurchaseRequestPage from '../pages/purchase/PurchaseRequest';
 import SalesRequestPage from '../pages/sales/SalesRequest';
 import SalesOrderPage from '../pages/sales/SalesOrder';
+import PrintedNotePage from '../pages/sales/PrintedNote';
 import SalesReturnPage from '../pages/sales/SalesReturn';
 import InvoicePage from '../pages/sales/Invoice';
 import DeliveryOrderPage from '../pages/sales/DeliveryOrder';
@@ -93,7 +94,7 @@ export default function AppRoutes() {
             <Route path="/sales/returns" element={<SalesReturnPage />} />
             <Route path="/sales/invoices" element={<InvoicePage />} />
             <Route path="/sales/delivery-orders" element={<DeliveryOrderPage />} />
-            <Route path="/sales/printed-note" element={<PlaceholderPage title="Phiếu in nhanh" />} />
+            <Route path="/sales/printed-note" element={<PrintedNotePage />} />
             <Route path="/inventory/inventories" element={<InventoriesPage />} />
             <Route path="/inventory/goods-issue" element={<GoodsIssuePage />} />
             <Route path="/inventory/stock-receipt" element={<StockReceiptPage />} />
