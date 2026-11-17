@@ -99,6 +99,69 @@ function formatDateTime(v) {
   return new Date(v).toLocaleString('vi-VN');
 }
 
+// Lay Don gia tu dong Don hang ban (SalesOrderDetail.unitPrice) khop theo san pham - Don giao
+// hang (DeliveryOrderItem) KHONG co don gia/thanh tien rieng (chi la phieu bao nhieu giao thuc
+// te), nen phai doi chieu qua don hang ban goc de co Don gia/Thanh tien tren "Phieu giao nhan
+// thanh toan". Mau phieu goc con co %CK/VAT/Khuyen mai/tra thuong/chiet khau NPP - he thong CHUA
+// co du lieu cho nhung muc nay nen da bo (thong nhat voi quyet dinh bo cot VAT/TT40 truoc do).
+function findUnitPrice(order, productId) {
+  const detail = (order.salesOrder?.details || []).find((d) => d.product?.id === productId);
+  return detail ? Number(detail.unitPrice) : 0;
+}
+
+const DIGIT_WORDS = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+const SCALE_WORDS = ['', ' ngàn', ' triệu', ' tỷ'];
+
+// Doc 1 nhom 3 chu so (0-999) thanh chu - forcePad: co doc "khong tram..." khi tram=0 hay khong
+// (dung cho cac nhom KHONG phai nhom dau tien, vd 1.005.000 -> "mot trieu khong tram le nam ngan").
+function readGroupVi(n, forcePad) {
+  const hundred = Math.floor(n / 100);
+  const tenUnit = n % 100;
+  const ten = Math.floor(tenUnit / 10);
+  const unit = tenUnit % 10;
+  const parts = [];
+
+  if (hundred > 0) parts.push(DIGIT_WORDS[hundred], 'trăm');
+  else if (forcePad) parts.push('không', 'trăm');
+
+  if (ten === 0) {
+    if (unit > 0) {
+      if (hundred > 0 || forcePad) parts.push('lẻ');
+      parts.push(unit === 1 ? 'một' : DIGIT_WORDS[unit]);
+    }
+  } else if (ten === 1) {
+    parts.push('mười');
+    if (unit > 0) parts.push(unit === 5 ? 'lăm' : (unit === 1 ? 'mốt' : DIGIT_WORDS[unit]));
+  } else {
+    parts.push(DIGIT_WORDS[ten], 'mươi');
+    if (unit > 0) parts.push(unit === 1 ? 'mốt' : (unit === 5 ? 'lăm' : DIGIT_WORDS[unit]));
+  }
+  return parts.join(' ');
+}
+
+// "Số tiền bằng chữ" cuối Phiếu giao nhận thanh toán - vd 3895 -> "Ba ngàn tám trăm chín mươi
+// lăm đồng."
+function soTienBangChu(amount) {
+  let n = Math.round(Math.abs(Number(amount) || 0));
+  if (n === 0) return 'Không đồng.';
+  const groups = [];
+  while (n > 0) {
+    groups.unshift(n % 1000);
+    n = Math.floor(n / 1000);
+  }
+  const total = groups.length;
+  const words = groups
+    .map((g, idx) => {
+      if (g === 0) return '';
+      const text = readGroupVi(g, idx > 0);
+      return text + (SCALE_WORDS[total - 1 - idx] || '');
+    })
+    .filter(Boolean)
+    .join(' ');
+  const sentence = words.charAt(0).toUpperCase() + words.slice(1) + ' đồng.';
+  return Number(amount) < 0 ? 'Âm ' + sentence.charAt(0).toLowerCase() + sentence.slice(1) : sentence;
+}
+
 // Cot cho Document Type = Phieu giao hang (nguon: DeliveryOrder).
 const DELIVERY_NOTE_COLUMNS = [
   { title: 'Doc Number', dataIndex: 'docNumber', key: 'docNumber', fixed: 'left', width: 140 },
@@ -355,34 +418,87 @@ export default function PrintedNotePage() {
       {/* Vung chi hien khi in (@media print - xem index.css) - khong render gi khi dang xem binh
           thuong tren man hinh de tranh anh huong layout trang. */}
       <div id="print-area">
-        {printing && documentType === 'DELIVERY_NOTE' && selectedOrders.map((order) => (
-          <div className="print-page" key={order.id}>
-            <PrintHeader title="PHIẾU GIAO HÀNG" order={order} />
-            <table className="print-table">
-              <thead>
-                <tr>
-                  <th style={{ width: 40 }}>STT</th>
-                  <th>Mã SP</th>
-                  <th>Tên sản phẩm</th>
-                  <th style={{ width: 80 }}>ĐVT</th>
-                  <th style={{ width: 100 }}>Số lượng</th>
-                </tr>
-              </thead>
-              <tbody>
-                {order.items.map((item, idx) => (
-                  <tr key={item.id}>
-                    <td style={{ textAlign: 'center' }}>{idx + 1}</td>
-                    <td>{item.product.code}</td>
-                    <td>{item.product.name}</td>
-                    <td style={{ textAlign: 'center' }}>{item.uom?.name || ''}</td>
-                    <td style={{ textAlign: 'right' }}>{Number(item.quantity).toLocaleString('vi-VN')}</td>
+        {printing && documentType === 'DELIVERY_NOTE' && selectedOrders.map((order) => {
+          const branch = order.warehouse?.branch;
+          const customer = order.salesOrder?.customer;
+          const salesman = order.salesOrder?.salesman;
+          const lineTotal = order.items.reduce(
+            (sum, item) => sum + Number(item.quantity) * findUnitPrice(order, item.product.id), 0,
+          );
+          const totalQty = order.items.reduce((sum, item) => sum + Number(item.quantity), 0);
+          return (
+            <div className="print-page" key={order.id}>
+              <div className="print-header">
+                <div className="print-header-company">
+                  <div style={{ fontWeight: 700 }}>{branch?.name || order.warehouse?.name || ''}</div>
+                  <div>{branch?.address || order.warehouse?.address || ''}</div>
+                  {branch?.phone && <div>SĐT: {branch.phone}</div>}
+                </div>
+                <h2 className="print-title">PHIẾU GIAO NHẬN THANH TOÁN</h2>
+                <div className="print-meta">
+                  <span>Số phiếu: <b>{order.docNumber}</b></span>
+                  <span>Ngày lập: <b>{formatDateTime(order.createdAt)}</b></span>
+                  <span>Ngày đặt hàng: <b>{order.salesOrder?.docDate}</b></span>
+                </div>
+                <div className="print-meta">
+                  <span>Khách hàng: <b>{customer ? `${customer.code} - ${customer.name}` : ''}</b></span>
+                  <span>NVBH: <b>{salesman?.fullName || ''}</b></span>
+                </div>
+                <div className="print-meta">
+                  <span>Địa chỉ: {customer?.address || ''}</span>
+                  <span>Số điện thoại NVBH: {salesman?.phone || ''}</span>
+                </div>
+                <div className="print-meta">
+                  <span>Số điện thoại KH: {customer?.phone || ''}</span>
+                  <span>Ghi chú: {order.remarks || ''}</span>
+                </div>
+              </div>
+              <table className="print-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: 40 }}>STT</th>
+                    <th>Mã hàng</th>
+                    <th>Tên hàng</th>
+                    <th style={{ width: 70 }}>ĐVT</th>
+                    <th style={{ width: 80 }}>SL</th>
+                    <th style={{ width: 110 }}>Đơn giá</th>
+                    <th style={{ width: 130 }}>Thành tiền</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <PrintSignatures left="Người giao hàng" right="Người nhận hàng" />
-          </div>
-        ))}
+                </thead>
+                <tbody>
+                  {order.items.map((item, idx) => {
+                    const unitPrice = findUnitPrice(order, item.product.id);
+                    return (
+                      <tr key={item.id}>
+                        <td style={{ textAlign: 'center' }}>{idx + 1}</td>
+                        <td>{item.product.code}</td>
+                        <td>{item.product.name}</td>
+                        <td style={{ textAlign: 'center' }}>{item.uom?.name || ''}</td>
+                        <td style={{ textAlign: 'right' }}>{Number(item.quantity).toLocaleString('vi-VN')}</td>
+                        <td style={{ textAlign: 'right' }}>{formatMoney(unitPrice)}</td>
+                        <td style={{ textAlign: 'right' }}>{formatMoney(unitPrice * Number(item.quantity))}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: 'right' }}>Tổng cộng:</td>
+                    <td style={{ textAlign: 'right' }}>{totalQty.toLocaleString('vi-VN')}</td>
+                    <td />
+                    <td style={{ textAlign: 'right' }}>{formatMoney(lineTotal)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+              <div className="print-totals">
+                <span>Tổng giá trị đơn hàng: <b>{formatMoney(lineTotal)} đ</b></span>
+                <span>Tiền phải thu: <b>{formatMoney(lineTotal)} đ</b></span>
+              </div>
+              <div className="print-words">Số tiền bằng chữ: {soTienBangChu(lineTotal)}</div>
+              <PrintSignatures names={['Khách hàng', 'Nhân viên giao hàng', 'Kế toán']} />
+            </div>
+          );
+        })}
 
         {printing && documentType === 'STOCK_ISSUE' && (
           <div className="print-page">
@@ -413,7 +529,7 @@ export default function PrintedNotePage() {
                 ))}
               </tbody>
             </table>
-            <PrintSignatures left="Người lập phiếu" right="Thủ kho" />
+            <PrintSignatures names={['Người lập phiếu', 'Thủ kho']} />
           </div>
         )}
       </div>
@@ -448,17 +564,15 @@ function PrintHeader({ title, order, subtitle }) {
   );
 }
 
-function PrintSignatures({ left, right }) {
+function PrintSignatures({ names }) {
   return (
     <div className="print-signatures">
-      <div>
-        <div>{left}</div>
-        <div className="print-sign-hint">(Ký, ghi rõ họ tên)</div>
-      </div>
-      <div>
-        <div>{right}</div>
-        <div className="print-sign-hint">(Ký, ghi rõ họ tên)</div>
-      </div>
+      {names.map((name) => (
+        <div key={name}>
+          <div>{name}</div>
+          <div className="print-sign-hint">(Ký, ghi rõ họ tên)</div>
+        </div>
+      ))}
     </div>
   );
 }

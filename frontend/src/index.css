@@ -111,6 +111,21 @@ input::-webkit-strong-password-auto-fill-button {
   border: 1px solid #000;
   padding: 4px 8px;
 }
+.print-totals {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 8px 0;
+}
+.print-words {
+  font-size: 13px;
+  font-style: italic;
+  margin-bottom: 12px;
+}
+.print-table tfoot td {
+  font-weight: 700;
+}
 .print-signatures {
   display: flex;
   justify-content: space-around;
