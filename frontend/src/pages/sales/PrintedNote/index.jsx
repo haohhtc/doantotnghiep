@@ -33,11 +33,15 @@ const PAPER_KIND_OPTIONS = [
   { value: 'A5_PORTRAIT', label: 'A5 Dọc' },
   { value: 'A5_LANDSCAPE', label: 'A5 Ngang' },
 ];
+// margin: 0 o @page - KHONG phai de sat le, ma la de "danh lua" trinh duyet khong con cho de
+// tu in Header/Footer mac dinh cua no (ten trang + URL o tren, ngay gio + so trang o duoi - phan
+// khoanh do nguoi dung chi ra, trinh duyet in phan nay VAO DUNG vung margin cua @page nen margin
+// > 0 la con thay). Bu lai khoang cach le trang bang padding tren .print-page (noi dung that).
 const PAPER_KIND_PAGE_RULE = {
-  A4_PORTRAIT: '@page { size: A4 portrait; margin: 12mm; }',
-  A4_LANDSCAPE: '@page { size: A4 landscape; margin: 12mm; }',
-  A5_PORTRAIT: '@page { size: A5 portrait; margin: 8mm; }',
-  A5_LANDSCAPE: '@page { size: A5 landscape; margin: 8mm; }',
+  A4_PORTRAIT: { page: 'size: A4 portrait; margin: 0;', padding: '12mm' },
+  A4_LANDSCAPE: { page: 'size: A4 landscape; margin: 0;', padding: '12mm' },
+  A5_PORTRAIT: { page: 'size: A5 portrait; margin: 0;', padding: '8mm' },
+  A5_LANDSCAPE: { page: 'size: A5 landscape; margin: 0;', padding: '8mm' },
 };
 const PRINT_STATUS_OPTIONS = [
   { value: 'ALL', label: 'Tất cả' },
@@ -297,7 +301,8 @@ export default function PrintedNotePage() {
       styleTag.id = 'printed-note-page-style';
       document.head.appendChild(styleTag);
     }
-    styleTag.textContent = PAPER_KIND_PAGE_RULE[kind] || PAPER_KIND_PAGE_RULE.A4_PORTRAIT;
+    const rule = PAPER_KIND_PAGE_RULE[kind] || PAPER_KIND_PAGE_RULE.A4_PORTRAIT;
+    styleTag.textContent = `@page { ${rule.page} } .print-page { padding: ${rule.padding}; }`;
   }
 
   function handlePrint() {
