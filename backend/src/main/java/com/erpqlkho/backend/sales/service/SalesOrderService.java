@@ -1,7 +1,9 @@
 package com.erpqlkho.backend.sales.service;
 
+import com.erpqlkho.backend.category.customer.dto.CustomerRouteInfoDto;
 import com.erpqlkho.backend.category.customer.entity.Customer;
 import com.erpqlkho.backend.category.customer.repository.CustomerRepository;
+import com.erpqlkho.backend.category.customer.service.CustomerService;
 import com.erpqlkho.backend.category.employee.entity.Employee;
 import com.erpqlkho.backend.category.employee.repository.EmployeeRepository;
 import com.erpqlkho.backend.category.product.entity.Product;
@@ -45,6 +47,7 @@ public class SalesOrderService {
     private final AvailabilityService availabilityService;
     private final RouteMasterRepository routeMasterRepository;
     private final EmployeeRepository employeeRepository;
+    private final CustomerService customerService;
 
     public org.springframework.data.domain.Page<SalesOrder> search(
             Long branchId, Long salesmanId, String search, org.springframework.data.domain.Pageable pageable) {
@@ -140,8 +143,24 @@ public class SalesOrderService {
         order.setDocDate(dto.getDocDate());
         order.setCustomer(customer);
         order.setWarehouse(warehouse);
-        order.setRouteMaster(dto.getRouteMasterId() != null ? findRouteMaster(dto.getRouteMasterId()) : null);
-        order.setSalesman(dto.getSalesmanId() != null ? findEmployee(dto.getSalesmanId()) : null);
+        RouteMaster routeMaster = dto.getRouteMasterId() != null ? findRouteMaster(dto.getRouteMasterId()) : null;
+        Employee salesman = dto.getSalesmanId() != null ? findEmployee(dto.getSalesmanId()) : null;
+        // Client (web form) tu tinh Tuyen/NVBH roi gui kem (xem fetchRouteInfo o SalesOrder/index.jsx)
+        // - nhung neu goi API truc tiep (script/test/tich hop khac) bo qua buoc do, server VAN tu
+        // suy ra lai tu Khach hang + Ngay dat hang (dung CHINH logic cua GET /customers/{id}/route-info),
+        // chi dien vao phan con thieu - khong ghi de gia tri client da gui ro rang. Tranh luu NULL
+        // mot cach khong can thiet khi khach hang THAT SU da duoc gan tuyen/NVBH.
+        if (routeMaster == null || salesman == null) {
+            CustomerRouteInfoDto routeInfo = customerService.findRouteInfo(customer.getId(), dto.getDocDate());
+            if (routeMaster == null && routeInfo.getRouteMasterId() != null) {
+                routeMaster = findRouteMaster(routeInfo.getRouteMasterId());
+            }
+            if (salesman == null && routeInfo.getSalesmanId() != null) {
+                salesman = findEmployee(routeInfo.getSalesmanId());
+            }
+        }
+        order.setRouteMaster(routeMaster);
+        order.setSalesman(salesman);
 
         order.getDetails().clear();
         List<SalesOrderDetail> details = new ArrayList<>();

@@ -157,6 +157,8 @@ export default function InvoicePage() {
     { title: 'Ngày xuất', dataIndex: 'invoiceDate', key: 'invoiceDate' },
     { title: 'Đơn hàng gốc', key: 'salesOrder', render: (_, r) => r.salesOrder?.docNumber },
     { title: 'Khách hàng', key: 'customer', render: (_, r) => r.salesOrder?.customer?.name },
+    { title: 'Mã NVBH', key: 'salesmanCode', render: (_, r) => r.salesOrder?.salesman?.code || '-' },
+    { title: 'Tên NVBH', key: 'salesmanName', render: (_, r) => r.salesOrder?.salesman?.fullName || '-' },
     { title: 'Tiền hàng', dataIndex: 'subtotalAmount', key: 'subtotalAmount', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
     { title: 'Tiền thuế', dataIndex: 'taxAmount', key: 'taxAmount', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
     { title: 'Tổng tiền', dataIndex: 'totalAmount', key: 'totalAmount', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
