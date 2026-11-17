@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Typography, Table, Tag, Select, Button, Space, Row, Col, Form, Input, message, Card,
+  Typography, Table, Tag, Select, Button, Space, Row, Col, Form, DatePicker, message, Card,
 } from 'antd';
 import { FilterOutlined, ReloadOutlined, PrinterOutlined, DownloadOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import axiosClient from '../../../api/axiosClient';
@@ -275,8 +276,8 @@ export default function PrintedNotePage() {
     const documentType = documentTypeOverride || v.documentType || 'DELIVERY_NOTE';
     const common = {
       branchId: selectedBranchId || undefined,
-      fromDate: v.fromDate || undefined,
-      toDate: v.toDate || undefined,
+      fromDate: v.fromDate ? v.fromDate.format('YYYY-MM-DD') : undefined,
+      toDate: v.toDate ? v.toDate.format('YYYY-MM-DD') : undefined,
       printStatus: v.printStatus || 'ALL',
     };
     const subType = v.docSubType && v.docSubType !== 'ALL' ? v.docSubType : undefined;
@@ -296,8 +297,8 @@ export default function PrintedNotePage() {
     filterForm.setFieldsValue({
       documentType: 'DELIVERY_NOTE',
       paperKind: 'A5_LANDSCAPE',
-      fromDate: todayStr(),
-      toDate: todayStr(),
+      fromDate: dayjs(),
+      toDate: dayjs(),
       printStatus: 'NOT_PRINTED',
       docSubType: 'ALL',
     });
@@ -458,13 +459,17 @@ export default function PrintedNotePage() {
               </Form.Item>
             </Col>
             <Col xs={24} sm={12} md={6}>
+              {/* DatePicker (khong dung Input type="date") vi dinh dang hien thi cua input[type=
+                  date] native do NGON NGU UI TRINH DUYET quyet dinh (thuong en-US -> MM/dd/yyyy),
+                  KHONG the ep bang lang attribute hay <html lang="vi"> cua trang - da thu va
+                  khong an thua. DatePicker tu ve lich rieng nen format co the ep chinh xac. */}
               <Form.Item label="From Date" name="fromDate">
-                <Input type="date" />
+                <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12} md={6}>
               <Form.Item label="To Date" name="toDate">
-                <Input type="date" />
+                <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
               </Form.Item>
             </Col>
           </Row>
