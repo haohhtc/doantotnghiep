@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Typography, Table, Tag, Select, Button, Space, Row, Col, Form, DatePicker, message, Card,
+  Typography, Table, Tag, Select, Button, Space, Row, Col, Form, DatePicker, message, Card, Modal,
 } from 'antd';
 import { FilterOutlined, ReloadOutlined, PrinterOutlined, DownloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -28,14 +28,14 @@ const { Title, Text } = Typography;
 // From/To Date ap dung len NGAY TAI (khong phai ngay chung tu) - xem DeliveryOrderRepository/
 // GoodsIssueRepository.searchForPrint o backend de biet chi tiet logic nay.
 //
-// 2 nut rieng biet, CHI "Tai xuong" moi ghi vao printed_note:
-// - "In": goi window.print() thuan tuy, mo hop thoai in cua trinh duyet. KHONG ghi nhan gi ca -
-//   vi trinh duyet KHONG BAO GIO cho JS biet nguoi dung da thuc su in/luu hay bam Huy/X (gioi han
-//   nen tang, khong rieng nut nao), ghi nhan o day se sai bat ke dung nut gi goi window.print().
-// - "Tai xuong": dung html2canvas chup tung .print-page thanh anh, ghep vao 1 file PDF that bang
-//   jsPDF roi pdf.save() - day la 1 download THAT qua trinh duyet (khong qua hop thoai In, khong
-//   the bi "Huy"), nen chi can doan code chay xong khong loi la biet chac da tai thanh cong, luc
-//   do moi POST /printed-notes.
+// CHI 1 nut "In": bam vao se DUNG RIENG (khong goi window.print()) - html2canvas chup tung
+// .print-page thanh anh + jsPDF ghep thanh 1 file PDF, mo Modal xem truoc NOI DUNG THAT (anh da
+// chup) NGAY TRONG TRANG, co nut "Luu ve may" rieng cua app (KHONG phai nut Save cua hop thoai in
+// trinh duyet - hop thoai do khong bao gio cho JS biet nguoi dung da Luu hay Huy, day la ly do
+// truoc day tach 2 nut "In"/"Tai xuong" rieng). Bam "Luu ve may" moi thuc su pdf.save() (trigger
+// download That qua trinh duyet) VA POST /printed-notes - vi la code CUA MINH chay, biet chac
+// chay xong khong loi la da luu, khac han viec doan hanh vi nguoi dung trong hop thoai in native.
+// Dong Modal ma khong bam Luu -> khong ghi nhan gi ca.
 const DOC_TYPE_OPTIONS = [
   { value: 'DELIVERY_NOTE', label: 'Phiếu giao hàng' },
   { value: 'STOCK_ISSUE', label: 'Phiếu xuất kho tổng hợp' },
@@ -249,9 +249,19 @@ export default function PrintedNotePage() {
   const [rows, setRows] = useState([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [printing, setPrinting] = useState(false);
-  const [downloading, setDownloading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [printPortalEl, setPrintPortalEl] = useState(null);
   const requestIdRef = useRef(0);
+
+  // Popup "Xem truoc phieu in" - previewImages la anh (data URL) da chup tung trang, previewPdf
+  // la jsPDF da ghep san (chi cho .save() khi bam "Luu ve may"), previewMeta la thong tin can
+  // de ghi nhan sau khi luu (docType/docNumbers/ten file) - tach rieng khoi selectedOrders vi
+  // selection tren luoi co the thay doi trong luc Modal dang mo.
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewImages, setPreviewImages] = useState([]);
+  const [previewPdf, setPreviewPdf] = useState(null);
+  const [previewMeta, setPreviewMeta] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   // #print-area PHAI la sibling cua #root (gan thang vao document.body qua Portal), KHONG duoc
   // la con chau cua #root nhu truoc - neu khong, khi in se phai dung ky thuat "visibility:hidden
@@ -367,31 +377,15 @@ export default function PrintedNotePage() {
     styleTag.textContent = `@page { ${rule.page} } .print-page { padding: ${rule.padding}; }`;
   }
 
-  function handlePrint() {
+  // Bam "In" - KHONG goi window.print(). Dung html2canvas chup tung .print-page thanh anh, ghep
+  // jsPDF san (chua .save()), roi mo Modal xem truoc = CHINH CAC ANH vua chup (dung tuyet doi noi
+  // dung se duoc luu, khong phai 1 ban xem truoc khac). Modal co nut "Luu ve may" rieng cua app.
+  async function handlePreview() {
     if (selectedOrders.length === 0) {
       message.warning('Chưa chọn chứng từ nào để in');
       return;
     }
-    applyPageStyle(paperKind);
-    setPrinting(true);
-    // Doi 1 nhip de React render xong vung in (#print-area) truoc khi goi window.print(). CHI mo
-    // hop thoai in cua trinh duyet - KHONG ghi nhan gi vao printed_note (xem ghi chu dau file:
-    // window.print() khong bao gio cho biet nguoi dung da in that hay bam Huy/X).
-    setTimeout(() => {
-      window.print();
-      setPrinting(false);
-    }, 50);
-  }
-
-  // "Tai xuong" - tao PDF THAT (html2canvas chup tung .print-page + jsPDF ghep trang) va pdf.save()
-  // kich hoat download qua trinh duyet, KHONG qua hop thoai In nen khong co chuyen "bam Huy van
-  // tinh la da tai". Chay xong khong loi -> chac chan da tai -> luc do moi ghi nhan.
-  async function handleDownload() {
-    if (selectedOrders.length === 0) {
-      message.warning('Chưa chọn chứng từ nào để tải');
-      return;
-    }
-    setDownloading(true);
+    setPreviewLoading(true);
     applyPageStyle(paperKind);
     setPrinting(true);
     // #print-area chi thuc su "display: block" trong @media print (xem index.css) - luc binh
@@ -414,9 +408,11 @@ export default function PrintedNotePage() {
       }
       const { format, orientation } = PAPER_KIND_JSPDF[paperKind] || PAPER_KIND_JSPDF.A4_PORTRAIT;
       const pdf = new jsPDF({ orientation, unit: 'mm', format });
+      const images = [];
       for (let i = 0; i < pageEls.length; i++) {
         const canvas = await html2canvas(pageEls[i], { scale: 2, backgroundColor: '#ffffff' });
         const imgData = canvas.toDataURL('image/png');
+        images.push(imgData);
         if (i > 0) pdf.addPage(format, orientation);
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
@@ -427,30 +423,63 @@ export default function PrintedNotePage() {
         pdf.addImage(imgData, 'PNG', (pageWidth - w) / 2, (pageHeight - h) / 2, w, h);
       }
       const docLabel = DOC_TYPE_OPTIONS.find((o) => o.value === documentType)?.label || 'PhieuIn';
-      pdf.save(`${docLabel.replace(/\s+/g, '_')}_${todayStr()}.pdf`);
-
-      const docNumbers = selectedOrders.map((o) => o.docNumber);
-      await axiosClient.post('/printed-notes', { docType: documentType, docNumbers });
-      // duration dai hon mac dinh (3s) - trinh duyet co the hien hop thoai "Luu file o dau"
-      // (Save As) ngay sau khi tai PDF, che mat man hinh vai giay; neu dung mac dinh, toast co
-      // the da tu bien mat truoc khi nguoi dung dong xong hop thoai do va nhin lai trang.
-      message.success({ content: `Đã tải xuống và ghi nhận ${docNumbers.length} phiếu`, duration: 5 });
-      setSelectedRowKeys([]);
-      loadOrders(); // Tai lai theo dung bo loc dang ap dung - chung tu vua tai co the khong con
-                    // khop loc "Chua in" nua nen se tu bien khoi luoi (dung, khong phai loi), xem
-                    // Print Status = "Tat ca"/"Da in" neu muon thay Number Of Prints cap nhat
-                    // NGAY TAI CHINH DONG do thay vi no bien mat khoi luoi.
+      setPreviewPdf(pdf);
+      setPreviewImages(images);
+      setPreviewMeta({
+        documentType,
+        docNumbers: selectedOrders.map((o) => o.docNumber),
+        fileName: `${docLabel.replace(/\s+/g, '_')}_${todayStr()}.pdf`,
+      });
+      setPreviewOpen(true);
     } catch (err) {
-      console.error('Tai phieu in that bai:', err); // de lai dau vet trong console - truoc day
-                                                      // loi o day bi "nuot" hoan toan, kho debug.
-      message.error({ content: 'Tải phiếu in thất bại: ' + (err.message || 'Lỗi không xác định'), duration: 6 });
+      console.error('Dung phieu in that bai:', err);
+      message.error('Không dựng được nội dung phiếu in: ' + (err.message || 'Lỗi không xác định'));
     } finally {
       if (printPortalEl) {
         printPortalEl.removeAttribute('style'); // tra lai CSS mac dinh (display:none luc khong in)
       }
       setPrinting(false);
-      setDownloading(false);
+      setPreviewLoading(false);
     }
+  }
+
+  // Bam "Luu ve may" TRONG Modal xem truoc - day la code CUA MINH chay (khac han hop thoai in
+  // native cua trinh duyet, khong ai biet duoc ket qua) nen chay xong khong loi la biet chac da
+  // luu, luc do moi ghi nhan vao printed_note.
+  function handleSaveFromPreview() {
+    if (!previewPdf || !previewMeta) return;
+    setSaving(true);
+    try {
+      previewPdf.save(previewMeta.fileName);
+    } catch (err) {
+      console.error('Luu PDF that bai:', err);
+      message.error('Lưu phiếu in thất bại: ' + (err.message || 'Lỗi không xác định'));
+      setSaving(false);
+      return;
+    }
+    axiosClient.post('/printed-notes', { docType: previewMeta.documentType, docNumbers: previewMeta.docNumbers })
+      .then(() => {
+        // duration dai hon mac dinh (3s) - trinh duyet co the hien hop thoai "Luu file o dau"
+        // (Save As) ngay sau khi luu, che mat man hinh vai giay.
+        message.success({ content: `Đã lưu và ghi nhận ${previewMeta.docNumbers.length} phiếu`, duration: 5 });
+        setSelectedRowKeys([]);
+        loadOrders(); // Chung tu vua luu co the khong con khop loc "Chua in" nua nen se tu bien
+                      // khoi luoi (dung, khong phai loi) - xem Print Status = "Tat ca"/"Da in"
+                      // neu muon thay Number Of Prints cap nhat NGAY TAI CHINH DONG do.
+        closePreview();
+      })
+      .catch((err) => {
+        console.error('Ghi nhan sau khi luu that bai:', err);
+        message.error({ content: 'Đã lưu file nhưng không ghi nhận được - thử Làm mới trang', duration: 6 });
+      })
+      .finally(() => setSaving(false));
+  }
+
+  function closePreview() {
+    setPreviewOpen(false);
+    setPreviewPdf(null);
+    setPreviewImages([]);
+    setPreviewMeta(null);
   }
 
   return (
@@ -524,20 +553,13 @@ export default function PrintedNotePage() {
             </Tag>
             <Button icon={<ReloadOutlined />} onClick={() => loadOrders()}>Làm mới</Button>
             <Button
-              icon={<PrinterOutlined />}
-              disabled={selectedRowKeys.length === 0 || downloading}
-              onClick={handlePrint}
-            >
-              In
-            </Button>
-            <Button
               type="primary"
-              icon={<DownloadOutlined />}
+              icon={<PrinterOutlined />}
               disabled={selectedRowKeys.length === 0}
-              loading={downloading}
-              onClick={handleDownload}
+              loading={previewLoading}
+              onClick={handlePreview}
             >
-              Tải xuống {DOC_TYPE_OPTIONS.find((o) => o.value === documentType)?.label}
+              In {DOC_TYPE_OPTIONS.find((o) => o.value === documentType)?.label}
               {selectedRowKeys.length > 0 ? ` (${selectedRowKeys.length})` : ''}
             </Button>
           </Space>
@@ -681,6 +703,29 @@ export default function PrintedNotePage() {
         </>,
         printPortalEl,
       )}
+
+      <Modal
+        title={`Xem trước ${DOC_TYPE_OPTIONS.find((o) => o.value === previewMeta?.documentType)?.label || 'phiếu in'} (${previewImages.length} trang)`}
+        open={previewOpen}
+        onCancel={closePreview}
+        width={760}
+        destroyOnHidden
+        footer={[
+          <Button key="cancel" onClick={closePreview}>Đóng</Button>,
+          <Button key="save" type="primary" icon={<DownloadOutlined />} loading={saving} onClick={handleSaveFromPreview}>
+            Lưu về máy
+          </Button>,
+        ]}
+      >
+        <div style={{ maxHeight: '70vh', overflowY: 'auto', background: '#f0f2f5', padding: 12 }}>
+          {previewImages.map((src, idx) => (
+            <div key={idx} style={{ marginBottom: 12, textAlign: 'center' }}>
+              <Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>Trang {idx + 1}/{previewImages.length}</Text>
+              <img src={src} alt={`Trang ${idx + 1}`} style={{ maxWidth: '100%', border: '1px solid #d9d9d9', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }} />
+            </div>
+          ))}
+        </div>
+      </Modal>
     </div>
   );
 }
