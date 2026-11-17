@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Typography, Table, Tag, Select, Button, Space, Row, Col, Form, DatePicker, message, Card,
@@ -251,6 +251,7 @@ export default function PrintedNotePage() {
   const [printing, setPrinting] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [printPortalEl, setPrintPortalEl] = useState(null);
+  const requestIdRef = useRef(0);
 
   // #print-area PHAI la sibling cua #root (gan thang vao document.body qua Portal), KHONG duoc
   // la con chau cua #root nhu truoc - neu khong, khi in se phai dung ky thuat "visibility:hidden
@@ -282,15 +283,28 @@ export default function PrintedNotePage() {
     };
     const subType = v.docSubType && v.docSubType !== 'ALL' ? v.docSubType : undefined;
 
+    // Chong "ket qua cu ve sau, de len ket qua moi": vd doi tu "Chua in" (hang nghin dong, cham)
+    // sang "Da in" (vai chuc dong, nhanh) - response cua lan loc "Chua in" TRUOC co the ve SAU
+    // response "Da in" neu no cham hon, khien setRows ghi de nguoc lai du request gui sau. Chi ap
+    // dung ket qua neu request nay VAN la request MOI NHAT da goi (so voi requestIdRef).
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     const request = documentType === 'STOCK_ISSUE'
       ? axiosClient.get('/goods-issues/print-search', { skipCache: true, params: { ...common, reason: subType } })
       : axiosClient.get('/delivery-orders/print-search', { skipCache: true, params: { ...common, orderType: subType } });
 
     request
-      .then(({ data }) => setRows(data.data?.content || []))
-      .catch((err) => message.error(err.response?.data?.message || 'Không tải được danh sách chứng từ'))
-      .finally(() => setLoading(false));
+      .then(({ data }) => {
+        if (requestId !== requestIdRef.current) return; // co request moi hon gui sau, bo ket qua nay
+        setRows(data.data?.content || []);
+      })
+      .catch((err) => {
+        if (requestId !== requestIdRef.current) return;
+        message.error(err.response?.data?.message || 'Không tải được danh sách chứng từ');
+      })
+      .finally(() => {
+        if (requestId === requestIdRef.current) setLoading(false);
+      });
   }
 
   useEffect(() => {
@@ -417,12 +431,19 @@ export default function PrintedNotePage() {
 
       const docNumbers = selectedOrders.map((o) => o.docNumber);
       await axiosClient.post('/printed-notes', { docType: documentType, docNumbers });
-      message.success(`Đã tải xuống và ghi nhận ${docNumbers.length} phiếu`);
+      // duration dai hon mac dinh (3s) - trinh duyet co the hien hop thoai "Luu file o dau"
+      // (Save As) ngay sau khi tai PDF, che mat man hinh vai giay; neu dung mac dinh, toast co
+      // the da tu bien mat truoc khi nguoi dung dong xong hop thoai do va nhin lai trang.
+      message.success({ content: `Đã tải xuống và ghi nhận ${docNumbers.length} phiếu`, duration: 5 });
       setSelectedRowKeys([]);
       loadOrders(); // Tai lai theo dung bo loc dang ap dung - chung tu vua tai co the khong con
-                    // khop loc "Chua in" nua nen se tu bien khoi luoi, khong can tu vá state.
+                    // khop loc "Chua in" nua nen se tu bien khoi luoi (dung, khong phai loi), xem
+                    // Print Status = "Tat ca"/"Da in" neu muon thay Number Of Prints cap nhat
+                    // NGAY TAI CHINH DONG do thay vi no bien mat khoi luoi.
     } catch (err) {
-      message.error('Tải phiếu in thất bại: ' + (err.message || 'Lỗi không xác định'));
+      console.error('Tai phieu in that bai:', err); // de lai dau vet trong console - truoc day
+                                                      // loi o day bi "nuot" hoan toan, kho debug.
+      message.error({ content: 'Tải phiếu in thất bại: ' + (err.message || 'Lỗi không xác định'), duration: 6 });
     } finally {
       if (printPortalEl) {
         printPortalEl.removeAttribute('style'); // tra lai CSS mac dinh (display:none luc khong in)
