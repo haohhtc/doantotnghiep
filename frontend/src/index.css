@@ -48,28 +48,26 @@ input::-webkit-strong-password-auto-fill-button {
   right: 0;
 }
 
-/* In Phieu giao hang/Phieu xuat kho tong (pages/sales/PrintedNote) - khi KHONG in, #print-area
-   luon an (noi dung chi duoc render tam thoi luc bam nut In, xem handlePrint). Khi in that
-   (window.print()), an toan bo trang con lai, chi hien #print-area - ky thuat chuan de in 1
-   vung rieng ma khong can mo tab/cua so moi. */
+/* In Phieu giao hang/Phieu xuat kho tong (pages/sales/PrintedNote) - #print-area duoc render qua
+   React Portal thang vao document.body (SIBLING cua #root, xem printPortalEl trong component),
+   khong phai con chau cua #root. Khi KHONG in, #print-area luon an (noi dung chi duoc render tam
+   thoi luc bam nut In, xem handlePrint). */
 #print-area {
   display: none;
 }
 
 @media print {
-  body * {
-    visibility: hidden;
-  }
-  #print-area,
-  #print-area * {
-    visibility: visible;
+  /* An HAN #root (toan bo dashboard: sidebar, bang, bo loc...) - display:none that su KHONG con
+     chiem cho trong layout, khac voi ky thuat "visibility:hidden cho body *" trung truoc day: cach
+     cu van de nguyen chieu cao that cua ca trang dashboard (chi an mat, khong an cho) nen trinh
+     duyet van phan trang theo chieu cao do, sinh du trang trang (vd 1 don 1 trang noi dung nhung
+     preview hien toi 3 trang). Vi #print-area la sibling cua #root (khong phai con chau), an #root
+     khong anh huong gi den #print-area. */
+  #root {
+    display: none !important;
   }
   #print-area {
     display: block;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
   }
   .print-page {
     page-break-after: always;
