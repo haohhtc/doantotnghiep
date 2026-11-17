@@ -9,6 +9,8 @@ import com.erpqlkho.backend.inventory.dto.GoodsIssueDto;
 import com.erpqlkho.backend.inventory.entity.GoodsIssue;
 import com.erpqlkho.backend.inventory.entity.GoodsIssueItem;
 import com.erpqlkho.backend.inventory.repository.GoodsIssueRepository;
+import com.erpqlkho.backend.printing.repository.PrintedNoteRepository;
+import com.erpqlkho.backend.printing.repository.PrintedNoteSummary;
 import com.erpqlkho.backend.system.service.NumberingConfigService;
 import com.erpqlkho.backend.user.entity.User;
 import com.erpqlkho.backend.user.repository.UserRepository;
@@ -17,8 +19,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 // Phieu xuat kho: tao/quan ly, xac nhan se tru ton kho that qua StockService (khong viet logic
 // tru kho moi - tai dung y het pattern SalesOrderService dang lam).
@@ -32,9 +37,34 @@ public class GoodsIssueService {
     private final UserRepository userRepository;
     private final StockService stockService;
     private final NumberingConfigService numberingConfigService;
+    private final PrintedNoteRepository printedNoteRepository;
 
     public List<GoodsIssue> findAll() {
         return goodsIssueRepository.findAll();
+    }
+
+    // Man hinh "Phieu in nhanh" - xem GoodsIssueRepository.searchForPrint.
+    public org.springframework.data.domain.Page<GoodsIssue> searchForPrint(
+            Long branchId, LocalDate fromDate, LocalDate toDate, String reason, String printStatus,
+            org.springframework.data.domain.Pageable pageable) {
+        LocalDateTime fromDateTime = fromDate != null ? fromDate.atStartOfDay() : null;
+        LocalDateTime toDateTime = toDate != null ? toDate.atTime(23, 59, 59) : null;
+        var page = goodsIssueRepository.searchForPrint(
+                branchId, fromDate, toDate, fromDateTime, toDateTime, reason, printStatus, pageable);
+        applyPrintSummary(page.getContent());
+        return page;
+    }
+
+    private void applyPrintSummary(List<GoodsIssue> issues) {
+        if (issues.isEmpty()) return;
+        List<String> docNumbers = issues.stream().map(GoodsIssue::getDocNumber).toList();
+        Map<String, PrintedNoteSummary> byDocNumber = printedNoteRepository.summarize("STOCK_ISSUE", docNumbers)
+                .stream().collect(java.util.stream.Collectors.toMap(PrintedNoteSummary::getDocNumber, s -> s));
+        for (GoodsIssue issue : issues) {
+            PrintedNoteSummary summary = byDocNumber.get(issue.getDocNumber());
+            issue.setPrintCount(summary != null ? summary.getPrintCount().intValue() : 0);
+            issue.setLastPrintedAt(summary != null ? summary.getLastPrintedAt() : null);
+        }
     }
 
     public GoodsIssue findById(Long id) {

@@ -66,10 +66,10 @@ public class DeliveryOrderController {
             @RequestParam(required = false) java.time.LocalDate fromDate,
             @RequestParam(required = false) java.time.LocalDate toDate,
             @RequestParam(required = false) String orderType,
-            @RequestParam(required = false) Boolean onlyNotPrinted,
+            @RequestParam(defaultValue = "ALL") String printStatus,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "500") int size) {
-        var result = deliveryOrderService.searchForPrint(branchId, fromDate, toDate, orderType, onlyNotPrinted, PageRequest.of(page, size));
+        var result = deliveryOrderService.searchForPrint(branchId, fromDate, toDate, orderType, printStatus, PageRequest.of(page, size));
         return ApiResponse.ok(PageResponse.from(result));
     }
 
@@ -96,14 +96,6 @@ public class DeliveryOrderController {
     @PostMapping("/{id}/cancel")
     public ApiResponse<DeliveryOrder> cancel(@PathVariable Long id) {
         return ApiResponse.ok("Da huy don giao hang - mo lai Don hang ban", deliveryOrderService.cancel(id));
-    }
-
-    // Man hinh "Phieu in nhanh" (Sales Order / Picking List / Delivery Note Printing) goi sau khi
-    // da window.print() xong de ghi nhan so lan in + lan in gan nhat cho cac don duoc chon.
-    @PostMapping("/mark-printed")
-    public ApiResponse<Void> markPrinted(@RequestBody List<Long> ids) {
-        deliveryOrderService.markPrinted(ids);
-        return ApiResponse.ok("Da ghi nhan in phieu", null);
     }
 
     @DeleteMapping("/{id}")

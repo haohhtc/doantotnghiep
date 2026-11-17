@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -70,11 +71,12 @@ public class DeliveryOrder extends BaseEntity {
     @OrderBy("id ASC")
     private List<DeliveryOrderItem> items = new ArrayList<>();
 
-    // So lan da in (Phieu giao hang/Phieu xuat kho tong) + lan in gan nhat - cap nhat o
-    // DeliveryOrderService.markPrinted(), goi tu man hinh "Phieu in nhanh" (V55).
-    @Column(name = "print_count", nullable = false)
+    // So lan da TAI phieu in xuong + lan tai gan nhat - KHONG luu cot rieng nua (V56), tinh tu bang
+    // printed_note (doc_type=DELIVERY_NOTE) va gan vao day sau khi query, xem
+    // DeliveryOrderService.applyPrintSummary().
+    @Transient
     private Integer printCount = 0;
 
-    @Column(name = "last_printed_at")
+    @Transient
     private LocalDateTime lastPrintedAt;
 }

@@ -125,3 +125,16 @@ input::-webkit-strong-password-auto-fill-button {
   font-size: 12px;
   margin-top: 60px;
 }
+
+/* Man hinh "Phieu in nhanh" - thu gon khoang cach giua cac truong loc (antd mac dinh
+   margin-bottom: 24px cho moi Form.Item, qua rong khien phai cuon moi thay luoi). */
+.printed-note-filter-form .ant-form-item {
+  margin-bottom: 8px;
+}
+.printed-note-filter-form .ant-form-item-label {
+  padding-bottom: 2px;
+}
+.printed-note-filter-card .ant-card-body {
+  padding-top: 10px;
+  padding-bottom: 4px;
+}

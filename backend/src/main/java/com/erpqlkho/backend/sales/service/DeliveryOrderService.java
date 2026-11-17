@@ -8,6 +8,8 @@ import com.erpqlkho.backend.category.uom.entity.Uom;
 import com.erpqlkho.backend.category.uomgroup.service.UomConversionService;
 import com.erpqlkho.backend.common.exception.ApiException;
 import com.erpqlkho.backend.inventory.service.StockService;
+import com.erpqlkho.backend.printing.repository.PrintedNoteRepository;
+import com.erpqlkho.backend.printing.repository.PrintedNoteSummary;
 import com.erpqlkho.backend.sales.dto.DeliveryOrderDto;
 import com.erpqlkho.backend.sales.entity.DeliveryOrder;
 import com.erpqlkho.backend.sales.entity.DeliveryOrderItem;
@@ -28,8 +30,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 // Don giao hang (DO): tao tu 1 Don hang ban da CONFIRMED (moi SO toi da 1 DO). Xac nhan DO
 // (DRAFT -> CLOSED) moi that su tru ton kho theo dung so luong GIAO THUC TE cua tung dong (co the
@@ -47,6 +51,7 @@ public class DeliveryOrderService {
     private final StockService stockService;
     private final NumberingConfigService numberingConfigService;
     private final UomConversionService uomConversionService;
+    private final PrintedNoteRepository printedNoteRepository;
 
     public List<DeliveryOrder> findAll() {
         return deliveryOrderRepository.findAll();
@@ -61,11 +66,31 @@ public class DeliveryOrderService {
         return deliveryOrderRepository.search(branchId, search, pageable);
     }
 
-    // Man hinh "Phieu in nhanh" - xem DeliveryOrderRepository.searchForPrint.
+    // Man hinh "Phieu in nhanh" - xem DeliveryOrderRepository.searchForPrint. printStatus:
+    // ALL/NOT_PRINTED/PRINTED (xem ghi chu tren repository ve y nghia tung gia tri).
     public org.springframework.data.domain.Page<DeliveryOrder> searchForPrint(
-            Long branchId, LocalDate fromDate, LocalDate toDate, String orderType, Boolean onlyNotPrinted,
+            Long branchId, LocalDate fromDate, LocalDate toDate, String orderType, String printStatus,
             org.springframework.data.domain.Pageable pageable) {
-        return deliveryOrderRepository.searchForPrint(branchId, fromDate, toDate, orderType, onlyNotPrinted, pageable);
+        LocalDateTime fromDateTime = fromDate != null ? fromDate.atStartOfDay() : null;
+        LocalDateTime toDateTime = toDate != null ? toDate.atTime(23, 59, 59) : null;
+        var page = deliveryOrderRepository.searchForPrint(
+                branchId, fromDate, toDate, fromDateTime, toDateTime, orderType, printStatus, pageable);
+        applyPrintSummary(page.getContent());
+        return page;
+    }
+
+    // Gan so lan tai + lan tai gan nhat (tu bang printed_note) vao tung don trong trang KET QUA -
+    // KHONG query toan bo bang printed_note, chi lay dung cac docNumber dang hien thi.
+    private void applyPrintSummary(List<DeliveryOrder> orders) {
+        if (orders.isEmpty()) return;
+        List<String> docNumbers = orders.stream().map(DeliveryOrder::getDocNumber).toList();
+        Map<String, PrintedNoteSummary> byDocNumber = printedNoteRepository.summarize("DELIVERY_NOTE", docNumbers)
+                .stream().collect(java.util.stream.Collectors.toMap(PrintedNoteSummary::getDocNumber, s -> s));
+        for (DeliveryOrder order : orders) {
+            PrintedNoteSummary summary = byDocNumber.get(order.getDocNumber());
+            order.setPrintCount(summary != null ? summary.getPrintCount().intValue() : 0);
+            order.setLastPrintedAt(summary != null ? summary.getLastPrintedAt() : null);
+        }
     }
 
     public List<DeliveryOrderRepository.ClosedVanMapping> findClosedVanMapping() {
@@ -75,20 +100,6 @@ public class DeliveryOrderService {
     public DeliveryOrder findById(Long id) {
         return deliveryOrderRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay don giao hang id=" + id));
-    }
-
-    // Ghi nhan vua in (Phieu giao hang/Phieu xuat kho tong) tu man hinh "Phieu in nhanh" - tang
-    // so lan in + cap nhat lan in gan nhat cho tat ca don duoc chon, goi 1 LAN sau khi window.print()
-    // tra ve (xem frontend/.../PrintedNote/index.jsx).
-    @Transactional
-    public void markPrinted(List<Long> ids) {
-        List<DeliveryOrder> orders = deliveryOrderRepository.findAllById(ids);
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        for (DeliveryOrder order : orders) {
-            order.setPrintCount(order.getPrintCount() + 1);
-            order.setLastPrintedAt(now);
-        }
-        deliveryOrderRepository.saveAll(orders);
     }
 
     // V49: 1 Don hang ban co the tao NHIEU Don giao hang (giao nhieu dot) - khong con chan "da co
