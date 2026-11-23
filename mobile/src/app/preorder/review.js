@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { useSession } from '../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../api/client';
+import { isValidDateString } from '../../utils/date';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -26,6 +27,10 @@ export default function ReviewPreorder() {
       setError('Đơn Pre-order bắt buộc có ngày giao hàng');
       return;
     }
+    if (!isValidDateString(deliveryDate)) {
+      setError('Ngày giao hàng không hợp lệ, đúng định dạng YYYY-MM-DD (ví dụ 2026-11-20)');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
@@ -39,7 +44,12 @@ export default function ReviewPreorder() {
         remarks: remarks || null,
         details: items.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPrice, uomId: l.uomId })),
       });
-      router.dismissAll();
+      // router.dismissAll() chi dismiss trong PHAM VI Stack con "preorder" (xem preorder/_layout.js)
+      // - "new" la man dau tien cua Stack nay nen dismissAll() dung lai o do, trong khi nguoi dung
+      // tuong nhu chua gui duoc gi (that ra da gui thanh cong). dismissTo('/orders') thoat HAN ca
+      // Stack "preorder" (sibling cua Tabs, xem app/_layout.js) va ve dung tab Don hang, thay luon
+      // duoc don vua tao - xac nhan ro rang hon la quay ve man Tao don.
+      router.dismissTo('/orders');
     } catch (e) {
       setError(errorMessage(e));
     } finally {

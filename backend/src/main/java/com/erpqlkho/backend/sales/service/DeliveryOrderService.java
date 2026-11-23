@@ -121,9 +121,13 @@ public class DeliveryOrderService {
     // dong (khong CANCELLED) cua chinh don hang do. excludeDeliveryOrderId: bo qua chinh DGH dang
     // sua (null neu dang tao moi) de khong tu tru voi chinh no.
     private BigDecimal remainingToDeliver(SalesOrder salesOrder, Long productId, Long excludeDeliveryOrderId) {
+        // Don RAT CU (truoc V36, d.getUom() == null) chua tung duoc tinh baseQuantity (dang luu 0
+        // trong DB) - dung quantity thay the (coi nhu he so 1, dung quy uoc da chot: "đơn/dòng cũ
+        // không có ĐVT coi như hệ số 1"), neu khong moi don cu se luon bi tinh "con lai = 0", chan
+        // khong tao duoc Don giao hang cho don do (xem frontend DeliveryOrder/index.jsx cung sua).
         BigDecimal ordered = salesOrder.getDetails().stream()
                 .filter(d -> d.getProduct().getId().equals(productId))
-                .map(SalesOrderDetail::getBaseQuantity)
+                .map(d -> d.getUom() == null ? d.getQuantity() : d.getBaseQuantity())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal delivered = deliveryOrderRepository.findBySalesOrderIdAndStatusNot(salesOrder.getId(), "CANCELLED").stream()
                 .filter(d -> excludeDeliveryOrderId == null || !d.getId().equals(excludeDeliveryOrderId))

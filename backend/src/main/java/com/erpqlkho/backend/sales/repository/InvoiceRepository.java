@@ -1,5 +1,6 @@
 package com.erpqlkho.backend.sales.repository;
 
+import com.erpqlkho.backend.sales.dto.InvoiceOptionDto;
 import com.erpqlkho.backend.sales.entity.Invoice;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -9,6 +10,15 @@ import java.util.List;
 
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     boolean existsByInvoiceNumber(String invoiceNumber);
+
+    // Dung cho combobox "Hoa don goc" o man Tra hang cua khach (SalesReturn) - chi 4 truong rut
+    // gon, KHONG tai ca Invoice (xem InvoiceOptionDto vi sao can cai nay).
+    @org.springframework.data.jpa.repository.Query("""
+            select new com.erpqlkho.backend.sales.dto.InvoiceOptionDto(
+                i.id, i.invoiceNumber, i.salesOrder.customer.name, i.salesOrder.warehouse.branch.id)
+            from Invoice i
+            """)
+    List<InvoiceOptionDto> findAllOptions();
 
     // Danh sach rieng sales_order_id dang co Hoa don CON HIEU LUC (khac CANCELLED) - dung cho
     // trang Ton kho tinh "Da dat hang" (xem InventoriesController) khong can tai toan bo Hoa don

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Typography, Table, Tag, Space, Button, Modal, List, Input, Popconfirm, message } from 'antd';
+import { Typography, Table, Tag, Space, Button, Modal, Input, Popconfirm, message, Row, Col } from 'antd';
 import { EyeOutlined, RollbackOutlined, StopOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
@@ -7,6 +7,22 @@ import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
+
+// Khop y het nhan cua ORDER_TYPE_OPTIONS ben Don hang ban/Don giao hang (xem
+// pages/sales/SalesOrder/index.jsx, pages/sales/DeliveryOrder/index.jsx).
+function orderTypeLabel(type) {
+  if (type === 'PRE_ORDER') return 'Pre-order (đặt trước giao sau)';
+  if (type === 'SAMPLE') return 'Đơn hàng mẫu (miễn phí)';
+  return 'Đơn Van-Sales';
+}
+
+// Tag mau - dung dung mau/nhan voi orderTypeTag ben Don hang ban/Don giao hang de 3 trang hien
+// thi dong nhat, giup phan biet nhanh ngay tren luoi.
+function orderTypeTag(type) {
+  if (type === 'PRE_ORDER') return <Tag color="blue">Pre-order</Tag>;
+  if (type === 'SAMPLE') return <Tag color="purple">Hàng mẫu</Tag>;
+  return <Tag>Đơn Van-Sales</Tag>;
+}
 
 // Danh sach Hoa don - xuat tu 1 Sales Order da CONFIRMED (nut "Xuat hoa don" nam tren trang Sales
 // Order, khong phai o day - xem tonghop.md). Hoa don van co the Huy (V44) - KHONG sua/xoa duoc noi
@@ -157,6 +173,7 @@ export default function InvoicePage() {
     { title: 'Ngày xuất', dataIndex: 'invoiceDate', key: 'invoiceDate' },
     { title: 'Đơn hàng gốc', key: 'salesOrder', render: (_, r) => r.salesOrder?.docNumber },
     { title: 'Khách hàng', key: 'customer', render: (_, r) => r.salesOrder?.customer?.name },
+    { title: 'Loại đơn', key: 'orderType', render: (_, r) => orderTypeTag(r.salesOrder?.orderType) },
     { title: 'Tiền hàng', dataIndex: 'subtotalAmount', key: 'subtotalAmount', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
     { title: 'Tiền thuế', dataIndex: 'taxAmount', key: 'taxAmount', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
     { title: 'Tổng tiền', dataIndex: 'totalAmount', key: 'totalAmount', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
@@ -215,32 +232,65 @@ export default function InvoicePage() {
         }}
       />
 
+      {/* Dong bo 100% khung voi modal Don giao hang/Don hang ban: tieu de "Xem ... {so}", nut OK
+          duy nhat "Dong" (an nut Huy) thay vi footer=null, bang chi tiet dang Table (khong phai
+          List) + dong tong cuoi giong het layout flex cua Don giao hang. Hoa don von bat bien
+          (khong sua duoc) nen luon o che do chi xem, khong can co isReadOnly nhu 2 trang kia. */}
       <Modal
-        title={detailInvoice ? `Chi tiết hóa đơn ${detailInvoice.invoiceNumber}` : ''}
+        title={detailInvoice ? `Xem hóa đơn ${detailInvoice.invoiceNumber}` : ''}
         open={!!detailInvoice}
+        onOk={() => setDetailInvoice(null)}
         onCancel={() => setDetailInvoice(null)}
-        footer={null}
-        width={640}
+        okText="Đóng"
+        cancelButtonProps={{ style: { display: 'none' } }}
+        width={1000}
         destroyOnHidden
       >
         {detailInvoice && (
           <>
-            <List
+            <Text type="warning" style={{ display: 'block', marginBottom: 12 }}>
+              Hóa đơn đã xuất không thể sửa nội dung - chỉ xem.
+            </Text>
+            <Row gutter={16}>
+              <Col span={8}><Text>Số hóa đơn: {detailInvoice.invoiceNumber}</Text></Col>
+              <Col span={8}><Text>Ngày xuất: {detailInvoice.invoiceDate}</Text></Col>
+              <Col span={8}><Text>Trạng thái: </Text>{invoiceStatusTag(detailInvoice)}</Col>
+              <Col span={8}><Text>Người tạo: {detailInvoice.createdBy?.fullName || detailInvoice.createdBy?.username || '-'}</Text></Col>
+              <Col span={8}><Text>Đơn hàng bán gốc: {detailInvoice.salesOrder?.docNumber || '-'}</Text></Col>
+              <Col span={8}><Text>Đơn giao hàng gốc: {detailInvoice.deliveryOrder?.docNumber || '-'}</Text></Col>
+              <Col span={8}><Text>Khách hàng: {detailInvoice.salesOrder?.customer?.name || '-'}</Text></Col>
+              <Col span={8}><Text>Kho xuất: {detailInvoice.salesOrder?.warehouse?.name || '-'}</Text></Col>
+              <Col span={8}><Text>Tuyến: {detailInvoice.salesOrder?.routeMaster?.name || '-'}</Text></Col>
+              <Col span={8}><Text>NV bán hàng: {detailInvoice.salesOrder?.salesman?.fullName || '-'}</Text></Col>
+              <Col span={8}><Text>Loại đơn: {orderTypeLabel(detailInvoice.salesOrder?.orderType)}</Text></Col>
+            </Row>
+
+            <Text strong style={{ display: 'block', marginTop: 16 }}>Chi tiết hàng hóa</Text>
+            <Table
+              rowKey="id"
+              size="small"
+              pagination={false}
+              style={{ marginTop: 8 }}
               dataSource={detailInvoice.items}
-              renderItem={(item) => (
-                <List.Item>
-                  <Text>
-                    {item.product.code} - {item.product.name}: {Number(item.quantity).toLocaleString('vi-VN')} {item.uom?.name || ''} x{' '}
-                    {Number(item.unitPrice).toLocaleString('vi-VN')} đ (thuế {Number(item.taxRate)}%) ={' '}
-                    <Text strong>{Number(item.lineTotal).toLocaleString('vi-VN')} đ</Text>
-                  </Text>
-                </List.Item>
-              )}
+              columns={[
+                { title: 'Sản phẩm', key: 'product', render: (_, i) => `${i.product.code} - ${i.product.name}` },
+                { title: 'ĐVT', key: 'uom', render: (_, i) => i.uom?.name || '-' },
+                { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') },
+                { title: 'Đơn giá', dataIndex: 'unitPrice', key: 'unitPrice', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
+                { title: 'Thuế', dataIndex: 'taxRate', key: 'taxRate', align: 'right', render: (v) => `${Number(v)}%` },
+                { title: 'Thành tiền', dataIndex: 'lineTotal', key: 'lineTotal', align: 'right', render: (v) => Number(v).toLocaleString('vi-VN') + ' đ' },
+              ]}
             />
-            <div style={{ textAlign: 'right', marginTop: 12 }}>
-              <Text>Tiền hàng: {Number(detailInvoice.subtotalAmount).toLocaleString('vi-VN')} đ</Text><br />
-              <Text>Tiền thuế: {Number(detailInvoice.taxAmount).toLocaleString('vi-VN')} đ</Text><br />
-              <Text strong>Tổng cộng: {Number(detailInvoice.totalAmount).toLocaleString('vi-VN')} đ</Text>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 24, marginTop: 12 }}>
+              <Text>
+                Tổng số lượng:{' '}
+                <Text strong>
+                  {detailInvoice.items.reduce((sum, i) => sum + Number(i.quantity || 0), 0).toLocaleString('vi-VN')}
+                </Text>
+              </Text>
+              <Text>Tiền hàng: <Text strong>{Number(detailInvoice.subtotalAmount).toLocaleString('vi-VN')} đ</Text></Text>
+              <Text>Tiền thuế: <Text strong>{Number(detailInvoice.taxAmount).toLocaleString('vi-VN')} đ</Text></Text>
+              <Text>Tổng cộng: <Text strong>{Number(detailInvoice.totalAmount).toLocaleString('vi-VN')} đ</Text></Text>
             </div>
           </>
         )}

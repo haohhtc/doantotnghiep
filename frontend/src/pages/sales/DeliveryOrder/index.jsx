@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message, Tooltip,
 } from 'antd';
-import { PlusOutlined, EditOutlined, EyeOutlined, DeleteOutlined, CheckOutlined, StopOutlined, UserOutlined, FileTextOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined, StopOutlined, UserOutlined, FileTextOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
 import { useBranch } from '../../../contexts/BranchContext';
@@ -20,6 +20,14 @@ function orderTypeLabel(type) {
   if (type === 'PRE_ORDER') return 'Pre-order (đặt trước giao sau)';
   if (type === 'SAMPLE') return 'Đơn hàng mẫu (miễn phí)';
   return 'Đơn Van-Sales';
+}
+
+// Tag mau - dung dung mau/nhan voi orderTypeTag ben Don hang ban (xem pages/sales/SalesOrder/
+// index.jsx) de 2 trang hien thi dong nhat, giup phan biet nhanh ngay tren luoi.
+function orderTypeTag(type) {
+  if (type === 'PRE_ORDER') return <Tag color="blue">Pre-order</Tag>;
+  if (type === 'SAMPLE') return <Tag color="purple">Hàng mẫu</Tag>;
+  return <Tag>Đơn Van-Sales</Tag>;
 }
 
 // Don giao hang (DO) - tach rieng khoi Don hang ban (SO) theo dung chuoi DMS goc SO -> DO -> Xac
@@ -55,7 +63,6 @@ export default function DeliveryOrderPage() {
   const [detailRows, setDetailRows] = useState([]);
   const [confirmingId, setConfirmingId] = useState(null);
   const [confirmedByModalOpen, setConfirmedByModalOpen] = useState(false);
-  const [viewingOrder, setViewingOrder] = useState(null);
   const [invoicingOrder, setInvoicingOrder] = useState(null);
   const [invoiceRows, setInvoiceRows] = useState([]);
   const [form] = Form.useForm();
@@ -69,7 +76,12 @@ export default function DeliveryOrderPage() {
   function remainingBaseByProduct(order, excludeDeliveryOrderId) {
     const orderedByProduct = {};
     order.details.forEach((d) => {
-      orderedByProduct[d.product.id] = (orderedByProduct[d.product.id] || 0) + Number(d.baseQuantity);
+      // Don RAT CU (truoc V36, d.uom = NULL) chua tung duoc tinh base_quantity (dang luu 0 trong
+      // DB) - dung quantity thay the (coi nhu he so 1, dung quy uoc da chot: "đơn/dòng cũ không có
+      // ĐVT coi như hệ số 1"), neu khong moi don cu se luon bi tinh "da dat = 0", khien don do bi
+      // AN khoi danh sach chon khi tao Don giao hang moi (xem availableSalesOrders).
+      const baseQty = d.uom == null ? Number(d.quantity) : Number(d.baseQuantity);
+      orderedByProduct[d.product.id] = (orderedByProduct[d.product.id] || 0) + baseQty;
     });
     const deliveredByProduct = {};
     fullDeliveryOrders.forEach((d) => {
@@ -85,12 +97,21 @@ export default function DeliveryOrderPage() {
     return remaining;
   }
 
-  const availableSalesOrders = salesOrders.filter((o) => {
-    if (o.status !== 'CONFIRMED') return false;
-    if (selectedBranchId && o.warehouse?.branch?.id !== selectedBranchId) return false;
-    const remaining = remainingBaseByProduct(o, null);
-    return Object.values(remaining).some((v) => v > 0.0001);
-  });
+  // Nang (6.000+ don hang ban x 4.500+ don giao hang toan he thong) - KHONG duoc tinh lai moi lan
+  // component render (vd moi lan go Ghi chu/doi so luong trong modal), chi tinh lai khi du lieu
+  // goc thuc su doi (salesOrders/fullDeliveryOrders/chi nhanh dang chon) - neu khong se giat/lag
+  // moi lan mo modal Sua (phat hien qua bao cao nguoi dung).
+  const availableSalesOrders = useMemo(
+    () =>
+      salesOrders.filter((o) => {
+        if (o.status !== 'CONFIRMED') return false;
+        if (selectedBranchId && o.warehouse?.branch?.id !== selectedBranchId) return false;
+        const remaining = remainingBaseByProduct(o, null);
+        return Object.values(remaining).some((v) => v > 0.0001);
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [salesOrders, fullDeliveryOrders, selectedBranchId]
+  );
   // Khi sua DO da co, Don hang ban cua no bi loai khoi availableSalesOrders (vi da "used") nen
   // phai them rieng option cua chinh no vao, khong thi Select khong tra duoc label va hien thang ID so.
   const editingSalesOrderOption = editingOrder
@@ -105,7 +126,13 @@ export default function DeliveryOrderPage() {
   // hang, Tuyen, NVBH...) y het ben Don hang ban, KHONG luu/gui lai len server - chi la man anh
   // cua du lieu da chot san tren Don hang ban goc.
   const watchedSalesOrderId = Form.useWatch('salesOrderId', form);
-  const selectedSalesOrder = editingOrder?.salesOrder || salesOrders.find((o) => o.id === watchedSalesOrderId) || null;
+  const selectedSalesOrder = useMemo(
+    () => editingOrder?.salesOrder || salesOrders.find((o) => o.id === watchedSalesOrderId) || null,
+    [editingOrder, salesOrders, watchedSalesOrderId]
+  );
+  // Chi con DRAFT moi sua that duoc - cac trang thai khac (CLOSED/CANCELLED) mo CUNG 1 modal nay
+  // nhung o che do chi xem, giong het pattern Don hang ban (xem pages/sales/SalesOrder/index.jsx).
+  const isReadOnly = !!editingOrder && editingOrder.status !== 'DRAFT';
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';
@@ -224,9 +251,15 @@ export default function DeliveryOrderPage() {
     const remaining = remainingBaseByProduct(record.salesOrder, record.id);
     setDetailRows(
       record.items.map((d) => {
-        const soLine = record.salesOrder.details?.find(
-          (sd) => sd.product.id === d.product.id && (sd.uom?.id || null) === (d.uom?.id || null)
-        );
+        // Khop CHINH XAC San pham+DVT truoc; don RAT CU (truoc V36, sd.uom = NULL vi chua tung co
+        // DVT) thi roi lai khop THEO SAN PHAM thoi (coi nhu he so 1, dung quy uoc da chot o
+        // tonghop.md "Đơn/dòng cũ (không có ĐVT) coi như hệ số 1") - neu khong se khong khop duoc
+        // gi ca (sd.uom=NULL != d.uom co gia tri), hien "undefined đ" sai thay vi dung gia (vd 0đ
+        // cua don hang mau) cua don hang goc.
+        const soLinesSameProduct = record.salesOrder.details?.filter((sd) => sd.product.id === d.product.id) || [];
+        const soLine =
+          soLinesSameProduct.find((sd) => (sd.uom?.id || null) === (d.uom?.id || null)) ||
+          soLinesSameProduct.find((sd) => sd.uom == null);
         const factor = soLine && Number(soLine.quantity) > 0 ? Number(soLine.baseQuantity) / Number(soLine.quantity) : 1;
         const remainingInUom = factor > 0 ? (remaining[d.product.id] || 0) / factor : (remaining[d.product.id] || 0);
         return {
@@ -242,12 +275,6 @@ export default function DeliveryOrderPage() {
       })
     );
     setModalOpen(true);
-  }
-
-  // Xem thong tin don (chi doc) - dung duoc moi trang thai, luc Sua bi khoa (khong DRAFT) thi day
-  // la cach duy nhat xem lai noi dung don.
-  function openViewModal(record) {
-    setViewingOrder(record);
   }
 
   // Con lai (don vi co so) CHUA xuat hoa don cua tung san pham trong 1 dot giao hang da Xac nhan -
@@ -327,23 +354,6 @@ export default function DeliveryOrderPage() {
         refreshAfterMutation();
       })
       .catch((err) => message.error(err.response?.data?.message || 'Xuất hóa đơn thất bại'));
-  }
-
-  function viewingItems() {
-    if (!viewingOrder) return [];
-    return viewingOrder.items.map((d) => {
-      const soLine = viewingOrder.salesOrder.details?.find(
-        (sd) => sd.product.id === d.product.id && (sd.uom?.id || null) === (d.uom?.id || null)
-      );
-      return {
-        id: d.id,
-        productId: d.product.id,
-        productLabel: `${d.product.code} - ${d.product.name}`,
-        uomName: d.uom?.name,
-        quantity: d.quantity,
-        unitPrice: soLine?.unitPrice,
-      };
-    });
   }
 
   // Chon Don hang ban goc -> tu dong dien San pham + kho xuat + so luong CON LAI chua giao (khong
@@ -444,6 +454,7 @@ export default function DeliveryOrderPage() {
     { title: 'Ngày lập', dataIndex: 'docDate', key: 'docDate' },
     { title: 'Đơn hàng bán', key: 'salesOrder', render: (_, r) => r.salesOrder?.docNumber },
     { title: 'Khách hàng', key: 'customer', render: (_, r) => r.salesOrder?.customer?.name },
+    { title: 'Loại đơn', key: 'orderType', render: (_, r) => orderTypeTag(r.salesOrder?.orderType) },
     { title: 'Kho xuất', key: 'warehouse', render: (_, r) => r.warehouse?.name },
     { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },
     {
@@ -462,14 +473,13 @@ export default function DeliveryOrderPage() {
                 <Button icon={<CheckOutlined />} type="primary" ghost loading={confirmingId === record.id} />
               </Popconfirm>
             )}
-            <Button icon={<EyeOutlined />} onClick={() => openViewModal(record)} />
             {record.status === 'CLOSED' && hasRemainingToInvoice(record) && (
               <Button icon={<FileTextOutlined />} title="Xuất hóa đơn" onClick={() => openInvoiceModal(record)} />
             )}
-            {/* Khong con disabled khi khong DRAFT - but luon mo duoc popup nhu ben Don hang ban (tv2
-                bao loi bam vao day o don da xong khong thay gi). Khong con Sua duoc thi roi sang
-                xem lai y het nut con mat (openViewModal), chi dung Sua that khi con DRAFT. */}
-            <Button icon={<EditOutlined />} onClick={() => (isDraft ? openEditModal(record) : openViewModal(record))} />
+            {/* Chi 1 nut duy nhat, luon mo duoc (khong con disabled/tach rieng nut Xem) - giong het
+                Don hang ban: con DRAFT thi Sua that, khong thi tu dong chuyen sang che do chi xem
+                trong CUNG modal nay (xem isReadOnly). */}
+            <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
             <Popconfirm title="Xóa đơn giao hàng này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
               <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
             </Popconfirm>
@@ -509,7 +519,10 @@ export default function DeliveryOrderPage() {
   const detailColumns = [
     { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
     { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
-    { title: 'Còn lại chưa giao', dataIndex: 'remainingQty', key: 'remainingQty', align: 'right' },
+    // Chi con y nghia luc con SUA duoc (gioi han toi da duoc nhap cho DUNG dong nay) - khi da
+    // CLOSED/CANCELLED (isReadOnly) khong con sua duoc nua nen an di, tranh hieu nham la don con
+    // "no hang" (nguoi dung bao loi, xem dalam.md).
+    ...(isReadOnly ? [] : [{ title: 'Còn lại chưa giao', dataIndex: 'remainingQty', key: 'remainingQty', align: 'right' }]),
     {
       title: 'Số lượng giao đợt này',
       key: 'quantity',
@@ -519,6 +532,7 @@ export default function DeliveryOrderPage() {
           max={d.remainingQty}
           value={d.quantity}
           onChange={(v) => handleQuantityChange(d.id, v)}
+          disabled={isReadOnly}
           style={{ width: '100%' }}
         />
       ),
@@ -573,16 +587,26 @@ export default function DeliveryOrderPage() {
       />
 
       <Modal
-        title={editingOrder ? `Sửa đơn giao hàng ${editingOrder.docNumber}` : 'Tạo đơn giao hàng'}
+        title={
+          editingOrder
+            ? `${isReadOnly ? 'Xem' : 'Sửa'} đơn giao hàng ${editingOrder.docNumber}`
+            : 'Tạo đơn giao hàng'
+        }
         open={modalOpen}
-        onOk={handleSubmit}
+        onOk={isReadOnly ? () => setModalOpen(false) : handleSubmit}
         onCancel={() => setModalOpen(false)}
-        okText="Lưu"
+        okText={isReadOnly ? 'Đóng' : 'Lưu'}
         cancelText="Hủy"
+        cancelButtonProps={isReadOnly ? { style: { display: 'none' } } : undefined}
         width={1000}
         destroyOnHidden
       >
-        <Form form={form} layout="vertical">
+        {isReadOnly && (
+          <Text type="warning" style={{ display: 'block', marginBottom: 12 }}>
+            Đợt giao hàng này đã {editingOrder.status === 'CLOSED' ? 'xác nhận giao' : 'hủy'} - chỉ xem, không thể sửa.
+          </Text>
+        )}
+        <Form form={form} layout="vertical" disabled={isReadOnly}>
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item label="Số đơn giao" name="docNumber" extra={editingOrder ? undefined : 'Để trống để tự sinh số'}>
@@ -655,6 +679,20 @@ export default function DeliveryOrderPage() {
                 <Input />
               </Form.Item>
             </Col>
+            {editingOrder && (
+              <>
+                <Col span={8}>
+                  <Form.Item label="Trạng thái">
+                    <div>{statusTag(editingOrder.status)}</div>
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item label="Người xác nhận">
+                    <Input disabled value={editingOrder.confirmedBy?.fullName || editingOrder.confirmedBy?.username || '-'} />
+                  </Form.Item>
+                </Col>
+              </>
+            )}
           </Row>
         </Form>
 
@@ -681,54 +719,6 @@ export default function DeliveryOrderPage() {
         <Text type="secondary" style={{ fontSize: 12 }}>
           * Số liệu thuế chỉ là ước tính hiển thị trước, không lưu gì xuống DB - chốt chính thức khi bấm "Xuất hóa đơn" sau khi đơn đã xác nhận.
         </Text>
-      </Modal>
-
-      <Modal
-        title={viewingOrder ? `Xem đơn giao hàng ${viewingOrder.docNumber}` : ''}
-        open={!!viewingOrder}
-        onCancel={() => setViewingOrder(null)}
-        footer={null}
-        width={900}
-        destroyOnHidden
-      >
-        {viewingOrder && (
-          <>
-            <Row gutter={16}>
-              <Col span={8}><Text>Ngày lập: {viewingOrder.docDate}</Text></Col>
-              <Col span={8}><Text>Trạng thái: </Text>{statusTag(viewingOrder.status)}</Col>
-              <Col span={8}><Text>Đơn hàng bán: {viewingOrder.salesOrder?.docNumber}</Text></Col>
-              <Col span={8}><Text>Khách hàng: {viewingOrder.salesOrder?.customer?.name || '-'}</Text></Col>
-              <Col span={8}><Text>Kho xuất: {viewingOrder.warehouse?.name}</Text></Col>
-              <Col span={8}><Text>Tuyến: {viewingOrder.salesOrder?.routeMaster?.name || '-'}</Text></Col>
-              <Col span={8}><Text>NV bán hàng: {viewingOrder.salesOrder?.salesman?.fullName || '-'}</Text></Col>
-              <Col span={8}><Text>Loại đơn: {orderTypeLabel(viewingOrder.salesOrder?.orderType)}</Text></Col>
-              <Col span={8}><Text>Người xác nhận: {viewingOrder.confirmedBy?.fullName || viewingOrder.confirmedBy?.username || '-'}</Text></Col>
-            </Row>
-            {viewingOrder.remarks && <div style={{ marginTop: 8 }}><Text>Ghi chú: {viewingOrder.remarks}</Text></div>}
-
-            <div style={{ marginTop: 16, marginBottom: 8 }}>
-              <Text strong>Chi tiết hàng giao</Text>
-            </div>
-            <Table
-              rowKey="id"
-              size="small"
-              pagination={false}
-              dataSource={viewingItems()}
-              columns={[
-                { title: 'Sản phẩm', dataIndex: 'productLabel', key: 'productLabel' },
-                { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
-                { title: 'Số lượng', dataIndex: 'quantity', key: 'quantity', align: 'right' },
-                { title: 'Đơn giá', dataIndex: 'unitPrice', key: 'unitPrice', render: (v) => (v != null ? Number(v).toLocaleString('vi-VN') + ' đ' : '-') },
-                {
-                  title: 'Thành tiền',
-                  key: 'amount',
-                  align: 'right',
-                  render: (_, d) => (Number(d.quantity || 0) * Number(d.unitPrice || 0)).toLocaleString('vi-VN') + ' đ',
-                },
-              ]}
-            />
-          </>
-        )}
       </Modal>
 
       <Modal

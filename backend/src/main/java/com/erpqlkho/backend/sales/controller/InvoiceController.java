@@ -51,6 +51,13 @@ public class InvoiceController {
         return ApiResponse.ok(invoiceService.findActiveSalesOrderIds());
     }
 
+    // Dung cho combobox "Hoa don goc" o man Tra hang cua khach (nhe hon nhieu so voi tai toan bo
+    // Hoa don) - xem frontend/src/pages/sales/SalesReturn/index.jsx.
+    @GetMapping("/options")
+    public ApiResponse<List<com.erpqlkho.backend.sales.dto.InvoiceOptionDto>> options() {
+        return ApiResponse.ok(invoiceService.findAllOptions());
+    }
+
     // Dung rieng cho luoi "Hoa don" (phan trang + loc server-side).
     @GetMapping("/search")
     public ApiResponse<PageResponse<Invoice>> search(

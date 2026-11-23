@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSession } from '../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../api/client';
+import { isValidDateString } from '../../utils/date';
 
 // Sua don Pre-order dang PENDING (API update chi cho sua khi con PENDING - xem
 // SalesOrderService.requirePending()). Nap san du lieu cu, gui PUT thay vi POST.
@@ -83,6 +84,10 @@ export default function EditPreorder() {
       setError('Đơn Pre-order bắt buộc có ngày giao hàng');
       return;
     }
+    if (!isValidDateString(deliveryDate)) {
+      setError('Ngày giao hàng không hợp lệ, đúng định dạng YYYY-MM-DD (ví dụ 2026-11-20)');
+      return;
+    }
     // uomId = don vi ban (saleUom) cua san pham - BAT BUOC gui kem, cung ly do nhu man new.js
     // (gia la theo saleUom, thieu uomId backend hieu nham so luong la don vi co so).
     const details = Object.entries(quantities)
@@ -127,20 +132,20 @@ export default function EditPreorder() {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Khách hàng</Text>
-      <FlatList
-        data={customers}
-        horizontal
-        keyExtractor={(item) => String(item.id)}
-        style={{ marginBottom: 8, flexGrow: 0 }}
-        renderItem={({ item }) => (
+      {/* Doi tu FlatList horizontal sang View tu xuong dong - tranh ten khach hang dai bi tran
+          ra khoi man hinh ma khong de y la co the cuon ngang de xem tiep (nguoi dung bao loi
+          "mat ten"). Danh sach KH thuong khong qua dai (theo 1 chi nhanh) nen xuong dong on dinh. */}
+      <View style={styles.chipWrap}>
+        {customers.map((item) => (
           <Pressable
+            key={item.id}
             style={[styles.chip, customerId === item.id && styles.chipActive]}
             onPress={() => setCustomerId(item.id)}
           >
             <Text style={[styles.chipText, customerId === item.id && styles.chipTextActive]}>{item.name}</Text>
           </Pressable>
-        )}
-      />
+        ))}
+      </View>
 
       <Text style={styles.label}>Ngày giao hàng (YYYY-MM-DD)</Text>
       <TextInput style={styles.input} value={deliveryDate} onChangeText={setDeliveryDate} />
@@ -184,7 +189,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
   label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 6, marginTop: 6 },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 4 },
-  chip: { borderWidth: 1, borderColor: '#1677ff', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8 },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
+  chip: { borderWidth: 1, borderColor: '#1677ff', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8, marginBottom: 8 },
   chipActive: { backgroundColor: '#1677ff' },
   chipText: { color: '#1677ff' },
   chipTextActive: { color: '#fff' },

@@ -42,3 +42,6 @@ bi/**/*.pbix.bak
 # --- Data (không commit dữ liệu thật/nhạy cảm) ---
 data-warehouse/**/*.sql.data
 etl/data/*.csv
+
+# --- Claude Code tool config (personal, khong dung chung team) ---
+.claude/

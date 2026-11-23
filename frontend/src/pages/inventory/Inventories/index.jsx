@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Typography, Table, message, notification } from 'antd';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -43,15 +43,20 @@ export default function InventoriesPage() {
   function loadData() {
     if (!selectedBranchId) return;
     setLoading(true);
+    // Luon bo qua cache GET (skipCache) cho trang nay - day la trang hien TON KHO SONG, phai
+    // luon lay du lieu moi nhat moi lan loadData() duoc goi (bam "Lam moi" thu cong HOAC tu dong
+    // qua Realtime WebSocket khi App di dong vua tao giao dich o THIET BI KHAC). Cache GET 2 phut
+    // (xem api/axiosClient.js) chi tu xoa khi CHINH tab nay goi POST/PUT - khong biet duoc giao
+    // dich xay ra o thiet bi khac, nen se tra ve du lieu cu neu khong bo qua cache o day.
     Promise.all([
-      axiosClient.get(`/branches/${selectedBranchId}/products`),
-      axiosClient.get('/warehouses', { params: { branchId: selectedBranchId } }),
-      axiosClient.get('/stock'),
-      axiosClient.get('/sales-orders'),
+      axiosClient.get(`/branches/${selectedBranchId}/products`, { skipCache: true }),
+      axiosClient.get('/warehouses', { params: { branchId: selectedBranchId }, skipCache: true }),
+      axiosClient.get('/stock', { skipCache: true }),
+      axiosClient.get('/sales-orders', { skipCache: true }),
       // 2 endpoint nhe (chi vai cot can thiet) thay cho tai toan bo Don giao hang/Hoa don (4000+
       // dong moi cai) - truoc day lam trang nay cham ro ret du backend da nhanh hon nhieu.
-      axiosClient.get('/delivery-orders/closed-van-mapping'),
-      axiosClient.get('/invoices/active-sales-order-ids'),
+      axiosClient.get('/delivery-orders/closed-van-mapping', { skipCache: true }),
+      axiosClient.get('/invoices/active-sales-order-ids', { skipCache: true }),
     ])
       .then(([productsRes, warehousesRes, stockRes, ordersRes, vanMappingRes, activeInvoiceIdsRes]) => {
         setBranchProducts(productsRes.data.data);
@@ -108,19 +113,35 @@ export default function InventoriesPage() {
     return () => client.deactivate();
   }, []);
 
-  function committedOf(productId, warehouseId) {
-    let total = 0;
+  // pendingOrders co the toi ~3.000 don toan he thong (chi loc theo chi nhanh/san pham luc hien
+  // bang se qua cham neu quet lai tu dau cho TUNG o "Da dat hang") - gop san thanh 1 Map 1 lan moi
+  // khi pendingOrders/closedVanWarehouseIdByOrderId doi (useMemo), tung o chi tra cuu O(1).
+  const committedMap = useMemo(() => {
+    const map = new Map();
     pendingOrders.forEach((o) => {
       const vanWarehouseId = closedVanWarehouseIdByOrderId[o.id];
-      const stillAtSourceMain = o.warehouse?.id === warehouseId && o.warehouse?.warehouseType !== 'VAN' && vanWarehouseId == null;
-      const directVanSale = o.warehouse?.id === warehouseId && o.warehouse?.warehouseType === 'VAN';
-      const sittingAtThisVan = vanWarehouseId === warehouseId;
-      if (!stillAtSourceMain && !directVanSale && !sittingAtThisVan) return;
       o.details.forEach((d) => {
-        if (d.product?.id === productId) total += Number(d.baseQuantity ?? d.quantity);
+        const productId = d.product?.id;
+        if (productId == null) return;
+        const qty = Number(d.baseQuantity ?? d.quantity);
+        const stillAtSourceMain = o.warehouse?.warehouseType !== 'VAN' && vanWarehouseId == null;
+        const directVanSale = o.warehouse?.warehouseType === 'VAN';
+        if (stillAtSourceMain || directVanSale) {
+          const key = `${o.warehouse?.id}-${productId}`;
+          map.set(key, (map.get(key) || 0) + qty);
+        }
+        if (vanWarehouseId != null) {
+          const key = `${vanWarehouseId}-${productId}`;
+          map.set(key, (map.get(key) || 0) + qty);
+        }
       });
     });
-    return total;
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOrders, closedVanWarehouseIdByOrderId]);
+
+  function committedOf(productId, warehouseId) {
+    return committedMap.get(`${warehouseId}-${productId}`) || 0;
   }
 
   // Cartesian San pham (thuoc chi nhanh) x Kho (thuoc chi nhanh) - moi SP luon du 3 dong.

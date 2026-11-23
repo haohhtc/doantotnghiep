@@ -1015,4 +1015,24 @@ Triển khai đúng thiết kế đã chốt (xem mục "Yêu cầu Realtime" tr
 
 **Đã sửa**: bỏ `disabled={!isDraft}` ở nút bút chì. Bấm vào bút chì: nếu còn DRAFT thì mở modal Sửa như cũ; nếu không còn DRAFT thì tự động mở popup Xem sẵn có (`openViewModal`) thay vì không làm gì. Nút con mắt giữ nguyên, không mất chức năng gì. Không đụng tới trang Hóa đơn (kiểm tra lại: chỉ có 1 nút Xem, luôn bấm được ở mọi trạng thái, không có lỗi tương tự).
 
+## 🛡️ Lỗi thiết kế: chặn nhầm NVBH bán hàng dù đang cầm đủ tồn kho NV (2026-11-14)
+
+**Người dùng báo** (kèm số liệu cụ thể): tồn kho nhân viên (Kho NV, sổ phụ riêng của từng NVBH trong Kho Van — xem `EmployeeStock.java`) đang có 20, nhưng đặt bán 1 hoặc 10 đều bị chặn "vượt Sẵn sàng bán". Truy ngược mới phát hiện đây là lỗi logic thật, không phải dữ liệu test cũ: `AvailabilityService.assertAvailable()` trước đây luôn kiểm tra đơn Van-Sales (loại `STANDARD`, xuất từ Kho Van) theo công thức "Sẵn sàng bán" **dùng chung cho cả kho** = Tồn thực tế Kho Van − tổng SL đang "Đã đặt hàng" của **mọi khách/mọi NVBH khác** tại kho đó — trong khi Kho NV chỉ là sổ phụ ghi riêng hàng của 1 NVBH, không liên quan gì đến đơn hàng của NVBH khác đang giữ chỗ chung ở Kho Van. Kiểm tra thực tế: 49 đơn PENDING/CONFIRMED lịch sử (không liên quan gì đến NVBH đang test) đã giữ chỗ tổng cộng 858 đơn vị cơ sở CP001 tại Kho Vận Hà Nội, khiến "Sẵn sàng bán" âm rất sâu dù NVBH đang cầm hàng thật trong tay.
+
+**Đã sửa** (`AvailabilityService.assertAvailable`): thêm tham số `salesman` (Employee). Khi đơn là Van-Sales (`salesman != null` và kho xuất là loại `VAN`): kiểm tra đúng số lượng NVBH đó đang cầm (`EmployeeStockService.currentQuantity`) thay vì công thức tồn kho chung, thông báo lỗi riêng ("NVBH ... đang cầm ..."). Các luồng khác (Pre-order, Yêu cầu bán hàng — chỉ xuất từ Kho chính) giữ nguyên công thức cũ, truyền `salesman = null`. Đã cập nhật đủ 4 điểm gọi: `SalesOrderService.create/update/confirm` (truyền `order.getSalesman()`), `SalesRequestService.convert` (truyền `null`, vì Yêu cầu bán hàng chưa có khái niệm NVBH).
+
+**Đã test qua API thật**: đặt 100 cái trong khi NVBH chỉ cầm 7 → bị chặn đúng với thông báo mới; đặt 5 cái → tạo thành công (SO7453), sau đó xóa dọn dữ liệu test. Build backend sạch (`mvnw -q compile -o`), đã restart backend và test trực tiếp qua curl.
+
+**Bù tồn kho demo tạm thời (không phải sửa code, không commit)**: cộng thêm 3.000 đơn vị/sản phẩm vào `stock` tại Kho Vận Hà Nội cho cả 13 sản phẩm (ghi đúng qua `stock_transaction`, `type=IN`, `reference_type=SEED_ADJUSTMENT`) để vượt qua khoản 858 đơn vị tồn đọng lịch sử, phục vụ test rộng hơn. Lưu ý: việc này không thay thế việc sửa logic trên — logic chỉ áp dụng cho kiểm tra Van-Sales, các luồng khác (Pre-order...) vẫn dùng tồn kho theo kho như cũ nên vẫn hưởng lợi từ khoản bù này khi test.
+
+## 🐛 3 lỗi nhỏ phát hiện khi rà lại App Van-Sale/Pre-order (2026-11-14)
+
+**1. Ngày không hợp lệ làm lộ lỗi hệ thống**: ô ngày giao hàng Pre-order trên app chấp nhận chuỗi ngày sai (vd `2026-14-11`), backend ném thẳng lỗi parse `LocalDate` của Jackson ra cho người dùng (dạng exception thô, không phải thông báo tiếng Việt). Đã sửa 2 phía: thêm `mobile/src/utils/date.js` (`isValidDateString`) validate trước khi gửi ở `preorder/new.js`, `preorder/edit.js`, `preorder/review.js`; thêm `@ExceptionHandler(HttpMessageNotReadableException.class)` vào `GlobalExceptionHandler.java` trả thông báo tiếng Việt thân thiện thay vì lộ exception (áp dụng cho mọi API, không riêng Pre-order). Đã test qua curl xác nhận thông báo sạch.
+
+**2. Tạo đơn xong tưởng như không có gì xảy ra**: `preorder/review.js` và `vansale/review.js` dùng `router.dismissAll()` sau khi tạo đơn thành công — hàm này chỉ lùi về màn đầu tiên của Stack lồng nhau (`new`), không thoát hẳn ra ngoài, nên đơn mới tạo xong không thấy hiển thị ở đâu. Đã sửa sang `router.dismissTo('/orders')` — về thẳng tab Đơn hàng, thấy ngay đơn vừa tạo trong danh sách.
+
+**3. Tên khách hàng dài bị cắt mất ở danh sách chip chọn khách hàng**: `preorder/new.js`, `preorder/edit.js`, `vansale/new.js`, `vansale/edit.js` dùng `FlatList` cuộn ngang, tên dài bị tràn ra ngoài màn hình mà không rõ là có thể cuộn tiếp. Đã sửa cả 4 file: thay bằng `View` tự xuống dòng (`chipWrap`: `flexDirection:'row', flexWrap:'wrap'`) để luôn thấy đủ tên.
+
+**Ngoài ra** (trang Tồn kho web, `pages/inventory/Inventories/index.jsx`): tín hiệu Realtime WebSocket gọi `loadDataRef.current()` nhưng bị cache GET phía client (`axiosClient.js`, TTL 2 phút, chỉ tự xóa khi chính tab đó tự sửa dữ liệu — không biết được giao dịch từ App trên máy khác) trả về dữ liệu cũ. Đã thêm `{ skipCache: true }` vào cả 6 lệnh gọi `axiosClient.get(...)` trong `loadData()` của trang này.
+
 Build mobile (`npx expo export`) sạch.

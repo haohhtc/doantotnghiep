@@ -32,7 +32,9 @@ export default function ReviewVanSale() {
         remarks: remarks || null,
         details: items.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.unitPrice, uomId: l.uomId })),
       });
-      router.dismissAll();
+      // Xem comment cung cho trong preorder/review.js - dismissAll() chi ve lai man "new" (dau
+      // Stack "vansale"), dismissTo('/orders') moi thoat han ve tab Don hang, thay duoc don vua tao.
+      router.dismissTo('/orders');
     } catch (e) {
       setError(errorMessage(e));
     } finally {

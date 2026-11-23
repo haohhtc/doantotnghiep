@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
 } from 'antd';
@@ -47,9 +47,18 @@ export default function SalesReturnPage() {
   // Hoa don goc chi de THAM KHAO + tu dien goi y dong hang (xem handleInvoiceSelect) - khong khoa
   // Kho/NVBH vi form nay chinh la loi thoat khi auto-dien o man Hoa don khong lam duoc (VD don
   // goc chua co NVBH). Giu rieng hoa don cua phieu dang sua de khong mat label.
-  const invoiceOptions = invoices
-    .filter((i) => i.id === editingReturn?._invoiceId || !selectedBranchId || i.salesOrder?.warehouse?.branch?.id === selectedBranchId)
-    .map((i) => ({ value: i.id, label: `${i.invoiceNumber} - ${i.salesOrder?.customer?.name || ''}` }));
+  // invoices o day la danh sach RUT GON (GET /invoices/options - chi id/invoiceNumber/customerName/
+  // branchId) - truoc day tai nguyen Invoice (~145MB/4900 hoa don, kem het SalesOrder+Item long
+  // nhau) lam trang nay vao cham ro ret, gio chi can vai chuc KB (xem InvoiceOptionDto). Khong duoc
+  // loc/map lai moi lan render (vd moi lan go Ghi chu/doi so luong trong modal), chi tinh lai khi
+  // invoices/chi nhanh/phieu dang sua thuc su doi.
+  const invoiceOptions = useMemo(
+    () =>
+      invoices
+        .filter((i) => i.id === editingReturn?._invoiceId || !selectedBranchId || i.branchId === selectedBranchId)
+        .map((i) => ({ value: i.id, label: `${i.invoiceNumber} - ${i.customerName || ''}` })),
+    [invoices, selectedBranchId, editingReturn?._invoiceId]
+  );
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';
@@ -62,7 +71,7 @@ export default function SalesReturnPage() {
       axiosClient.get('/employees'),
       axiosClient.get('/warehouses'),
       axiosClient.get('/products'),
-      axiosClient.get('/invoices'),
+      axiosClient.get('/invoices/options'),
     ])
       .then(([retRes, employeesRes, warehousesRes, productsRes, invoicesRes]) => {
         setReturns(retRes.data.data);
@@ -120,28 +129,35 @@ export default function SalesReturnPage() {
   // Chon Hoa don goc (tuy chon) -> goi y dien san Kho/NVBH/dong hang tu hoa don do, nguoi dung van
   // sua lai thoai mai (khong khoa) - dac biet huu ich khi don hang goc CHUA co NVBH, luc do chi
   // gan San pham/So luong con NVBH nguoi dung tu chon tay.
+  // invoices (danh sach rut gon) khong co du items/salesOrder.warehouse/salesOrder.salesman nua -
+  // phai goi rieng GET /invoices/{id} de lay DUNG 1 hoa don day du luc nguoi dung thuc su chon,
+  // thay vi tai san het 4.900 hoa don ngay tu dau (xem loadData()).
   function handleInvoiceSelect(invoiceId) {
     if (!invoiceId) return;
-    const invoice = invoices.find((i) => i.id === invoiceId);
-    if (!invoice) return;
-    const mainWarehouse = warehouses.find(
-      (w) => w.branch?.id === invoice.salesOrder?.warehouse?.branch?.id && w.warehouseType === 'MAIN'
-    );
-    form.setFieldsValue({
-      warehouseId: mainWarehouse?.id,
-      salesmanId: invoice.salesOrder?.salesman?.id,
-      remarks: `Trả hàng từ hóa đơn ${invoice.invoiceNumber}`,
-    });
-    setDetailRows(
-      invoice.items.map((i) => ({
-        id: Date.now() + i.id,
-        productId: i.product.id,
-        uomId: i.uom?.id,
-        uomName: i.uom?.name,
-        quantity: i.quantity,
-        note: `Trả từ hóa đơn ${invoice.invoiceNumber}`,
-      }))
-    );
+    axiosClient
+      .get(`/invoices/${invoiceId}`)
+      .then(({ data }) => {
+        const invoice = data.data;
+        const mainWarehouse = warehouses.find(
+          (w) => w.branch?.id === invoice.salesOrder?.warehouse?.branch?.id && w.warehouseType === 'MAIN'
+        );
+        form.setFieldsValue({
+          warehouseId: mainWarehouse?.id,
+          salesmanId: invoice.salesOrder?.salesman?.id,
+          remarks: `Trả hàng từ hóa đơn ${invoice.invoiceNumber}`,
+        });
+        setDetailRows(
+          invoice.items.map((i) => ({
+            id: Date.now() + i.id,
+            productId: i.product.id,
+            uomId: i.uom?.id,
+            uomName: i.uom?.name,
+            quantity: i.quantity,
+            note: `Trả từ hóa đơn ${invoice.invoiceNumber}`,
+          }))
+        );
+      })
+      .catch((err) => message.error(err.response?.data?.message || 'Không tải được hóa đơn gốc'));
   }
 
   // Huy phieu tra hang - thay cho Xoa cung (giu lai ban ghi). Hoat dong duoc ca khi da Duyet

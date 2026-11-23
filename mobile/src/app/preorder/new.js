@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSession } from '../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../api/client';
+import { isValidDateString } from '../../utils/date';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -110,6 +111,10 @@ export default function NewPreorder() {
       setError('Đơn Pre-order bắt buộc có ngày giao hàng (YYYY-MM-DD)');
       return;
     }
+    if (!isValidDateString(deliveryDate)) {
+      setError('Ngày giao hàng không hợp lệ, đúng định dạng YYYY-MM-DD (ví dụ 2026-11-20)');
+      return;
+    }
     if (cartLines.length === 0) {
       setError('Chọn số lượng cho ít nhất 1 sản phẩm');
       return;
@@ -131,20 +136,19 @@ export default function NewPreorder() {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Khách hàng</Text>
-      <FlatList
-        data={customers}
-        horizontal
-        keyExtractor={(item) => String(item.id)}
-        style={{ marginBottom: 8, flexGrow: 0 }}
-        renderItem={({ item }) => (
+      {/* Xem comment cung cho trong preorder/edit.js - xuong dong thay vi cuon ngang de khong
+          bi tran/cat ten khach hang dai ma khong ro la co the cuon. */}
+      <View style={styles.chipWrap}>
+        {customers.map((item) => (
           <Pressable
+            key={item.id}
             style={[styles.chip, customerId === item.id && styles.chipActive]}
             onPress={() => setCustomerId(item.id)}
           >
             <Text style={[styles.chipText, customerId === item.id && styles.chipTextActive]}>{item.name}</Text>
           </Pressable>
-        )}
-      />
+        ))}
+      </View>
 
       <Text style={styles.label}>Ngày giao hàng (YYYY-MM-DD)</Text>
       <TextInput
@@ -193,7 +197,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
   label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 6, marginTop: 6 },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 4 },
-  chip: { borderWidth: 1, borderColor: '#1677ff', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8 },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
+  chip: { borderWidth: 1, borderColor: '#1677ff', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8, marginBottom: 8 },
   chipActive: { backgroundColor: '#1677ff' },
   chipText: { color: '#1677ff' },
   chipTextActive: { color: '#fff' },

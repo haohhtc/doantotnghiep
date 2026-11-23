@@ -113,7 +113,7 @@ public class SalesRequestService {
             details.add(detail);
         }
         // Luc nay moi co kho xuat -> kiem tra vuot "San sang ban" tai day (Yeu cau ban hang chua co kho).
-        availabilityService.assertAvailable(warehouse, details, null);
+        availabilityService.assertAvailable(warehouse, details, null, null);
         order.getDetails().addAll(details);
         order.setTotalAmount(total);
 

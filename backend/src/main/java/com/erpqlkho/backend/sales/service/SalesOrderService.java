@@ -67,7 +67,7 @@ public class SalesOrderService {
         order.setStatus("PENDING");
         order.setCreatedBy(currentUser());
         applyDto(order, dto);
-        availabilityService.assertAvailable(order.getWarehouse(), order.getDetails(), null);
+        availabilityService.assertAvailable(order.getWarehouse(), order.getDetails(), null, order.getSalesman());
 
         return salesOrderRepository.save(order);
     }
@@ -77,7 +77,7 @@ public class SalesOrderService {
         SalesOrder order = findById(id);
         requirePending(order);
         applyDto(order, dto);
-        availabilityService.assertAvailable(order.getWarehouse(), order.getDetails(), order.getId());
+        availabilityService.assertAvailable(order.getWarehouse(), order.getDetails(), order.getId(), order.getSalesman());
         return salesOrderRepository.save(order);
     }
 
@@ -97,7 +97,7 @@ public class SalesOrderService {
     public SalesOrder confirm(Long id) {
         SalesOrder order = findById(id);
         requirePending(order);
-        availabilityService.assertAvailable(order.getWarehouse(), order.getDetails(), order.getId());
+        availabilityService.assertAvailable(order.getWarehouse(), order.getDetails(), order.getId(), order.getSalesman());
 
         order.setStatus("CONFIRMED");
         order.setConfirmedBy(currentUser());
