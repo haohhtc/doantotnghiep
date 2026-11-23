@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { hasPermission } from '../../../utils/auth';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
 } from 'antd';
@@ -249,9 +250,11 @@ export default function SalesReturnPage() {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button icon={<EyeOutlined />} onClick={() => openViewModal(record)} />
-          <Button icon={<EditOutlined />} disabled={record.status !== 'DRAFT'} onClick={() => openEditModal(record)} />
-          {record.status === 'DRAFT' && (
+          {hasPermission('sales_return:view') && <Button icon={<EyeOutlined />} onClick={() => openViewModal(record)} />}
+          {hasPermission('sales_return:edit') && (
+            <Button icon={<EditOutlined />} disabled={record.status !== 'DRAFT'} onClick={() => openEditModal(record)} />
+          )}
+          {record.status === 'DRAFT' && hasPermission('sales_return:confirm') && (
             <Popconfirm
               title="Duyệt phiếu trả hàng này?"
               description="Sau khi duyệt sẽ cộng vào tồn kho và không thể sửa/xóa."
@@ -260,14 +263,16 @@ export default function SalesReturnPage() {
               <Button icon={<CheckOutlined />} type="primary" ghost />
             </Popconfirm>
           )}
-          <Popconfirm
-            title="Hủy phiếu trả hàng này?"
-            description={record.status === 'CLOSED' ? 'Sẽ trừ lại đúng số đã cộng vào tồn kho.' : undefined}
-            disabled={record.status === 'CANCELLED'}
-            onConfirm={() => handleCancel(record)}
-          >
-            <Button icon={<StopOutlined />} danger disabled={record.status === 'CANCELLED'} />
-          </Popconfirm>
+          {hasPermission('sales_return:cancel') && (
+            <Popconfirm
+              title="Hủy phiếu trả hàng này?"
+              description={record.status === 'CLOSED' ? 'Sẽ trừ lại đúng số đã cộng vào tồn kho.' : undefined}
+              disabled={record.status === 'CANCELLED'}
+              onConfirm={() => handleCancel(record)}
+            >
+              <Button icon={<StopOutlined />} danger disabled={record.status === 'CANCELLED'} />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -295,7 +300,7 @@ export default function SalesReturnPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số phiếu hoặc nhân viên..."
-        onAdd={openCreateModal}
+        onAdd={hasPermission('sales_return:create') ? openCreateModal : undefined}
         addTooltip="Thêm phiếu trả hàng"
         onReload={() => {
           loadData();

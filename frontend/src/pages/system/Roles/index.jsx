@@ -3,6 +3,7 @@ import { Typography, Input, Button, Table, Space, Modal, Form, Popconfirm, messa
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { hasPermission } from '../../../utils/auth';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -81,14 +82,18 @@ export default function RolesPage() {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button icon={<EditOutlined />} onClick={() => openEditModal(record)}>
-            Sửa
-          </Button>
-          <Popconfirm title="Xóa vai trò này?" onConfirm={() => handleDelete(record)}>
-            <Button icon={<DeleteOutlined />} danger>
-              Xóa
+          {hasPermission('system_role:edit') && (
+            <Button icon={<EditOutlined />} onClick={() => openEditModal(record)}>
+              Sửa
             </Button>
-          </Popconfirm>
+          )}
+          {hasPermission('system_role:delete') && (
+            <Popconfirm title="Xóa vai trò này?" onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger>
+                Xóa
+              </Button>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -101,7 +106,7 @@ export default function RolesPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên vai trò..."
-        onAdd={openCreateModal}
+        onAdd={hasPermission('system_role:create') ? openCreateModal : undefined}
         addTooltip="Vai trò mới"
         onReload={() => {
           loadData();

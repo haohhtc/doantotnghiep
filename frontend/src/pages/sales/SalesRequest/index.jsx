@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { hasPermission } from '../../../utils/auth';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message,
 } from 'antd';
@@ -241,15 +242,19 @@ export default function SalesRequestPage() {
         const isDraft = record.status === 'DRAFT';
         return (
           <Space>
-            <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
-            {isDraft && (
+            {hasPermission('sales_request:edit') && (
+              <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
+            )}
+            {isDraft && hasPermission('sales_request:confirm') && (
               <Button icon={<SwapOutlined />} type="primary" ghost onClick={() => openConvertModal(record)}>
                 Chuyển thành đơn hàng
               </Button>
             )}
-            <Popconfirm title="Xóa yêu cầu bán hàng này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
-              <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
-            </Popconfirm>
+            {hasPermission('sales_request:delete') && (
+              <Popconfirm title="Xóa yêu cầu bán hàng này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
+                <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
+              </Popconfirm>
+            )}
           </Space>
         );
       },
@@ -283,7 +288,7 @@ export default function SalesRequestPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số yêu cầu hoặc khách hàng..."
-        onAdd={openCreateModal}
+        onAdd={hasPermission('sales_request:create') ? openCreateModal : undefined}
         addTooltip="Thêm yêu cầu bán hàng"
         onReload={() => {
           loadData();

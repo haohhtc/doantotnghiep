@@ -5,7 +5,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
-import { hasAnyRole } from '../../../utils/auth';
+import { hasPermission } from '../../../utils/auth';
 import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
@@ -16,16 +16,13 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'CLOSED', label: 'Đã đóng' },
 ];
 
-// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/xac nhan
-// phieu nhap, SALES_STAFF chi duoc xem (GET).
+// Quyen chi tiet (goods_receipt:*) tu he thong phan quyen moi - xem PermissionCatalog o backend.
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../inbound/controller/GoodsReceiptController.java.
 // unit_price tu dong tra theo Bang gia loai PURCHASE (GET /price-lists/lookup?purpose=PURCHASE)
 // khi chon San pham + da chon Kho - khong con fallback ve product.price (da bi xoa cot o V19).
 // Van cho sua tay sau khi dien tu dong, khop hanh vi cua trang Sales Order.
-// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function GoodsReceiptPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const { selectedBranchId } = useBranch();
   const [receipts, setReceipts] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -214,39 +211,39 @@ export default function GoodsReceiptPage() {
       render: (status) => (status === 'CLOSED' ? <Tag color="green">Đã đóng</Tag> : <Tag color="gold">Nháp</Tag>),
     },
     { title: 'Ghi chú', dataIndex: 'remarks', key: 'remarks' },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) => (
-              <Space>
-                <Button
-                  icon={<EditOutlined />}
-                  disabled={record.status === 'CLOSED'}
-                  onClick={() => openEditModal(record)}
-                />
-                {record.status === 'DRAFT' && (
-                  <Popconfirm
-                    title="Xác nhận phiếu nhập này?"
-                    description="Sau khi xác nhận sẽ cộng vào tồn kho và không thể sửa/xoá."
-                    onConfirm={() => handleConfirmReceipt(record)}
-                  >
-                    <Button icon={<CheckOutlined />} type="primary" ghost />
-                  </Popconfirm>
-                )}
-                <Popconfirm
-                  title="Xóa phiếu nhập này?"
-                  disabled={record.status === 'CLOSED'}
-                  onConfirm={() => handleDelete(record)}
-                >
-                  <Button icon={<DeleteOutlined />} danger disabled={record.status === 'CLOSED'} />
-                </Popconfirm>
-              </Space>
-            ),
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          {hasPermission('goods_receipt:edit') && (
+            <Button
+              icon={<EditOutlined />}
+              disabled={record.status === 'CLOSED'}
+              onClick={() => openEditModal(record)}
+            />
+          )}
+          {record.status === 'DRAFT' && hasPermission('goods_receipt:confirm') && (
+            <Popconfirm
+              title="Xác nhận phiếu nhập này?"
+              description="Sau khi xác nhận sẽ cộng vào tồn kho và không thể sửa/xoá."
+              onConfirm={() => handleConfirmReceipt(record)}
+            >
+              <Button icon={<CheckOutlined />} type="primary" ghost />
+            </Popconfirm>
+          )}
+          {hasPermission('goods_receipt:delete') && (
+            <Popconfirm
+              title="Xóa phiếu nhập này?"
+              disabled={record.status === 'CLOSED'}
+              onConfirm={() => handleDelete(record)}
+            >
+              <Button icon={<DeleteOutlined />} danger disabled={record.status === 'CLOSED'} />
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   const detailColumns = [
@@ -275,7 +272,7 @@ export default function GoodsReceiptPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số phiếu hoặc nhà cung cấp..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('goods_receipt:create') ? openCreateModal : undefined}
         addTooltip="Thêm phiếu nhập"
         onReload={() => {
           setSearchText('');

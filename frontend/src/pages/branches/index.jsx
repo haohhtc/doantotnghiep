@@ -5,7 +5,7 @@ import TableToolbar from '../../components/TableToolbar';
 import ActiveStatus from '../../components/ActiveStatus';
 import AddressCascadeFields from '../../components/AddressCascadeFields';
 import axiosClient from '../../api/axiosClient';
-import { hasAnyRole } from '../../utils/auth';
+import { hasPermission } from '../../utils/auth';
 
 const { Title } = Typography;
 
@@ -20,7 +20,6 @@ const ACTIVE_FILTER_OPTIONS = [
 // canWrite tinh trong component (khong o module scope) - AppRoutes.jsx import tinh moi trang tu
 // dau (ke ca luc chua dang nhap), de ngoai component se bi "dong bang" sai gia tri lan render dau.
 export default function BranchesPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [branches, setBranches] = useState([]);
   const [company, setCompany] = useState(null);
   const [priceLists, setPriceLists] = useState([]);
@@ -127,22 +126,20 @@ export default function BranchesPage() {
       key: 'active',
       render: (active) => <ActiveStatus active={active} />,
     },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) => (
-              <Space>
-                <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-                <Popconfirm title="Xóa vĩnh viễn chi nhánh này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
-                  <Button icon={<DeleteOutlined />} danger />
-                </Popconfirm>
-              </Space>
-            ),
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          {hasPermission('branch:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('branch:delete') && (
+            <Popconfirm title="Xóa vĩnh viễn chi nhánh này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger />
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   return (
@@ -152,7 +149,7 @@ export default function BranchesPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('branch:create') ? openCreateModal : undefined}
         addTooltip="Thêm chi nhánh"
         onReload={() => {
           loadData();

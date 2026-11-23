@@ -3,16 +3,12 @@ import { Typography, Input, Button, Table, Space, Modal, Form, Popconfirm, messa
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import axiosClient from '../../api/axiosClient';
-import { hasAnyRole } from '../../utils/auth';
+import { hasPermission } from '../../utils/auth';
 
 const { Title } = Typography;
 
-// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa vung.
-
 // Vung dia ly cap cao nhat - xem backend/.../category/region/controller/RegionController.java.
-// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function RegionsPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [regions, setRegions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -79,22 +75,20 @@ export default function RegionsPage() {
   const columns = [
     { title: 'Mã vùng', dataIndex: 'code', key: 'code' },
     { title: 'Tên vùng', dataIndex: 'name', key: 'name' },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) => (
-              <Space>
-                <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-                <Popconfirm title="Xóa vĩnh viễn vùng này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
-                  <Button icon={<DeleteOutlined />} danger />
-                </Popconfirm>
-              </Space>
-            ),
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          {hasPermission('region:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('region:delete') && (
+            <Popconfirm title="Xóa vĩnh viễn vùng này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger />
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   return (
@@ -104,7 +98,7 @@ export default function RegionsPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('region:create') ? openCreateModal : undefined}
         addTooltip="Thêm vùng"
         onReload={() => {
           loadData();

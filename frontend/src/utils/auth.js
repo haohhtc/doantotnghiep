@@ -17,6 +17,15 @@ export function hasAnyRole(...roles) {
   return role != null && roles.includes(role);
 }
 
+// Quyen chi tiet (trang x hanh dong, vd "sales_order:confirm") - xem PermissionCatalog.java
+// (Backend) + modal "Phan quyen" o Users/index.jsx. Chi dung de an/hien nut cho dung UX (lop
+// bao ve THAT nam o Backend/SecurityConfig.java, khong phai o day) - ADMIN da duoc Backend tra
+// ve san toan bo ma quyen trong permissions luc dang nhap nen khong can xu ly rieng o day.
+export function hasPermission(code) {
+  const permissions = getCurrentUser()?.permissions;
+  return Array.isArray(permissions) && permissions.includes(code);
+}
+
 // Chi nhanh (NPP) nguoi dung dang thuoc ve - null neu ADMIN (Admin HO, khong gioi han chi
 // nhanh) hoac tai khoan chua duoc gan chi nhanh. Dung de gui kem len AI Chatbot, chan khong cho
 // hoi du lieu chi nhanh/NPP khac - xem components/AiChatWidget.jsx + ai-services/chatbot/main.py.

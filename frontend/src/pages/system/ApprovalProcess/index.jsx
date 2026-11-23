@@ -3,6 +3,7 @@ import { Typography, Alert, Input, Button, Table, Space, Modal, Form, Select, Ch
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { hasPermission } from '../../../utils/auth';
 
 const { Title } = Typography;
 
@@ -80,10 +81,12 @@ export default function ApprovalProcessPage() {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-          <Popconfirm title="Xóa cấu hình này?" onConfirm={() => handleDelete(record)}>
-            <Button icon={<DeleteOutlined />} danger />
-          </Popconfirm>
+          {hasPermission('system_approval_config:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('system_approval_config:delete') && (
+            <Popconfirm title="Xóa cấu hình này?" onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -98,7 +101,7 @@ export default function ApprovalProcessPage() {
         showIcon
         message="Đây là màn hình cấu hình tham khảo - chưa thực sự chặn/thay đổi luồng duyệt hiện tại của các module, có thể mở rộng để thực sự áp dụng ở phiên bản sau."
       />
-      <TableToolbar onAdd={openCreateModal} addTooltip="Thêm cấu hình" onReload={loadData} />
+      <TableToolbar onAdd={hasPermission('system_approval_config:create') ? openCreateModal : undefined} addTooltip="Thêm cấu hình" onReload={loadData} />
       <Table rowKey="id" columns={columns} dataSource={configs} loading={loading} pagination={false} />
 
       <Modal

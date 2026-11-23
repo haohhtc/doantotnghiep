@@ -5,7 +5,7 @@ import {
 import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import axiosClient from '../../api/axiosClient';
-import { hasAnyRole } from '../../utils/auth';
+import { hasAnyRole, hasPermission } from '../../utils/auth';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -148,13 +148,11 @@ export default function ProductGroupsPage() {
           <Button size="small" onClick={() => openItemModal(record)}>
             Sản phẩm
           </Button>
-          {canWrite && (
-            <>
-              <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-              <Popconfirm title="Xóa vĩnh viễn nhóm sản phẩm này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
-                <Button size="small" icon={<DeleteOutlined />} danger />
-              </Popconfirm>
-            </>
+          {hasPermission('product_group:edit') && <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('product_group:delete') && (
+            <Popconfirm title="Xóa vĩnh viễn nhóm sản phẩm này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
+              <Button size="small" icon={<DeleteOutlined />} danger />
+            </Popconfirm>
           )}
         </Space>
       ),
@@ -168,7 +166,7 @@ export default function ProductGroupsPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('product_group:create') ? openCreateModal : undefined}
         addTooltip="Thêm nhóm sản phẩm"
         onReload={() => {
           loadData();

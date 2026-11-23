@@ -2,17 +2,15 @@ import { useEffect, useState } from 'react';
 import { Typography, Input, Button, Form, Card, message, Row, Col } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
 import axiosClient from '../../api/axiosClient';
-import { hasAnyRole } from '../../utils/auth';
+import { hasPermission } from '../../utils/auth';
 
 const { Title } = Typography;
 
-// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc sua thong tin cong ty.
-
 // Cap to chuc cao nhat (Company Setup) - chi 1 ban ghi duy nhat (singleton), khong tao/xoa duoc.
 // Xem backend/.../category/company/controller/CompanyController.java (chi co GET/PUT).
-// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
+// Chi co 2 ma quyen hop le: company:view / company:edit (khong co create/delete - xem PermissionCatalog.java).
 export default function CompanyPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
+  const canWrite = hasPermission('company:edit');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm();

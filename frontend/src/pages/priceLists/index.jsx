@@ -6,7 +6,7 @@ import {
 import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import axiosClient from '../../api/axiosClient';
-import { hasAnyRole } from '../../utils/auth';
+import { hasPermission } from '../../utils/auth';
 
 const { Title, Text } = Typography;
 
@@ -20,15 +20,11 @@ function typeTag(type) {
   return <Tag color="blue">Bán</Tag>;
 }
 
-// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa bang gia.
-
 // MDM "Price List" - xem backend/.../category/pricelist/. type hard-code PURCHASE/SALE (khong con
 // STANDARD/CHANNEL/CONTRACT), chi xet dung loai bang gia theo muc dich tra gia (Sales Order dung
 // SALE, Goods Receipt dung PURCHASE) - xem PriceListService.lookupPrice. KHONG con fallback ve
 // product.price (da bi xoa cot) - lookup se nem loi neu khong tim duoc gia hop le.
-// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function PriceListsPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [priceLists, setPriceLists] = useState([]);
   const [products, setProducts] = useState([]);
   const [uoms, setUoms] = useState([]);
@@ -208,13 +204,11 @@ export default function PriceListsPage() {
           <Button size="small" onClick={() => openItemModal(record)}>
             Giá sản phẩm
           </Button>
-          {canWrite && (
-            <>
-              <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-              <Popconfirm title="Xóa vĩnh viễn bảng giá này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
-                <Button size="small" icon={<DeleteOutlined />} danger />
-              </Popconfirm>
-            </>
+          {hasPermission('price_list:edit') && <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('price_list:delete') && (
+            <Popconfirm title="Xóa vĩnh viễn bảng giá này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
+              <Button size="small" icon={<DeleteOutlined />} danger />
+            </Popconfirm>
           )}
         </Space>
       ),
@@ -228,7 +222,7 @@ export default function PriceListsPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('price_list:create') ? openCreateModal : undefined}
         addTooltip="Thêm bảng giá"
         onReload={() => {
           loadData();
@@ -270,7 +264,7 @@ export default function PriceListsPage() {
         width={640}
         destroyOnHidden
       >
-        {canWrite && (
+        {hasPermission('price_list:edit') && (
           <Space direction="vertical" style={{ width: '100%', marginBottom: 12 }}>
             {editingItem && (
               <Text type="secondary">Đang sửa dòng giá (sản phẩm + đơn vị tính không đổi) - chỉ sửa giá/ngày hiệu lực</Text>
@@ -354,7 +348,7 @@ export default function PriceListsPage() {
           renderItem={(item) => (
             <List.Item
               actions={
-                canWrite
+                hasPermission('price_list:edit')
                   ? [
                       <Button key="edit" size="small" icon={<EditOutlined />} onClick={() => openEditItemForm(item)} />,
                       <Popconfirm key="remove" title="Xóa giá sản phẩm này?" onConfirm={() => handleRemoveItem(item.id)}>

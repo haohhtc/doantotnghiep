@@ -5,7 +5,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
-import { hasAnyRole } from '../../../utils/auth';
+import { hasPermission } from '../../../utils/auth';
 import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
@@ -32,15 +32,12 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'CLOSED', label: 'Đã nhận hàng' },
 ];
 
-// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/xac nhan.
-
 // Buoc 1/2 cua Dieu chuyen kho (giong DMS that - man hinh rieng voi buoc Xac nhan di chuyen).
 // Trang nay chi lam viec "kho nguon xac nhan xuat" (DRAFT -> IN_TRANSIT). Buoc "kho dich xac
 // nhan nhan" (IN_TRANSIT -> CLOSED) nam o trang rieng /inventory/transfer-confirmation.
 // Xem backend/.../inventory/controller/InventoryTransferController.java.
-// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
+// Quyen chi tiet (inventory_transfer:*) tu he thong phan quyen moi - xem PermissionCatalog o backend.
 export default function TransferPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const { selectedBranchId } = useBranch();
   const [transfers, setTransfers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -73,7 +70,7 @@ export default function TransferPage() {
       axiosClient.get('/warehouses'),
       axiosClient.get('/products'),
     ];
-    if (canWrite) requests.push(axiosClient.get('/users'));
+    if (hasPermission('inventory_transfer:create') || hasPermission('inventory_transfer:edit')) requests.push(axiosClient.get('/users'));
 
     Promise.all(requests)
       .then(([transfersRes, warehousesRes, productsRes, usersRes]) => {
@@ -197,34 +194,34 @@ export default function TransferPage() {
     { title: 'Kho đến', key: 'to', render: (_, r) => r.toWarehouse?.name },
     { title: 'Nhân viên phụ trách', key: 'employee', render: (_, r) => r.salesEmployee?.fullName || r.salesEmployee?.username || '-' },
     { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) => {
-              const isDraft = record.status === 'DRAFT';
-              return (
-                <Space>
-                  <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
-                  {isDraft && (
-                    <Popconfirm
-                      title="Xác nhận xuất kho nguồn?"
-                      description="Sau khi xác nhận sẽ trừ tồn kho nguồn, hàng chuyển sang trạng thái đang vận chuyển."
-                      onConfirm={() => handleConfirmSend(record)}
-                    >
-                      <Button icon={<CheckOutlined />} type="primary" ghost />
-                    </Popconfirm>
-                  )}
-                  <Popconfirm title="Xóa phiếu này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
-                    <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
-                  </Popconfirm>
-                </Space>
-              );
-            },
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => {
+        const isDraft = record.status === 'DRAFT';
+        return (
+          <Space>
+            {hasPermission('inventory_transfer:edit') && (
+              <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
+            )}
+            {isDraft && hasPermission('inventory_transfer:confirm_send') && (
+              <Popconfirm
+                title="Xác nhận xuất kho nguồn?"
+                description="Sau khi xác nhận sẽ trừ tồn kho nguồn, hàng chuyển sang trạng thái đang vận chuyển."
+                onConfirm={() => handleConfirmSend(record)}
+              >
+                <Button icon={<CheckOutlined />} type="primary" ghost />
+              </Popconfirm>
+            )}
+            {hasPermission('inventory_transfer:delete') && (
+              <Popconfirm title="Xóa phiếu này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
+                <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
+              </Popconfirm>
+            )}
+          </Space>
+        );
+      },
+    },
   ];
 
   const detailColumns = [
@@ -249,7 +246,7 @@ export default function TransferPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số phiếu..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('inventory_transfer:create') ? openCreateModal : undefined}
         addTooltip="Thêm phiếu điều chuyển"
         onReload={() => {
           loadData();

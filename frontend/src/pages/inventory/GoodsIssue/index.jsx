@@ -5,7 +5,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
-import { hasAnyRole } from '../../../utils/auth';
+import { hasPermission } from '../../../utils/auth';
 import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
@@ -27,14 +27,11 @@ function reasonLabel(code) {
   return REASON_OPTIONS.find((o) => o.value === code)?.label || code;
 }
 
-// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/xac nhan
-// phieu xuat, SALES_STAFF chi duoc xem (GET).
+// Quyen chi tiet (goods_issue:*) tu he thong phan quyen moi - xem PermissionCatalog o backend.
 
 // Trang nay da noi API that (khong con mock) - xem backend/.../inventory/controller/GoodsIssueController.java.
 // Man hinh doc lap thuc su (giong DMS that), KHONG gop vao Sales Order - xem tonghop.md muc Inventory.
-// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function GoodsIssuePage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const { selectedBranchId } = useBranch();
   const [issues, setIssues] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -181,31 +178,31 @@ export default function GoodsIssuePage() {
       key: 'status',
       render: (status) => (status === 'CLOSED' ? <Tag color="green">Đã xuất</Tag> : <Tag color="gold">Nháp</Tag>),
     },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) => (
-              <Space>
-                <Button icon={<EditOutlined />} disabled={record.status === 'CLOSED'} onClick={() => openEditModal(record)} />
-                {record.status === 'DRAFT' && (
-                  <Popconfirm
-                    title="Xác nhận phiếu xuất này?"
-                    description="Sau khi xác nhận sẽ trừ tồn kho và không thể sửa/xoá."
-                    onConfirm={() => handleConfirmIssue(record)}
-                  >
-                    <Button icon={<CheckOutlined />} type="primary" ghost />
-                  </Popconfirm>
-                )}
-                <Popconfirm title="Xóa phiếu này?" disabled={record.status === 'CLOSED'} onConfirm={() => handleDelete(record)}>
-                  <Button icon={<DeleteOutlined />} danger disabled={record.status === 'CLOSED'} />
-                </Popconfirm>
-              </Space>
-            ),
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          {hasPermission('goods_issue:edit') && (
+            <Button icon={<EditOutlined />} disabled={record.status === 'CLOSED'} onClick={() => openEditModal(record)} />
+          )}
+          {record.status === 'DRAFT' && hasPermission('goods_issue:confirm') && (
+            <Popconfirm
+              title="Xác nhận phiếu xuất này?"
+              description="Sau khi xác nhận sẽ trừ tồn kho và không thể sửa/xoá."
+              onConfirm={() => handleConfirmIssue(record)}
+            >
+              <Button icon={<CheckOutlined />} type="primary" ghost />
+            </Popconfirm>
+          )}
+          {hasPermission('goods_issue:delete') && (
+            <Popconfirm title="Xóa phiếu này?" disabled={record.status === 'CLOSED'} onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger disabled={record.status === 'CLOSED'} />
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   const detailColumns = [
@@ -230,7 +227,7 @@ export default function GoodsIssuePage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số phiếu hoặc kho..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('goods_issue:create') ? openCreateModal : undefined}
         addTooltip="Thêm phiếu xuất kho"
         onReload={() => {
           loadData();

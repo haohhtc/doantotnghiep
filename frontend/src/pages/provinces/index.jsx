@@ -3,16 +3,12 @@ import { Typography, Input, Button, Table, Space, Modal, Form, Select, Popconfir
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import axiosClient from '../../api/axiosClient';
-import { hasAnyRole } from '../../utils/auth';
+import { hasPermission } from '../../utils/auth';
 
 const { Title } = Typography;
 
-// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa tinh/thanh pho.
-
 // Tinh/Thanh pho - xem backend/.../category/province/controller/ProvinceController.java.
-// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function ProvincesPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [provinces, setProvinces] = useState([]);
   const [regions, setRegions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -89,22 +85,20 @@ export default function ProvincesPage() {
     { title: 'Mã tỉnh/thành phố', dataIndex: 'code', key: 'code' },
     { title: 'Tên tỉnh/thành phố', dataIndex: 'name', key: 'name' },
     { title: 'Thuộc vùng', key: 'region', render: (_, r) => r.region?.name },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) => (
-              <Space>
-                <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-                <Popconfirm title="Xóa vĩnh viễn tỉnh/thành phố này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
-                  <Button icon={<DeleteOutlined />} danger />
-                </Popconfirm>
-              </Space>
-            ),
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          {hasPermission('province:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('province:delete') && (
+            <Popconfirm title="Xóa vĩnh viễn tỉnh/thành phố này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger />
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   return (
@@ -114,7 +108,7 @@ export default function ProvincesPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('province:create') ? openCreateModal : undefined}
         addTooltip="Thêm tỉnh/thành phố"
         onReload={() => {
           loadData();

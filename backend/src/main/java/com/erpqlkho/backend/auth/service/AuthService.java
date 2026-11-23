@@ -17,6 +17,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -50,7 +52,20 @@ public class AuthService {
 
         String branchCode = user.getBranch() != null ? user.getBranch().getCode() : null;
         String branchName = user.getBranch() != null ? user.getBranch().getName() : null;
+        List<String> permissions = resolvePermissions(user);
         return new LoginResponse(token, user.getUsername(), user.getFullName(), user.getRole().getCode(),
-                branchCode, branchName);
+                branchCode, branchName, permissions);
+    }
+
+    // ADMIN luon duoc toan bo quyen (khong doc cot user.permissions) - khop dung cach tinh
+    // GrantedAuthority o CustomUserDetailsService (PERM_ dung de Backend chan that, danh sach
+    // nay chi de Frontend an/hien nut cho dung UX, khong phai lop bao ve chinh).
+    private List<String> resolvePermissions(User user) {
+        if ("ADMIN".equals(user.getRole().getCode())) {
+            return com.erpqlkho.backend.auth.security.PermissionCatalog.allCodes();
+        }
+        String codes = user.getPermissions();
+        if (codes == null || codes.isBlank()) return List.of();
+        return java.util.Arrays.stream(codes.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
     }
 }

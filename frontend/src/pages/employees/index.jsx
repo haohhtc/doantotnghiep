@@ -6,7 +6,7 @@ import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import ActiveStatus from '../../components/ActiveStatus';
 import axiosClient from '../../api/axiosClient';
-import { hasAnyRole } from '../../utils/auth';
+import { hasPermission } from '../../utils/auth';
 
 const { Title } = Typography;
 
@@ -20,13 +20,13 @@ const GENDER_OPTIONS = [
 const NVBH_POSITION_CODES = ['SALESMAN'];
 const NV_POSITION_CODES = ['SS', 'ASM'];
 
-// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa nhan vien.
-
 // Employee Master Data tach rieng khoi User (thay the thiet ke gop-vao-User cu cua V16) - xem
 // backend/.../category/employee/ (V21__employee_route_customer_group_mn.sql). 1 bang chung cho ca
-// 2 tab NVBH/NV, loc theo "type". canWrite tinh trong component - xem ghi chu o pages/branches/index.jsx.
+// 2 tab NVBH/NV, loc theo "type".
 export default function EmployeesPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
+  // GET /api/users rieng chi ADMIN/WAREHOUSE_MANAGER duoc goi (role Backend, khong lien quan
+  // permission catalog) - van chi fetch/hien truong gan tai khoan khi co quyen tao hoac sua NV.
+  const canManageUserAssignment = hasPermission('employee:create') || hasPermission('employee:edit');
   const [employees, setEmployees] = useState([]);
   const [positions, setPositions] = useState([]);
   const [users, setUsers] = useState([]);
@@ -48,7 +48,7 @@ export default function EmployeesPage() {
     // GET /api/users chi ADMIN + WAREHOUSE_MANAGER duoc doc - chi goi khi can, tranh 403 lam fail
     // ca Promise.all doi voi SALES_STAFF (chi xem), giong pattern pages/warehouses.
     const requests = [axiosClient.get('/employees'), axiosClient.get('/employee-positions')];
-    if (canWrite) requests.push(axiosClient.get('/users'));
+    if (canManageUserAssignment) requests.push(axiosClient.get('/users'));
 
     Promise.all(requests)
       .then(([employeesRes, positionsRes, usersRes]) => {
@@ -129,22 +129,20 @@ export default function EmployeesPage() {
       key: 'active',
       render: (active) => <ActiveStatus active={active} />,
     },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) => (
-              <Space>
-                <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-                <Popconfirm title="Xóa vĩnh viễn nhân viên này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
-                  <Button icon={<DeleteOutlined />} danger />
-                </Popconfirm>
-              </Space>
-            ),
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          {hasPermission('employee:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('employee:delete') && (
+            <Popconfirm title="Xóa vĩnh viễn nhân viên này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger />
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   return (
@@ -162,7 +160,7 @@ export default function EmployeesPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc họ tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('employee:create') ? openCreateModal : undefined}
         addTooltip="Thêm nhân viên"
         onReload={() => {
           loadData();
@@ -247,7 +245,7 @@ export default function EmployeesPage() {
                 <Input />
               </Form.Item>
             </Col>
-            {canWrite && (
+            {canManageUserAssignment && (
               <Col span={12}>
                 <Form.Item label="Tự động gán tài khoản" name="userId" extra="Không bắt buộc - nhân viên không nhất thiết phải có tài khoản đăng nhập.">
                   <Select options={userOptions} placeholder="Chọn tài khoản đăng nhập" allowClear showSearch optionFilterProp="label" />

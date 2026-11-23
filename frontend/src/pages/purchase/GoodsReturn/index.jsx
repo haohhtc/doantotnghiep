@@ -5,7 +5,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
-import { hasAnyRole } from '../../../utils/auth';
+import { hasPermission } from '../../../utils/auth';
 import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
@@ -27,9 +27,7 @@ const STATUS_FILTER_OPTIONS = [
 // Phieu tra hang NCC (gop Goods Return Request + Confirm thanh 1 buoc) - xem
 // backend/.../inbound/controller/PurchaseReturnController.java. Duyet (DRAFT -> CLOSED) se tru
 // ton kho qua StockService, tai dung y het pattern Goods Issue.
-// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function PurchaseGoodsReturnPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const { selectedBranchId } = useBranch();
   const [returns, setReturns] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -190,15 +188,17 @@ export default function PurchaseGoodsReturnPage() {
     { title: 'Kho', key: 'warehouse', render: (_, r) => r.warehouse?.name },
     { title: 'Phiếu nhập gốc', key: 'goodsReceipt', render: (_, r) => r.goodsReceipt?.docNumber || '-' },
     { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },
-    ...(canWrite
+    ...(hasPermission('purchase_return:edit') || hasPermission('purchase_return:confirm') || hasPermission('purchase_return:delete')
       ? [
           {
             title: 'Thao tác',
             key: 'actions',
             render: (_, record) => (
               <Space>
-                <Button icon={<EditOutlined />} disabled={record.status === 'CLOSED'} onClick={() => openEditModal(record)} />
-                {record.status === 'DRAFT' && (
+                {hasPermission('purchase_return:edit') && (
+                  <Button icon={<EditOutlined />} disabled={record.status === 'CLOSED'} onClick={() => openEditModal(record)} />
+                )}
+                {record.status === 'DRAFT' && hasPermission('purchase_return:confirm') && (
                   <Popconfirm
                     title="Duyệt phiếu trả hàng NCC này?"
                     description="Sau khi duyệt sẽ trừ vào tồn kho và không thể sửa/xóa."
@@ -207,9 +207,11 @@ export default function PurchaseGoodsReturnPage() {
                     <Button icon={<CheckOutlined />} type="primary" ghost />
                   </Popconfirm>
                 )}
-                <Popconfirm title="Xóa phiếu trả hàng NCC này?" disabled={record.status === 'CLOSED'} onConfirm={() => handleDelete(record)}>
-                  <Button icon={<DeleteOutlined />} danger disabled={record.status === 'CLOSED'} />
-                </Popconfirm>
+                {hasPermission('purchase_return:delete') && (
+                  <Popconfirm title="Xóa phiếu trả hàng NCC này?" disabled={record.status === 'CLOSED'} onConfirm={() => handleDelete(record)}>
+                    <Button icon={<DeleteOutlined />} danger disabled={record.status === 'CLOSED'} />
+                  </Popconfirm>
+                )}
               </Space>
             ),
           },
@@ -238,7 +240,7 @@ export default function PurchaseGoodsReturnPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số phiếu hoặc nhà cung cấp..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('purchase_return:create') ? openCreateModal : undefined}
         addTooltip="Thêm phiếu trả hàng NCC"
         onReload={() => {
           loadData();

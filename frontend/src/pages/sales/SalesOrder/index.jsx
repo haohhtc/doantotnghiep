@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { hasPermission } from '../../../utils/auth';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message, Tooltip,
 } from 'antd';
@@ -474,7 +475,7 @@ export default function SalesOrderPage() {
   // Don khong con PENDING (da duyet/da huy): Edit van mo duoc de XEM chi tiet, nhung khoa toan bo
   // form + an nut Luu/Them dong/Xoa dong - chi con "Dong" de thoat, tranh nham tuong sua duoc don
   // da chot (backend cung chan o SalesOrderService.requirePending() neu co goi PUT).
-  const isReadOnly = !!editingOrder && editingOrder.status !== 'PENDING';
+  const isReadOnly = (!!editingOrder && editingOrder.status !== 'PENDING') || !hasPermission('sales_order:edit');
 
   const totalQty = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0), 0);
   const subtotalAmount = detailRows.reduce((sum, d) => sum + Number(d.quantity || 0) * Number(d.unitPrice || 0), 0);
@@ -513,24 +514,30 @@ export default function SalesOrderPage() {
         const isPending = record.status === 'PENDING';
         return (
           <Space>
-            <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
+            {hasPermission('sales_order:view') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
             {isPending && (
               <>
-                <Popconfirm
-                  title="Xác nhận đơn hàng này?"
-                  description='Đơn sẽ được duyệt (không thể sửa/hủy) - vào trang "Đơn giao hàng" bấm "+" để tạo đợt giao (có thể tạo nhiều đợt, mỗi đợt giao 1 phần).'
-                  onConfirm={() => handleConfirmOrder(record)}
-                >
-                  <Button icon={<TruckOutlined />} type="primary" ghost title="Xác nhận đơn hàng" />
-                </Popconfirm>
-                <Popconfirm title="Hủy đơn hàng này?" onConfirm={() => handleCancelOrder(record)}>
-                  <Button icon={<StopOutlined />} />
-                </Popconfirm>
+                {hasPermission('sales_order:confirm') && (
+                  <Popconfirm
+                    title="Xác nhận đơn hàng này?"
+                    description='Đơn sẽ được duyệt (không thể sửa/hủy) - vào trang "Đơn giao hàng" bấm "+" để tạo đợt giao (có thể tạo nhiều đợt, mỗi đợt giao 1 phần).'
+                    onConfirm={() => handleConfirmOrder(record)}
+                  >
+                    <Button icon={<TruckOutlined />} type="primary" ghost title="Xác nhận đơn hàng" />
+                  </Popconfirm>
+                )}
+                {hasPermission('sales_order:cancel') && (
+                  <Popconfirm title="Hủy đơn hàng này?" onConfirm={() => handleCancelOrder(record)}>
+                    <Button icon={<StopOutlined />} />
+                  </Popconfirm>
+                )}
               </>
             )}
-            <Popconfirm title="Xóa đơn hàng này?" disabled={!isPending} onConfirm={() => handleDelete(record)}>
-              <Button icon={<DeleteOutlined />} danger disabled={!isPending} />
-            </Popconfirm>
+            {hasPermission('sales_order:delete') && (
+              <Popconfirm title="Xóa đơn hàng này?" disabled={!isPending} onConfirm={() => handleDelete(record)}>
+                <Button icon={<DeleteOutlined />} danger disabled={!isPending} />
+              </Popconfirm>
+            )}
           </Space>
         );
       },
@@ -581,7 +588,7 @@ export default function SalesOrderPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số đơn hoặc khách hàng..."
-        onAdd={openCreateModal}
+        onAdd={hasPermission('sales_order:create') ? openCreateModal : undefined}
         addTooltip="Thêm đơn hàng"
         onReload={() => {
           setSearchText('');

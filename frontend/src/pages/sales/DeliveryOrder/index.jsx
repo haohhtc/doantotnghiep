@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { hasPermission } from '../../../utils/auth';
 import {
   Typography, Input, InputNumber, Button, Table, Tag, Space, Modal, Form, Select, Row, Col, Popconfirm, message, Tooltip,
 } from 'antd';
@@ -139,7 +140,7 @@ export default function DeliveryOrderPage() {
   );
   // Chi con DRAFT moi sua that duoc - cac trang thai khac (CLOSED/CANCELLED) mo CUNG 1 modal nay
   // nhung o che do chi xem, giong het pattern Don hang ban (xem pages/sales/SalesOrder/index.jsx).
-  const isReadOnly = !!editingOrder && editingOrder.status !== 'DRAFT';
+  const isReadOnly = (!!editingOrder && editingOrder.status !== 'DRAFT') || !hasPermission('delivery_order:edit');
 
   function optionLabel(options, id) {
     return options.find((o) => o.value === id)?.label || '';
@@ -475,7 +476,7 @@ export default function DeliveryOrderPage() {
         const isDraft = record.status === 'DRAFT';
         return (
           <Space>
-            {isDraft && (
+            {isDraft && hasPermission('delivery_order:confirm') && (
               <Popconfirm
                 title="Xác nhận đã giao hàng này?"
                 description="Hàng chuyển từ Kho chính sang Kho xe tải của chi nhánh (Kho chính giảm, Kho xe tải tăng) đúng số lượng khai báo, không thể sửa/hủy. Tồn thực tế chỉ giảm hẳn khi xuất hóa đơn."
@@ -484,28 +485,32 @@ export default function DeliveryOrderPage() {
                 <Button icon={<CheckOutlined />} type="primary" ghost loading={confirmingId === record.id} />
               </Popconfirm>
             )}
-            {record.status === 'CLOSED' && hasRemainingToInvoice(record) && (
+            {record.status === 'CLOSED' && hasRemainingToInvoice(record) && hasPermission('invoice:create') && (
               <Button icon={<FileTextOutlined />} title="Xuất hóa đơn" onClick={() => openInvoiceModal(record)} />
             )}
             {/* Chi 1 nut duy nhat, luon mo duoc (khong con disabled/tach rieng nut Xem) - giong het
                 Don hang ban: con DRAFT thi Sua that, khong thi tu dong chuyen sang che do chi xem
                 trong CUNG modal nay (xem isReadOnly). */}
-            <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-            <Popconfirm title="Xóa đơn giao hàng này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
-              <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
-            </Popconfirm>
-            <Popconfirm
-              title="Hủy đợt giao hàng này?"
-              description={
-                record.status === 'CLOSED'
-                  ? 'Sẽ đảo lại kho (Kho xe tải giảm, Kho chính cộng lại). Số lượng đợt này quay lại "còn lại chưa giao" của đơn hàng.'
-                  : 'Số lượng đợt này quay lại "còn lại chưa giao" của đơn hàng.'
-              }
-              disabled={record.status === 'CANCELLED'}
-              onConfirm={() => handleCancel(record)}
-            >
-              <Button icon={<StopOutlined />} danger disabled={record.status === 'CANCELLED'} />
-            </Popconfirm>
+            {hasPermission('delivery_order:view') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+            {hasPermission('delivery_order:delete') && (
+              <Popconfirm title="Xóa đơn giao hàng này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
+                <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
+              </Popconfirm>
+            )}
+            {hasPermission('delivery_order:cancel') && (
+              <Popconfirm
+                title="Hủy đợt giao hàng này?"
+                description={
+                  record.status === 'CLOSED'
+                    ? 'Sẽ đảo lại kho (Kho xe tải giảm, Kho chính cộng lại). Số lượng đợt này quay lại "còn lại chưa giao" của đơn hàng.'
+                    : 'Số lượng đợt này quay lại "còn lại chưa giao" của đơn hàng.'
+                }
+                disabled={record.status === 'CANCELLED'}
+                onConfirm={() => handleCancel(record)}
+              >
+                <Button icon={<StopOutlined />} danger disabled={record.status === 'CANCELLED'} />
+              </Popconfirm>
+            )}
           </Space>
         );
       },
@@ -568,7 +573,7 @@ export default function DeliveryOrderPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số đơn giao hoặc số đơn bán..."
-        onAdd={openCreateModal}
+        onAdd={hasPermission('delivery_order:create') ? openCreateModal : undefined}
         addTooltip="Tạo đơn giao hàng"
         onReload={() => {
           setSearchText('');

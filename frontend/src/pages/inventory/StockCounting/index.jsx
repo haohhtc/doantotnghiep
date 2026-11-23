@@ -5,7 +5,7 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
-import { hasAnyRole } from '../../../utils/auth';
+import { hasPermission } from '../../../utils/auth';
 import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
@@ -15,15 +15,11 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'APPROVED', label: 'Đã duyệt' },
 ];
 
-// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/duyet
-// dot kiem ke, SALES_STAFF chi duoc xem (GET).
-
 // Trang nay da noi API that (khong con mock) - xem backend/.../inventory/controller/StockTakeController.java.
 // Luu y: khong con can nhap tay "Ton he thong" - backend tu tinh tu bang stock hien tai
 // ngay luc tao dong chi tiet (xem StockTakeService.applyDto).
-// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
+// Quyen chi tiet (stock_take:*) tu he thong phan quyen moi - xem PermissionCatalog o backend.
 export default function StockCountingPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const { selectedBranchId } = useBranch();
   const [counts, setCounts] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -174,34 +170,34 @@ export default function StockCountingPage() {
       key: 'status',
       render: (status) => (status === 'APPROVED' ? <Tag color="green">Đã duyệt</Tag> : <Tag color="gold">Nháp</Tag>),
     },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) => {
-              const isDraft = record.status === 'DRAFT';
-              return (
-                <Space>
-                  <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
-                  {isDraft && (
-                    <Popconfirm
-                      title="Duyệt đợt kiểm kê này?"
-                      description="Sau khi duyệt sẽ ghi nhận chênh lệch vào tồn kho và không thể sửa/xoá."
-                      onConfirm={() => handleApprove(record)}
-                    >
-                      <Button icon={<CheckOutlined />} type="primary" ghost />
-                    </Popconfirm>
-                  )}
-                  <Popconfirm title="Xóa đợt kiểm kê này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
-                    <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
-                  </Popconfirm>
-                </Space>
-              );
-            },
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => {
+        const isDraft = record.status === 'DRAFT';
+        return (
+          <Space>
+            {hasPermission('stock_take:edit') && (
+              <Button icon={<EditOutlined />} disabled={!isDraft} onClick={() => openEditModal(record)} />
+            )}
+            {isDraft && hasPermission('stock_take:confirm') && (
+              <Popconfirm
+                title="Duyệt đợt kiểm kê này?"
+                description="Sau khi duyệt sẽ ghi nhận chênh lệch vào tồn kho và không thể sửa/xoá."
+                onConfirm={() => handleApprove(record)}
+              >
+                <Button icon={<CheckOutlined />} type="primary" ghost />
+              </Popconfirm>
+            )}
+            {hasPermission('stock_take:delete') && (
+              <Popconfirm title="Xóa đợt kiểm kê này?" disabled={!isDraft} onConfirm={() => handleDelete(record)}>
+                <Button icon={<DeleteOutlined />} danger disabled={!isDraft} />
+              </Popconfirm>
+            )}
+          </Space>
+        );
+      },
+    },
   ];
 
   const detailColumns = [
@@ -234,7 +230,7 @@ export default function StockCountingPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã đợt kiểm kê..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('stock_take:create') ? openCreateModal : undefined}
         addTooltip="Thêm đợt kiểm kê"
         onReload={() => {
           loadData();

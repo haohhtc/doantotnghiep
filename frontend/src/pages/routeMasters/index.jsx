@@ -6,7 +6,7 @@ import {
 import { EditOutlined, DeleteOutlined, TeamOutlined, PlusOutlined, UserSwitchOutlined, StopOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import axiosClient from '../../api/axiosClient';
-import { hasAnyRole } from '../../utils/auth';
+import { hasAnyRole, hasPermission } from '../../utils/auth';
 import { useBranch } from '../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
@@ -371,13 +371,11 @@ export default function RouteMastersPage() {
           <Button size="small" icon={<UserSwitchOutlined />} onClick={() => openAssignModal(record)}>
             Nhân sự
           </Button>
-          {canWrite && (
-            <>
-              <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-              <Popconfirm title="Xóa khung tuyến này?" onConfirm={() => handleDelete(record)}>
-                <Button size="small" icon={<DeleteOutlined />} danger />
-              </Popconfirm>
-            </>
+          {hasPermission('route_master:edit') && <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('route_master:delete') && (
+            <Popconfirm title="Xóa khung tuyến này?" onConfirm={() => handleDelete(record)}>
+              <Button size="small" icon={<DeleteOutlined />} danger />
+            </Popconfirm>
           )}
         </Space>
       ),
@@ -391,7 +389,7 @@ export default function RouteMastersPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('route_master:create') ? openCreateModal : undefined}
         addTooltip="Thêm khung tuyến"
         onReload={() => {
           loadData();

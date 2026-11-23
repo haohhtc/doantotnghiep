@@ -4,7 +4,7 @@ import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import AddressCascadeFields from '../../components/AddressCascadeFields';
 import axiosClient from '../../api/axiosClient';
-import { hasAnyRole } from '../../utils/auth';
+import { hasPermission } from '../../utils/auth';
 
 const { Title } = Typography;
 
@@ -13,7 +13,6 @@ const { Title } = Typography;
 // Module "Tuyen ban hang" (theo yeu cau TV2) - xem backend/.../category/sellingzone/controller/SellingZoneController.java.
 // canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function SellingZonesPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [zones, setZones] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,22 +101,20 @@ export default function SellingZonesPage() {
           : [r.ward, r.province, r.region].filter(Boolean).join(', ') || '-',
     },
     { title: 'Chi nhánh', key: 'branch', render: (_, r) => r.branch?.name },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) => (
-              <Space>
-                <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-                <Popconfirm title="Xóa vùng bán hàng này?" onConfirm={() => handleDelete(record)}>
-                  <Button icon={<DeleteOutlined />} danger />
-                </Popconfirm>
-              </Space>
-            ),
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          {hasPermission('selling_zone:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('selling_zone:delete') && (
+            <Popconfirm title="Xóa vùng bán hàng này?" onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger />
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   return (
@@ -127,7 +124,7 @@ export default function SellingZonesPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('selling_zone:create') ? openCreateModal : undefined}
         addTooltip="Thêm vùng bán hàng"
         onReload={() => {
           loadData();

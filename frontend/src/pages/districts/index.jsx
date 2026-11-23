@@ -3,16 +3,12 @@ import { Typography, Input, Button, Table, Space, Modal, Form, Select, Popconfir
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import axiosClient from '../../api/axiosClient';
-import { hasAnyRole } from '../../utils/auth';
+import { hasPermission } from '../../utils/auth';
 
 const { Title } = Typography;
 
-// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa quan/huyen.
-
 // Quan/Huyen/TP thuoc tinh - xem backend/.../category/district/controller/DistrictController.java.
-// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function DistrictsPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [districts, setDistricts] = useState([]);
   const [provinces, setProvinces] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -89,22 +85,20 @@ export default function DistrictsPage() {
     { title: 'Mã quận/huyện', dataIndex: 'code', key: 'code' },
     { title: 'Tên quận/huyện', dataIndex: 'name', key: 'name' },
     { title: 'Thuộc tỉnh/thành phố', key: 'province', render: (_, r) => r.province?.name },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) => (
-              <Space>
-                <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-                <Popconfirm title="Xóa vĩnh viễn quận/huyện này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
-                  <Button icon={<DeleteOutlined />} danger />
-                </Popconfirm>
-              </Space>
-            ),
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          {hasPermission('district:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('district:delete') && (
+            <Popconfirm title="Xóa vĩnh viễn quận/huyện này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger />
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   return (
@@ -114,7 +108,7 @@ export default function DistrictsPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('district:create') ? openCreateModal : undefined}
         addTooltip="Thêm quận/huyện"
         onReload={() => {
           loadData();

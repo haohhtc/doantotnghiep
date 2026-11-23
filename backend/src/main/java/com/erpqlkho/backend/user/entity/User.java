@@ -62,6 +62,13 @@ public class User extends BaseEntity {
     @JoinColumn(name = "branch_id")
     private Branch branch;
 
+    // Quyen chi tiet (trang x hanh dong, vd "sales_order:confirm") - danh sach phan cach dau phay,
+    // xem PermissionCatalog.java. ADMIN luon duoc TOAN BO quyen (tu dong, khong doc cot nay) - chi
+    // apply cho WAREHOUSE_MANAGER/SALES_STAFF. Chi bao phu 7 nhom uu tien, cac trang khac van dung
+    // Role nhu cu (xem SecurityConfig.java).
+    @Column(columnDefinition = "TEXT")
+    private String permissions;
+
     public enum UserStatus {
         ACTIVE, LOCKED
     }

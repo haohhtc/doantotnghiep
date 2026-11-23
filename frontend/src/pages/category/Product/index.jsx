@@ -7,7 +7,7 @@ import { EditOutlined, DeleteOutlined, ShopOutlined, PlusOutlined } from '@ant-d
 import TableToolbar from '../../../components/TableToolbar';
 import ActiveStatus from '../../../components/ActiveStatus';
 import axiosClient from '../../../api/axiosClient';
-import { hasAnyRole } from '../../../utils/auth';
+import { hasAnyRole, hasPermission } from '../../../utils/auth';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -274,13 +274,11 @@ export default function ProductPage() {
       render: (_, record) => (
         <Space>
           <Button icon={<ShopOutlined />} onClick={() => openBranchModal(record)} title="Chi nhánh áp dụng" />
-          {canWrite && (
-            <>
-              <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-              <Popconfirm title="Xóa vĩnh viễn sản phẩm này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
-                <Button icon={<DeleteOutlined />} danger />
-              </Popconfirm>
-            </>
+          {hasPermission('product:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('product:delete') && (
+            <Popconfirm title="Xóa vĩnh viễn sản phẩm này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger />
+            </Popconfirm>
           )}
         </Space>
       ),
@@ -305,7 +303,7 @@ export default function ProductPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('product:create') ? openCreateModal : undefined}
         addTooltip="Thêm sản phẩm"
         onReload={() => {
           loadData();

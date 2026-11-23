@@ -3,6 +3,7 @@ import { Typography, Table, Tag, Button, Popconfirm, message } from 'antd';
 import { StopOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { hasPermission } from '../../../utils/auth';
 
 const { Title } = Typography;
 
@@ -57,7 +58,7 @@ export default function LoginDevicesPage() {
       title: 'Thao tác',
       key: 'actions',
       render: (_, record) =>
-        !record.revoked && (
+        !record.revoked && hasPermission('system_active_session:edit') && (
           <Popconfirm title="Đăng xuất từ xa thiết bị này?" onConfirm={() => handleRevoke(record)}>
             <Button icon={<StopOutlined />} danger>
               Đăng xuất

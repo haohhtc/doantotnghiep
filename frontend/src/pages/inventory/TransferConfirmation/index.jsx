@@ -3,7 +3,7 @@ import { Typography, Button, Table, Tag, Space, Popconfirm, message } from 'antd
 import { CheckOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
-import { hasAnyRole } from '../../../utils/auth';
+import { hasPermission } from '../../../utils/auth';
 import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title } = Typography;
@@ -20,14 +20,11 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'CLOSED', label: 'Đã nhận hàng' },
 ];
 
-// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc xac nhan nhan hang.
-
 // Buoc 2/2 cua Dieu chuyen kho (giong DMS that - man hinh "Inventory Transfer Confirmation"
 // rieng biet voi man hinh tao phieu o /inventory/transfer). Kho dich xac nhan da nhan hang ->
 // IN_TRANSIT -> CLOSED, cong ton kho dich. Xem backend/.../inventory/controller/InventoryTransferController.java.
-// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
+// Quyen chi tiet (inventory_transfer:confirm_receive) tu he thong phan quyen moi - xem PermissionCatalog o backend.
 export default function TransferConfirmationPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const { selectedBranchId } = useBranch();
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -74,28 +71,24 @@ export default function TransferConfirmationPage() {
     { title: 'Ngày xuất kho nguồn', dataIndex: 'sentAt', key: 'sentAt', render: (v) => (v ? v.slice(0, 10) : '-') },
     { title: 'Ngày nhận hàng', dataIndex: 'receivedAt', key: 'receivedAt', render: (v) => (v ? v.slice(0, 10) : '-') },
     { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) =>
-              record.status === 'IN_TRANSIT' ? (
-                <Popconfirm
-                  title="Xác nhận đã nhận hàng tại kho đích?"
-                  description="Sau khi xác nhận sẽ cộng vào tồn kho đích và không thể hoàn tác."
-                  onConfirm={() => handleConfirmReceive(record)}
-                >
-                  <Button icon={<CheckOutlined />} type="primary" ghost>
-                    Xác nhận nhận hàng
-                  </Button>
-                </Popconfirm>
-              ) : (
-                <Space />
-              ),
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) =>
+        record.status === 'IN_TRANSIT' && hasPermission('inventory_transfer:confirm_receive') ? (
+          <Popconfirm
+            title="Xác nhận đã nhận hàng tại kho đích?"
+            description="Sau khi xác nhận sẽ cộng vào tồn kho đích và không thể hoàn tác."
+            onConfirm={() => handleConfirmReceive(record)}
+          >
+            <Button icon={<CheckOutlined />} type="primary" ghost>
+              Xác nhận nhận hàng
+            </Button>
+          </Popconfirm>
+        ) : (
+          <Space />
+        ),
+    },
   ];
 
   return (

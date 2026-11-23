@@ -3,6 +3,7 @@ import { Typography, Table, Button, Modal, Form, Input, message } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { hasPermission } from '../../../utils/auth';
 
 const { Title } = Typography;
 
@@ -60,7 +61,8 @@ export default function NumberingConfigsPage() {
     {
       title: 'Thao tác',
       key: 'actions',
-      render: (_, record) => <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />,
+      render: (_, record) =>
+        hasPermission('system_numbering_config:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />,
     },
   ];
 

@@ -3,7 +3,7 @@ import { Typography, Input, Button, Table, Space, Modal, Form, Select, Popconfir
 import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import axiosClient from '../../api/axiosClient';
-import { hasAnyRole } from '../../utils/auth';
+import { hasAnyRole, hasPermission } from '../../utils/auth';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -147,13 +147,11 @@ export default function CustomerGroupsPage() {
           <Button size="small" onClick={() => openMemberModal(record)}>
             Khách hàng
           </Button>
-          {canWrite && (
-            <>
-              <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-              <Popconfirm title="Xóa vĩnh viễn nhóm khách hàng này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
-                <Button icon={<DeleteOutlined />} danger />
-              </Popconfirm>
-            </>
+          {hasPermission('customer_group:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('customer_group:delete') && (
+            <Popconfirm title="Xóa vĩnh viễn nhóm khách hàng này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger />
+            </Popconfirm>
           )}
         </Space>
       ),
@@ -167,7 +165,7 @@ export default function CustomerGroupsPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('customer_group:create') ? openCreateModal : undefined}
         addTooltip="Thêm nhóm khách hàng"
         onReload={() => {
           loadData();

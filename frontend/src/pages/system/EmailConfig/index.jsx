@@ -3,6 +3,7 @@ import { Typography, Alert, Input, InputNumber, Button, Table, Form, Row, Col, m
 import { SendOutlined, SaveOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
+import { hasPermission } from '../../../utils/auth';
 
 const { Title, Text } = Typography;
 
@@ -98,9 +99,11 @@ export default function EmailConfigPage() {
             </Form.Item>
           </Col>
         </Row>
-        <Button type="primary" icon={<SaveOutlined />} onClick={handleSaveConfig}>
-          Lưu cấu hình
-        </Button>
+        {hasPermission('system_email_config:edit') && (
+          <Button type="primary" icon={<SaveOutlined />} onClick={handleSaveConfig}>
+            Lưu cấu hình
+          </Button>
+        )}
       </Form>
 
       <Title level={5}>Gửi thử (giả lập)</Title>

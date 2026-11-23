@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Typography, Button, Table, Tag, Space, Modal, Form, Select, Input, Popconfirm, message } from 'antd';
-import { EditOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons';
+import { EditOutlined, LockOutlined, UnlockOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import ActiveStatus from '../../../components/ActiveStatus';
+import PermissionsModal from '../../../components/PermissionsModal';
 import axiosClient from '../../../api/axiosClient';
+import { hasPermission } from '../../../utils/auth';
 
 const { Title } = Typography;
 
@@ -36,6 +38,7 @@ export default function UsersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [filterValues, setFilterValues] = useState({});
+  const [permissionsUser, setPermissionsUser] = useState(null);
   const [form] = Form.useForm();
 
   const branchOptions = branches.map((b) => ({ value: b.id, label: `${b.code} - ${b.name}` }));
@@ -160,17 +163,24 @@ export default function UsersPage() {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button icon={<EditOutlined />} onClick={() => openEditModal(record)}>
-            Sửa
-          </Button>
-          <Popconfirm
-            title={record.status === 'ACTIVE' ? 'Khóa tài khoản này?' : 'Mở khóa tài khoản này?'}
-            onConfirm={() => handleToggleLock(record)}
-          >
-            <Button icon={record.status === 'ACTIVE' ? <LockOutlined /> : <UnlockOutlined />} danger={record.status === 'ACTIVE'}>
-              {record.status === 'ACTIVE' ? 'Khóa' : 'Mở khóa'}
+          {hasPermission('system_user:edit') && (
+            <Button icon={<EditOutlined />} onClick={() => openEditModal(record)}>
+              Sửa
             </Button>
-          </Popconfirm>
+          )}
+          <Button icon={<SafetyCertificateOutlined />} onClick={() => setPermissionsUser(record)}>
+            Phân quyền
+          </Button>
+          {hasPermission('system_user:delete') && (
+            <Popconfirm
+              title={record.status === 'ACTIVE' ? 'Khóa tài khoản này?' : 'Mở khóa tài khoản này?'}
+              onConfirm={() => handleToggleLock(record)}
+            >
+              <Button icon={record.status === 'ACTIVE' ? <LockOutlined /> : <UnlockOutlined />} danger={record.status === 'ACTIVE'}>
+                {record.status === 'ACTIVE' ? 'Khóa' : 'Mở khóa'}
+              </Button>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -183,7 +193,7 @@ export default function UsersPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo tên đăng nhập, họ tên hoặc email..."
-        onAdd={openCreateModal}
+        onAdd={hasPermission('system_user:create') ? openCreateModal : undefined}
         addTooltip="Thêm người dùng"
         onReload={() => {
           loadData();
@@ -249,6 +259,13 @@ export default function UsersPage() {
           </Form.Item>
         </Form>
       </Modal>
+
+      <PermissionsModal
+        open={!!permissionsUser}
+        user={permissionsUser}
+        onClose={() => setPermissionsUser(null)}
+        onSaved={loadData}
+      />
     </div>
   );
 }

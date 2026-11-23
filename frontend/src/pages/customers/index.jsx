@@ -6,6 +6,7 @@ import ActiveStatus from '../../components/ActiveStatus';
 import AddressCascadeFields from '../../components/AddressCascadeFields';
 import axiosClient from '../../api/axiosClient';
 import { useBranch } from '../../contexts/BranchContext';
+import { hasPermission } from '../../utils/auth';
 
 const { Title } = Typography;
 
@@ -152,10 +153,12 @@ export default function CustomersPage() {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-          <Popconfirm title="Xóa vĩnh viễn khách hàng này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
-            <Button icon={<DeleteOutlined />} danger />
-          </Popconfirm>
+          {hasPermission('customer:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('customer:delete') && (
+            <Popconfirm title="Xóa vĩnh viễn khách hàng này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -168,7 +171,7 @@ export default function CustomersPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={openCreateModal}
+        onAdd={hasPermission('customer:create') ? openCreateModal : undefined}
         addTooltip="Thêm khách hàng"
         onReload={() => {
           setSearchText('');

@@ -6,24 +6,22 @@ import {
 import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import TableToolbar from '../../components/TableToolbar';
 import axiosClient from '../../api/axiosClient';
-import { hasAnyRole } from '../../utils/auth';
+import { hasPermission } from '../../utils/auth';
 
 const { Title, Text } = Typography;
 
-// Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa.
-
 // MDM "Uoms & Uom Groups" - thay the han trang /uoms mock cu. Xem
 // backend/.../category/uom/ va backend/.../category/uomgroup/ (co sub-resource /conversions).
-// canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
+// Trang nay gom 2 khai niem rieng (2 tab) - ma quyen rieng: uom:xxx cho Don vi tinh, uom_group:xxx
+// cho Nhom quy doi DVT (xem PermissionCatalog.java).
 export default function UnitsPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   return (
     <div>
       <Title level={3}>Đơn vị tính</Title>
       <Tabs
         items={[
-          { key: 'uom', label: 'Đơn vị tính', children: <UomTab canWrite={canWrite} /> },
-          { key: 'uom-group', label: 'Nhóm quy đổi', children: <UomGroupTab canWrite={canWrite} /> },
+          { key: 'uom', label: 'Đơn vị tính', children: <UomTab /> },
+          { key: 'uom-group', label: 'Nhóm quy đổi', children: <UomGroupTab /> },
         ]}
       />
     </div>
@@ -31,7 +29,7 @@ export default function UnitsPage() {
 }
 
 // --- Tab 1: Don vi tinh co so ---
-function UomTab({ canWrite }) {
+function UomTab() {
   const [uoms, setUoms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -98,23 +96,21 @@ function UomTab({ canWrite }) {
   const columns = [
     { title: 'Mã đơn vị', dataIndex: 'code', key: 'code' },
     { title: 'Tên đơn vị', dataIndex: 'name', key: 'name' },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            width: 160,
-            render: (_, record) => (
-              <Space>
-                <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-                <Popconfirm title="Xóa vĩnh viễn đơn vị tính này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
-                  <Button icon={<DeleteOutlined />} danger />
-                </Popconfirm>
-              </Space>
-            ),
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      width: 160,
+      render: (_, record) => (
+        <Space>
+          {hasPermission('uom:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('uom:delete') && (
+            <Popconfirm title="Xóa vĩnh viễn đơn vị tính này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger />
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   return (
@@ -123,7 +119,7 @@ function UomTab({ canWrite }) {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('uom:create') ? openCreateModal : undefined}
         addTooltip="Thêm đơn vị tính"
         onReload={() => {
           loadData();
@@ -155,7 +151,7 @@ function UomTab({ canWrite }) {
 }
 
 // --- Tab 2: Nhom quy doi (UomGroup + UomConversion) ---
-function UomGroupTab({ canWrite }) {
+function UomGroupTab() {
   const [groups, setGroups] = useState([]);
   const [uoms, setUoms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -290,13 +286,11 @@ function UomGroupTab({ canWrite }) {
           <Button size="small" onClick={() => openConvModal(record)}>
             Quy đổi
           </Button>
-          {canWrite && (
-            <>
-              <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-              <Popconfirm title="Xóa vĩnh viễn nhóm quy đổi này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
-                <Button size="small" icon={<DeleteOutlined />} danger />
-              </Popconfirm>
-            </>
+          {hasPermission('uom_group:edit') && <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('uom_group:delete') && (
+            <Popconfirm title="Xóa vĩnh viễn nhóm quy đổi này? Không thể hoàn tác." onConfirm={() => handleDelete(record)}>
+              <Button size="small" icon={<DeleteOutlined />} danger />
+            </Popconfirm>
           )}
         </Space>
       ),
@@ -309,7 +303,7 @@ function UomGroupTab({ canWrite }) {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('uom_group:create') ? openCreateModal : undefined}
         addTooltip="Thêm nhóm quy đổi"
         onReload={() => {
           loadData();
@@ -355,7 +349,7 @@ function UomGroupTab({ canWrite }) {
         <Text type="secondary">
           Hệ số = số lượng đơn vị gốc ({convGroup?.baseUom?.name}) tương đương với 1 đơn vị này.
         </Text>
-        {canWrite && (
+        {hasPermission('uom_group:edit') && (
           <Space.Compact style={{ width: '100%', marginTop: 12 }}>
             <Select
               style={{ width: '55%' }}
@@ -384,7 +378,7 @@ function UomGroupTab({ canWrite }) {
           renderItem={(c) => (
             <List.Item
               actions={
-                canWrite
+                hasPermission('uom_group:edit')
                   ? [
                       <Popconfirm key="remove" title="Gỡ đơn vị này khỏi nhóm?" onConfirm={() => handleRemoveConversion(c.id)}>
                         <Button size="small" icon={<DeleteOutlined />} danger />

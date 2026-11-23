@@ -54,6 +54,13 @@ public class UserService {
         user.setPosition(findPosition(dto.getPositionId()));
         user.setSalesmanType(findSalesmanType(dto.getSalesmanTypeId()));
         user.setBranch(findBranch(dto.getBranchId()));
+        // Mac dinh user MOI (khong phai ADMIN) duoc cap toan bo quyen 6 nhom nghiep vu (TRU rieng
+        // nhom He thong - van cua ADMIN) ngay tu dau - nguoi quan tri sau do tu bo tich tung dong
+        // rieng muon an/cam cho dung nguoi nay (xem modal "Phan quyen" o Users/index.jsx), thay vi
+        // phai tu tich tay tu dau tu con so 0 nhu anh mau.
+        if (!"ADMIN".equals(role.getCode())) {
+            user.setPermissions(com.erpqlkho.backend.auth.security.PermissionCatalog.nonAdminDefaultCodesJoined());
+        }
 
         return userRepository.save(user);
     }
@@ -86,6 +93,24 @@ public class UserService {
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay user id=" + id));
         user.setStatus(User.UserStatus.LOCKED);
         userRepository.save(user);
+    }
+
+    // Luu danh sach quyen chi tiet (xem PermissionCatalog.java) - chan luu neu ma la khong ton tai
+    // trong catalog (tranh go nham/du lieu rac anh huong GrantedAuthority luc dang nhap). ADMIN
+    // luon duoc toan bo quyen tu dong (xem CustomUserDetailsService) nen khong can/khong nen goi
+    // ham nay cho user ADMIN - Frontend tu khoa nut Luu trong truong hop do.
+    @Transactional
+    public User updatePermissions(Long id, List<String> codes) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Khong tim thay user id=" + id));
+        List<String> valid = com.erpqlkho.backend.auth.security.PermissionCatalog.allCodes();
+        for (String code : codes) {
+            if (!valid.contains(code)) {
+                throw ApiException.conflict("Ma quyen khong hop le: " + code);
+            }
+        }
+        user.setPermissions(String.join(",", codes));
+        return userRepository.save(user);
     }
 
     private Role findRole(String code) {

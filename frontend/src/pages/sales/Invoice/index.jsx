@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { hasPermission } from '../../../utils/auth';
 import { Typography, Table, Tag, Space, Button, Modal, Input, Popconfirm, message, Row, Col } from 'antd';
 import { EyeOutlined, RollbackOutlined, StopOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
@@ -198,21 +199,25 @@ export default function InvoicePage() {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button
-            icon={<RollbackOutlined />}
-            title="Trả hàng"
-            disabled={record.status === 'CANCELLED'}
-            onClick={() => openReturnModal(record)}
-          />
-          <Button icon={<EyeOutlined />} onClick={() => setDetailInvoice(record)} />
-          <Popconfirm
-            title="Hủy hóa đơn này?"
-            description='Sẽ hoàn trả lại Kho xe tải và mở lại Đơn giao hàng về "Chờ giao".'
-            disabled={record.status === 'CANCELLED'}
-            onConfirm={() => handleCancelInvoice(record)}
-          >
-            <Button icon={<StopOutlined />} danger disabled={record.status === 'CANCELLED'} />
-          </Popconfirm>
+          {hasPermission('sales_return:create') && (
+            <Button
+              icon={<RollbackOutlined />}
+              title="Trả hàng"
+              disabled={record.status === 'CANCELLED'}
+              onClick={() => openReturnModal(record)}
+            />
+          )}
+          {hasPermission('invoice:view') && <Button icon={<EyeOutlined />} onClick={() => setDetailInvoice(record)} />}
+          {hasPermission('invoice:cancel') && (
+            <Popconfirm
+              title="Hủy hóa đơn này?"
+              description='Sẽ hoàn trả lại Kho xe tải và mở lại Đơn giao hàng về "Chờ giao".'
+              disabled={record.status === 'CANCELLED'}
+              onConfirm={() => handleCancelInvoice(record)}
+            >
+              <Button icon={<StopOutlined />} danger disabled={record.status === 'CANCELLED'} />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },

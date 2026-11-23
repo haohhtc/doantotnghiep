@@ -3,7 +3,7 @@ import { Typography, Button, Table, Space, Modal, Form, Select, Input, Popconfir
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
-import { hasAnyRole } from '../../../utils/auth';
+import { hasPermission } from '../../../utils/auth';
 
 const { Title } = Typography;
 
@@ -14,7 +14,6 @@ const { Title } = Typography;
 // ProductCategoryController (GET/POST/PUT/DELETE /api/product-categories).
 // canWrite tinh trong component (khong o module scope) - xem ghi chu o pages/branches/index.jsx.
 export default function ProductCategoryPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -94,22 +93,20 @@ export default function ProductCategoryPage() {
     { title: 'Mã danh mục', dataIndex: 'code', key: 'code' },
     { title: 'Tên danh mục', dataIndex: 'name', key: 'name' },
     { title: 'Danh mục cha', key: 'parent', render: (_, record) => record.parent?.name || '-' },
-    ...(canWrite
-      ? [
-          {
-            title: 'Thao tác',
-            key: 'actions',
-            render: (_, record) => (
-              <Space>
-                <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />
-                <Popconfirm title="Xóa danh mục này?" onConfirm={() => handleDelete(record)}>
-                  <Button icon={<DeleteOutlined />} danger />
-                </Popconfirm>
-              </Space>
-            ),
-          },
-        ]
-      : []),
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          {hasPermission('product_category:edit') && <Button icon={<EditOutlined />} onClick={() => openEditModal(record)} />}
+          {hasPermission('product_category:delete') && (
+            <Popconfirm title="Xóa danh mục này?" onConfirm={() => handleDelete(record)}>
+              <Button icon={<DeleteOutlined />} danger />
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
   ];
 
   return (
@@ -119,7 +116,7 @@ export default function ProductCategoryPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('product_category:create') ? openCreateModal : undefined}
         addTooltip="Thêm danh mục"
         onReload={() => {
           loadData();

@@ -37,4 +37,12 @@ public class UserController {
         userService.lock(id);
         return ApiResponse.ok("Da khoa tai khoan", null);
     }
+
+    // Phan quyen chi tiet (trang x hanh dong) - xem PermissionCatalog.java, Users/index.jsx nut
+    // "Phan quyen". GET /api/users da tra ve san truong permissions cua tung user (serialize entity
+    // binh thuong) nen khong can API doc rieng.
+    @PutMapping("/{id}/permissions")
+    public ApiResponse<User> updatePermissions(@PathVariable Long id, @RequestBody List<String> codes) {
+        return ApiResponse.ok("Da cap nhat phan quyen", userService.updatePermissions(id, codes));
+    }
 }
