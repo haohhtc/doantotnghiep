@@ -19,6 +19,37 @@ const WEEKDAY_FIELDS = [
 // Tuan cu the trong nam (ISO week 1-53, tu reset moi nam moi) - xem V40__route_outlet_visit_weeks.sql.
 const WEEK_OPTIONS = Array.from({ length: 53 }, (_, i) => ({ value: i + 1, label: `Tuần ${i + 1}` }));
 
+// Khop y het cong thuc isoWeekNumber ben SalesOrder/index.jsx (dung chung quy uoc tinh tuan ISO).
+function isoWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+}
+
+// "Tuan N trong thang" = tuan ISO chua dung Thu 2 thu N cua thang do (thang nao cung co du 4 Thu 2
+// dau tien nen luon ra du 12 so, khong bi hut o thang nao) - nguoi dung chi can nho "tuan 2 hang
+// thang" thay vi phai tu tra 12-53 con so tuan ISO rieng le. Tinh theo nam HIEN TAI (co the lech 1
+// tuan o vai mep nam khac do thu cua ngay 1/1 doi - chap nhan duoc, da chot voi nguoi dung).
+function weekOfMonthToIsoWeeks(year) {
+  const result = { 1: [], 2: [], 3: [], 4: [] };
+  for (let month = 0; month < 12; month++) {
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    let mondayIndex = 0;
+    for (let day = 1; day <= daysInMonth; day++) {
+      if (new Date(year, month, day).getDay() === 1) {
+        mondayIndex += 1;
+        if (mondayIndex <= 4) {
+          result[mondayIndex].push(isoWeekNumber(new Date(year, month, day)));
+        }
+      }
+    }
+  }
+  return result;
+}
+const WEEK_OF_MONTH_ISO_WEEKS = weekOfMonthToIsoWeeks(new Date().getFullYear());
+
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa khung tuyen
 // va gan/go khach hang.
 
@@ -46,6 +77,28 @@ export default function RouteMastersPage() {
   const [customers, setCustomers] = useState([]);
   const [editingOutlet, setEditingOutlet] = useState(null);
   const [outletForm] = Form.useForm();
+  // Dung de hien dung trang thai tich/bo tich cua 4 checkbox "Tuan trong thang" - tu suy ra tu
+  // chinh gia tri dang co trong o "Tuan trong nam" (khong luu rieng, luon dong bo voi Select ben
+  // duoi), xem WEEK_OF_MONTH_ISO_WEEKS.
+  const currentVisitWeeks = Form.useWatch('visitWeeks', outletForm);
+
+  // Tich/bo tich checkbox "Tuan N trong thang" -> gop (hoac bo) dung 12 tuan ISO tuong ung vao o
+  // "Tuan trong nam" ben duoi (nguoi dung van thay ro + sua tay tiep duoc neu muon).
+  function handleWeekOfMonthToggle(n, checked) {
+    const current = currentVisitWeeks || [];
+    const weeksOfN = WEEK_OF_MONTH_ISO_WEEKS[n];
+    const next = checked
+      ? [...new Set([...current, ...weeksOfN])].sort((a, b) => a - b)
+      : current.filter((w) => !weeksOfN.includes(w));
+    outletForm.setFieldsValue({ visitWeeks: next });
+  }
+
+  // Trong 12 tuan da luu (1 tuan/thang), tuan nao la CUA DUNG THANG HIEN TAI - de hien gon 1-2 so
+  // thay vi het 12 tag (xem comment showAllWeeks).
+  const thisMonthIndex = new Date().getMonth();
+  const thisMonthWeeks = [1, 2, 3, 4]
+    .map((n) => WEEK_OF_MONTH_ISO_WEEKS[n][thisMonthIndex])
+    .filter((w) => (currentVisitWeeks || []).includes(w));
 
   // Modal "Nhan su tuyen" - 2 timeline doc lap Salesman/Manager.
   const [assignModalOpen, setAssignModalOpen] = useState(false);
@@ -432,12 +485,35 @@ export default function RouteMastersPage() {
               </Space>
             </Form.Item>
             <Form.Item
-              label="Lịch ghé thăm - Tuần trong năm"
-              name="visitWeeks"
+              label="Lịch ghé thăm - Tuần trong tháng (tự suy ra tuần trong năm)"
               style={{ marginBottom: 8 }}
-              extra="Chọn các tuần cụ thể trong năm (1-53) - tự reset mỗi năm mới, không lặp lại theo tháng"
             >
-              <Select mode="multiple" options={WEEK_OPTIONS} placeholder="Chọn tuần ghé thăm" showSearch optionFilterProp="label" />
+              <Space wrap>
+                {[1, 2, 3, 4].map((n) => (
+                  <Checkbox
+                    key={n}
+                    checked={WEEK_OF_MONTH_ISO_WEEKS[n].every((w) => (currentVisitWeeks || []).includes(w))}
+                    onChange={(e) => handleWeekOfMonthToggle(n, e.target.checked)}
+                  >
+                    Tuần {n}
+                  </Checkbox>
+                ))}
+              </Space>
+            </Form.Item>
+            <div style={{ marginBottom: 8 }}>
+              <Text strong style={{ display: 'block', marginBottom: 4 }}>Lịch ghé thăm - Tuần trong năm</Text>
+              <Text>
+                {thisMonthWeeks.length > 0
+                  ? `Tháng này (tháng ${thisMonthIndex + 1}): ${thisMonthWeeks.map((w) => `Tuần ${w}`).join(', ')}`
+                  : 'Tháng này: không ghé thăm (trái tuyến)'}
+              </Text>
+            </div>
+            {/* Giu nguyen Form.Item name="visitWeeks" luon mount nhung an han bang CSS (khong con
+                cho sua thu cong qua UI nua, chi dieu khien qua 4 checkbox o tren) - neu unmount
+                hoan toan se mat gia tri field khoi Form (AntD xoa field khoi store khi Form.Item
+                unmount). */}
+            <Form.Item name="visitWeeks" style={{ display: 'none' }}>
+              <Select mode="multiple" options={WEEK_OPTIONS} />
             </Form.Item>
             <Space>
               <Button type="primary" icon={<PlusOutlined />} onClick={handleSubmitOutlet}>
