@@ -36,10 +36,11 @@ public class GoodsReceiptController {
     @GetMapping("/search")
     public ApiResponse<PageResponse<GoodsReceipt>> search(
             @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false) String status,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        var result = goodsReceiptService.search(branchId, search, PageRequest.of(page, size));
+        var result = goodsReceiptService.search(branchId, status, search, PageRequest.of(page, size));
         return ApiResponse.ok(PageResponse.from(result));
     }
 

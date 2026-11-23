@@ -29,15 +29,26 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
     // Dung cho luoi "Hoa don" (phan trang server-side) - loc theo chi nhanh (qua Don hang ban ->
     // kho xuat) + tim theo so hoa don/so don hang, moi nhat truoc. Xem InvoiceController.search().
+    // displayStatus: khop dung 3 trang thai hien thi tren luoi (xem invoiceStatusTag() o frontend
+    // Invoice/index.jsx) - KHAC voi cot i.status that trong DB (chi co ACTIVE/CANCELLED) vi "Tra
+    // hang" la trang thai suy ra tu co ton tai Phieu tra hang DANG hieu luc (CLOSED) gan voi hoa don
+    // nay hay khong, khong phai 1 cot rieng. null/rong = khong loc theo trang thai.
     @org.springframework.data.jpa.repository.Query("""
             select i from Invoice i
             where (:branchId is null or i.salesOrder.warehouse.branch.id = :branchId)
+              and (:displayStatus is null or :displayStatus = ''
+                   or (:displayStatus = 'CANCELLED' and i.status = 'CANCELLED')
+                   or (:displayStatus = 'RETURNED' and i.status <> 'CANCELLED'
+                       and exists (select 1 from SalesReturn r where r.invoice = i and r.status = 'CLOSED'))
+                   or (:displayStatus = 'ACTIVE' and i.status <> 'CANCELLED'
+                       and not exists (select 1 from SalesReturn r where r.invoice = i and r.status = 'CLOSED')))
               and (:search is null or :search = ''
                    or lower(i.invoiceNumber) like lower(concat('%', :search, '%'))
                    or lower(i.salesOrder.docNumber) like lower(concat('%', :search, '%')))
             order by i.id desc
             """)
     Page<Invoice> search(@org.springframework.data.repository.query.Param("branchId") Long branchId,
+                          @org.springframework.data.repository.query.Param("displayStatus") String displayStatus,
                           @org.springframework.data.repository.query.Param("search") String search,
                           Pageable pageable);
 

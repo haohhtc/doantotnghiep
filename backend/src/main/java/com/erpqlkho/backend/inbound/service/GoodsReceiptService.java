@@ -41,8 +41,8 @@ public class GoodsReceiptService {
     }
 
     public org.springframework.data.domain.Page<GoodsReceipt> search(
-            Long branchId, String search, org.springframework.data.domain.Pageable pageable) {
-        return goodsReceiptRepository.search(branchId, search, pageable);
+            Long branchId, String status, String search, org.springframework.data.domain.Pageable pageable) {
+        return goodsReceiptRepository.search(branchId, status, search, pageable);
     }
 
     public GoodsReceipt findById(Long id) {

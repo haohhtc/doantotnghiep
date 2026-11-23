@@ -11,6 +11,11 @@ import { useBranch } from '../../../contexts/BranchContext';
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
+const STATUS_FILTER_OPTIONS = [
+  { value: 'DRAFT', label: 'Nháp' },
+  { value: 'CLOSED', label: 'Đã đóng' },
+];
+
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/xac nhan
 // phieu nhap, SALES_STAFF chi duoc xem (GET).
 
@@ -30,6 +35,7 @@ export default function GoodsReceiptPage() {
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [filterValues, setFilterValues] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editingReceipt, setEditingReceipt] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -65,9 +71,13 @@ export default function GoodsReceiptPage() {
     const pageSize = opts.pageSize ?? pagination.pageSize;
     const search = opts.search !== undefined ? opts.search : debouncedSearch;
     const branchId = opts.branchId !== undefined ? opts.branchId : selectedBranchId;
+    const status = 'status' in opts ? opts.status : filterValues.status;
     axiosClient
       .get('/goods-receipts/search', {
-        params: { page: page - 1, size: pageSize, branchId: branchId || undefined, search: search || undefined },
+        params: {
+          page: page - 1, size: pageSize, branchId: branchId || undefined, search: search || undefined,
+          status: status || undefined,
+        },
       })
       .then(({ data }) => {
         setReceipts(data.data.content);
@@ -89,7 +99,7 @@ export default function GoodsReceiptPage() {
   useEffect(() => {
     loadReceipts({ resetToFirstPage: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBranchId, debouncedSearch]);
+  }, [selectedBranchId, debouncedSearch, filterValues.status]);
 
   function openCreateModal() {
     setEditingReceipt(null);
@@ -272,6 +282,9 @@ export default function GoodsReceiptPage() {
           setDebouncedSearch('');
           loadReceipts({ resetToFirstPage: true, search: '' });
         }}
+        filters={[{ name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS }]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
       />
 
       <Table

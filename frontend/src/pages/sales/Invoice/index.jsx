@@ -24,6 +24,14 @@ function orderTypeTag(type) {
   return <Tag>Đơn Van-Sales</Tag>;
 }
 
+// Khop dung 3 trang thai hien thi cua invoiceStatusTag() - xem InvoiceRepository.search()
+// (param displayStatus) o Backend.
+const STATUS_FILTER_OPTIONS = [
+  { value: 'ACTIVE', label: 'Đã duyệt' },
+  { value: 'RETURNED', label: 'Trả hàng' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
+];
+
 // Danh sach Hoa don - xuat tu 1 Sales Order da CONFIRMED (nut "Xuat hoa don" nam tren trang Sales
 // Order, khong phai o day - xem tonghop.md). Hoa don van co the Huy (V44) - KHONG sua/xoa duoc noi
 // dung, chi doi status - xem backend/.../sales/controller/InvoiceController.java.
@@ -36,6 +44,7 @@ export default function InvoicePage() {
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [filterValues, setFilterValues] = useState({});
   const [detailInvoice, setDetailInvoice] = useState(null);
   const [returningInvoice, setReturningInvoice] = useState(null);
   const [returnReason, setReturnReason] = useState('');
@@ -58,9 +67,13 @@ export default function InvoicePage() {
     const pageSize = opts.pageSize ?? pagination.pageSize;
     const search = opts.search !== undefined ? opts.search : debouncedSearch;
     const branchId = opts.branchId !== undefined ? opts.branchId : selectedBranchId;
+    const displayStatus = 'status' in opts ? opts.status : filterValues.status;
     axiosClient
       .get('/invoices/search', {
-        params: { page: page - 1, size: pageSize, branchId: branchId || undefined, search: search || undefined },
+        params: {
+          page: page - 1, size: pageSize, branchId: branchId || undefined, search: search || undefined,
+          displayStatus: displayStatus || undefined,
+        },
       })
       .then(({ data }) => {
         setInvoices(data.data.content);
@@ -109,7 +122,7 @@ export default function InvoicePage() {
   useEffect(() => {
     loadInvoices({ resetToFirstPage: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBranchId, debouncedSearch]);
+  }, [selectedBranchId, debouncedSearch, filterValues.status]);
 
   function openReturnModal(record) {
     if (record.status === 'CANCELLED') {
@@ -217,6 +230,9 @@ export default function InvoicePage() {
           setDebouncedSearch('');
           loadInvoices({ resetToFirstPage: true, search: '' });
         }}
+        filters={[{ name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS }]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
       />
 
       <Table

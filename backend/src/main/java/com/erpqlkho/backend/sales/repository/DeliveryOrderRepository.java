@@ -32,12 +32,14 @@ public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, Lo
     @org.springframework.data.jpa.repository.Query("""
             select d from DeliveryOrder d
             where (:branchId is null or d.warehouse.branch.id = :branchId)
+              and (:status is null or :status = '' or d.status = :status)
               and (:search is null or :search = ''
                    or lower(d.docNumber) like lower(concat('%', :search, '%'))
                    or lower(d.salesOrder.docNumber) like lower(concat('%', :search, '%')))
             order by d.id desc
             """)
     Page<DeliveryOrder> search(@org.springframework.data.repository.query.Param("branchId") Long branchId,
+                                @org.springframework.data.repository.query.Param("status") String status,
                                 @org.springframework.data.repository.query.Param("search") String search,
                                 Pageable pageable);
 

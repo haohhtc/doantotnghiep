@@ -15,6 +15,11 @@ function statusTag(status) {
   return <Tag color="gold">Nháp</Tag>;
 }
 
+const STATUS_FILTER_OPTIONS = [
+  { value: 'DRAFT', label: 'Nháp' },
+  { value: 'CONVERTED', label: 'Đã chuyển thành đơn hàng' },
+];
+
 // Yeu cau ban hang (SR) - buoc ghi tam TRUOC Don hang ban (SO), dung theo dung chuoi DMS goc
 // SR -> SO -> DO -> Xac nhan DO (xem backend/.../sales/service/SalesRequestService.java). Khong
 // co kho xuat (chua chot luc ghi tam), khong dung gi den ton kho. Chuyen thanh Don hang ban qua
@@ -28,6 +33,7 @@ export default function SalesRequestPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [filterValues, setFilterValues] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -93,6 +99,7 @@ export default function SalesRequestPage() {
   // trang chung tu khac (dang loc theo warehouse.branch).
   const filtered = requests.filter((r) => {
     if (selectedBranchId && r.customer?.branch?.id !== selectedBranchId) return false;
+    if (filterValues.status && r.status !== filterValues.status) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return r.docNumber.toLowerCase().includes(keyword) || (r.customer?.name || '').toLowerCase().includes(keyword);
@@ -282,6 +289,9 @@ export default function SalesRequestPage() {
           loadData();
           setSearchText('');
         }}
+        filters={[{ name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS }]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
       />
 
       <Table rowKey="id" columns={columns} dataSource={filtered} loading={loading} />

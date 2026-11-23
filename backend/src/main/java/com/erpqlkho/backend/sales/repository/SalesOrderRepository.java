@@ -13,6 +13,8 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
             select so from SalesOrder so
             where (:branchId is null or so.warehouse.branch.id = :branchId)
               and (:salesmanId is null or so.salesman.id = :salesmanId)
+              and (:status is null or :status = '' or so.status = :status)
+              and (:orderType is null or :orderType = '' or so.orderType = :orderType)
               and (:search is null or :search = ''
                    or lower(so.docNumber) like lower(concat('%', :search, '%'))
                    or lower(so.customer.name) like lower(concat('%', :search, '%')))
@@ -20,6 +22,8 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
             """)
     Page<SalesOrder> search(@org.springframework.data.repository.query.Param("branchId") Long branchId,
                              @org.springframework.data.repository.query.Param("salesmanId") Long salesmanId,
+                             @org.springframework.data.repository.query.Param("status") String status,
+                             @org.springframework.data.repository.query.Param("orderType") String orderType,
                              @org.springframework.data.repository.query.Param("search") String search,
                              Pageable pageable);
 

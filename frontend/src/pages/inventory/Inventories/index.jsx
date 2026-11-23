@@ -21,6 +21,8 @@ const { Title, Text } = Typography;
 
 // Khop voi warehouse_type that trong DB (xem V2__master_data.sql, giong pages/warehouses).
 const WHSE_TYPE_LABELS = { MAIN: 'Kho chính', VAN: 'Kho xe tải', DAMAGE: 'Kho hàng lỗi', CONSIGNMENT: 'Kho ký gửi' };
+// Trang nay khong co "Trang thai" (khong phai chung tu) - loc theo Loai kho thay the.
+const WAREHOUSE_TYPE_FILTER_OPTIONS = Object.entries(WHSE_TYPE_LABELS).map(([value, label]) => ({ value, label }));
 
 // Trang nay da noi API that - xem backend/.../inventory/controller/StockController.java.
 // Loc theo Chi nhanh dang chon o Header (BranchSelector): chi hien SP thuoc chi nhanh do (theo
@@ -38,6 +40,7 @@ export default function InventoriesPage() {
   const [pendingOrders, setPendingOrders] = useState([]);
   const [closedVanWarehouseIdByOrderId, setClosedVanWarehouseIdByOrderId] = useState({});
   const [searchText, setSearchText] = useState('');
+  const [filterValues, setFilterValues] = useState({});
   const [loading, setLoading] = useState(true);
 
   function loadData() {
@@ -159,6 +162,7 @@ export default function InventoriesPage() {
   });
 
   const filteredRows = rows.filter((r) => {
+    if (filterValues.warehouseType && r.warehouse.warehouseType !== filterValues.warehouseType) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return r.product.code.toLowerCase().includes(keyword) || r.product.name.toLowerCase().includes(keyword);
@@ -194,6 +198,9 @@ export default function InventoriesPage() {
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo mã hoặc tên sản phẩm..."
         onReload={loadData}
+        filters={[{ name: 'warehouseType', label: 'Loại kho', options: WAREHOUSE_TYPE_FILTER_OPTIONS }]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
       />
 
       <Table rowKey="key" columns={columns} dataSource={filteredRows} loading={loading || branchLoading} />

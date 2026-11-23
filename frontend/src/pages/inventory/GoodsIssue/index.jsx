@@ -11,6 +11,11 @@ import { useBranch } from '../../../contexts/BranchContext';
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
+const STATUS_FILTER_OPTIONS = [
+  { value: 'DRAFT', label: 'Nháp' },
+  { value: 'CLOSED', label: 'Đã xuất' },
+];
+
 const REASON_OPTIONS = [
   { value: 'SALE', label: 'Xuất bán' },
   { value: 'DAMAGE', label: 'Xuất hủy / hàng hỏng' },
@@ -36,6 +41,7 @@ export default function GoodsIssuePage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [filterValues, setFilterValues] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editingIssue, setEditingIssue] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -74,6 +80,7 @@ export default function GoodsIssuePage() {
 
   const filteredIssues = issues.filter((i) => {
     if (selectedBranchId && i.warehouse?.branch?.id !== selectedBranchId) return false;
+    if (filterValues.status && i.status !== filterValues.status) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return i.docNumber.toLowerCase().includes(keyword) || (i.warehouse?.name || '').toLowerCase().includes(keyword);
@@ -229,6 +236,9 @@ export default function GoodsIssuePage() {
           loadData();
           setSearchText('');
         }}
+        filters={[{ name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS }]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
       />
 
       <Table rowKey="id" columns={columns} dataSource={filteredIssues} loading={loading} />

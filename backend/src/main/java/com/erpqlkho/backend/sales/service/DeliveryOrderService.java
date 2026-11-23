@@ -62,8 +62,8 @@ public class DeliveryOrderService {
     }
 
     public org.springframework.data.domain.Page<DeliveryOrder> search(
-            Long branchId, String search, org.springframework.data.domain.Pageable pageable) {
-        return deliveryOrderRepository.search(branchId, search, pageable);
+            Long branchId, String status, String search, org.springframework.data.domain.Pageable pageable) {
+        return deliveryOrderRepository.search(branchId, status, search, pageable);
     }
 
     // Man hinh "Phieu in nhanh" - xem DeliveryOrderRepository.searchForPrint. printStatus:

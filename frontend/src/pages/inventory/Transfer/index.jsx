@@ -26,6 +26,12 @@ function statusTag(status) {
   return <Tag color="gold">Nháp</Tag>;
 }
 
+const STATUS_FILTER_OPTIONS = [
+  { value: 'DRAFT', label: 'Nháp' },
+  { value: 'IN_TRANSIT', label: 'Đang vận chuyển' },
+  { value: 'CLOSED', label: 'Đã nhận hàng' },
+];
+
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/xac nhan.
 
 // Buoc 1/2 cua Dieu chuyen kho (giong DMS that - man hinh rieng voi buoc Xac nhan di chuyen).
@@ -42,6 +48,7 @@ export default function TransferPage() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [filterValues, setFilterValues] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTransfer, setEditingTransfer] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -88,6 +95,7 @@ export default function TransferPage() {
   // khong loc branch, dung vi ban chat la chuyen GIUA 2 chi nhanh).
   const filteredTransfers = transfers.filter((t) => {
     if (selectedBranchId && t.fromWarehouse?.branch?.id !== selectedBranchId) return false;
+    if (filterValues.status && t.status !== filterValues.status) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return t.docNumber.toLowerCase().includes(keyword);
@@ -247,6 +255,9 @@ export default function TransferPage() {
           loadData();
           setSearchText('');
         }}
+        filters={[{ name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS }]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
       />
 
       <Table rowKey="id" columns={columns} dataSource={filteredTransfers} loading={loading} />

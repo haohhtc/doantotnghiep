@@ -10,6 +10,11 @@ import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
 
+const STATUS_FILTER_OPTIONS = [
+  { value: 'DRAFT', label: 'Nháp' },
+  { value: 'APPROVED', label: 'Đã duyệt' },
+];
+
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/duyet
 // dot kiem ke, SALES_STAFF chi duoc xem (GET).
 
@@ -26,6 +31,7 @@ export default function StockCountingPage() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [filterValues, setFilterValues] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCount, setEditingCount] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -67,6 +73,7 @@ export default function StockCountingPage() {
 
   const filteredCounts = counts.filter((c) => {
     if (selectedBranchId && c.warehouse?.branch?.id !== selectedBranchId) return false;
+    if (filterValues.status && c.status !== filterValues.status) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return c.code.toLowerCase().includes(keyword);
@@ -233,6 +240,9 @@ export default function StockCountingPage() {
           loadData();
           setSearchText('');
         }}
+        filters={[{ name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS }]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
       />
 
       <Table rowKey="id" columns={columns} dataSource={filteredCounts} loading={loading} />

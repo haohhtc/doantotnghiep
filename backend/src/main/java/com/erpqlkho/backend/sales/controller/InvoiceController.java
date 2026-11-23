@@ -62,10 +62,11 @@ public class InvoiceController {
     @GetMapping("/search")
     public ApiResponse<PageResponse<Invoice>> search(
             @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false) String displayStatus,
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        var result = invoiceService.search(branchId, search, PageRequest.of(page, size));
+        var result = invoiceService.search(branchId, displayStatus, search, PageRequest.of(page, size));
         return ApiResponse.ok(PageResponse.from(result));
     }
 

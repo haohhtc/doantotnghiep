@@ -30,6 +30,19 @@ function statusTag(status) {
   return <Tag color="gold">Chờ xác nhận</Tag>;
 }
 
+// Dung rieng cho "Loc nang cao" (TableToolbar) - khong disabled STANDARD nhu ORDER_TYPE_OPTIONS
+// (cai do chi chan TAO MOI tren web, van can loc duoc don Van-Sales CU da co san).
+const STATUS_FILTER_OPTIONS = [
+  { value: 'PENDING', label: 'Chờ xác nhận' },
+  { value: 'CONFIRMED', label: 'Đã duyệt' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
+];
+const ORDER_TYPE_FILTER_OPTIONS = [
+  { value: 'PRE_ORDER', label: 'Pre-order' },
+  { value: 'STANDARD', label: 'Đơn Van-Sales' },
+  { value: 'SAMPLE', label: 'Hàng mẫu' },
+];
+
 // Tra "Loai ghe tham" (Dung tuyen/Trai tuyen) tu lich route_master_outlet cua khach hang doi
 // chieu voi ngay dat hang - Thu + Tuan cu the trong nam (ISO week, tu reset moi nam moi, xem
 // V40__route_outlet_visit_weeks.sql) - xem tonghop.md Nhom 6.
@@ -69,6 +82,7 @@ export default function SalesOrderPage() {
   // searchText go debounce 400ms truoc khi goi API (tranh goi lien tuc moi phim go).
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [filterValues, setFilterValues] = useState({});
   // Modal "Nguoi yeu cau" co luoi phan trang RIENG (khong dung chung "orders" cua luoi chinh - o
   // do chi la 1 trang dang xem, khong phai toan bo don) - xem loadRequesterOrders.
   const [requesterOrders, setRequesterOrders] = useState([]);
@@ -209,9 +223,14 @@ export default function SalesOrderPage() {
     const pageSize = opts.pageSize ?? pagination.pageSize;
     const search = opts.search !== undefined ? opts.search : debouncedSearch;
     const branchId = opts.branchId !== undefined ? opts.branchId : selectedBranchId;
+    const status = 'status' in opts ? opts.status : filterValues.status;
+    const orderType = 'orderType' in opts ? opts.orderType : filterValues.orderType;
     axiosClient
       .get('/sales-orders/search', {
-        params: { page: page - 1, size: pageSize, branchId: branchId || undefined, search: search || undefined },
+        params: {
+          page: page - 1, size: pageSize, branchId: branchId || undefined, search: search || undefined,
+          status: status || undefined, orderType: orderType || undefined,
+        },
       })
       .then(({ data }) => {
         setOrders(data.data.content);
@@ -258,7 +277,7 @@ export default function SalesOrderPage() {
     loadOrders({ resetToFirstPage: true });
     setSelectedOrderIds([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBranchId, debouncedSearch]);
+  }, [selectedBranchId, debouncedSearch, filterValues.status, filterValues.orderType]);
 
   useEffect(() => {
     if (!selectedBranchId) { setBranchProducts([]); return; }
@@ -570,6 +589,12 @@ export default function SalesOrderPage() {
           setSelectedOrderIds([]);
           loadOrders({ resetToFirstPage: true, search: '' });
         }}
+        filters={[
+          { name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS },
+          { name: 'orderType', label: 'Loại đơn', options: ORDER_TYPE_FILTER_OPTIONS },
+        ]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
         betweenReloadExport={
           <Tooltip title="Người yêu cầu / tạo đơn">
             <Button icon={<UserOutlined />} onClick={() => setRequesterModalOpen(true)} />

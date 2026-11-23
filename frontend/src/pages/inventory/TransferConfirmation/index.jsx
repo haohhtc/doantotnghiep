@@ -14,6 +14,12 @@ function statusTag(status) {
   return <Tag color="gold">Nháp</Tag>;
 }
 
+// Trang nay da tu loc bo DRAFT (xem loadData) nen chi con 2 trang thai thuc su hien thi.
+const STATUS_FILTER_OPTIONS = [
+  { value: 'IN_TRANSIT', label: 'Đang vận chuyển' },
+  { value: 'CLOSED', label: 'Đã nhận hàng' },
+];
+
 // Khop rule Backend o SecurityConfig: chi ADMIN + WAREHOUSE_MANAGER duoc xac nhan nhan hang.
 
 // Buoc 2/2 cua Dieu chuyen kho (giong DMS that - man hinh "Inventory Transfer Confirmation"
@@ -26,6 +32,7 @@ export default function TransferConfirmationPage() {
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [filterValues, setFilterValues] = useState({});
 
   function loadData() {
     setLoading(true);
@@ -44,6 +51,7 @@ export default function TransferConfirmationPage() {
   // chon o Header (nguoc voi trang /inventory/transfer loc theo Kho di).
   const filteredTransfers = transfers.filter((t) => {
     if (selectedBranchId && t.toWarehouse?.branch?.id !== selectedBranchId) return false;
+    if (filterValues.status && t.status !== filterValues.status) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return t.docNumber.toLowerCase().includes(keyword);
@@ -101,6 +109,9 @@ export default function TransferConfirmationPage() {
           loadData();
           setSearchText('');
         }}
+        filters={[{ name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS }]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
       />
 
       <Table rowKey="id" columns={columns} dataSource={filteredTransfers} loading={loading} />

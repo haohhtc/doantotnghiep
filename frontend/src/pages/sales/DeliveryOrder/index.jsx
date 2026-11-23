@@ -15,6 +15,12 @@ function statusTag(status) {
   return <Tag color="gold">Chờ giao</Tag>;
 }
 
+const STATUS_FILTER_OPTIONS = [
+  { value: 'DRAFT', label: 'Chờ giao' },
+  { value: 'CLOSED', label: 'Đã giao (đã xuất kho)' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
+];
+
 // Khop y het nhan cua ORDER_TYPE_OPTIONS ben Don hang ban (xem pages/sales/SalesOrder/index.jsx).
 function orderTypeLabel(type) {
   if (type === 'PRE_ORDER') return 'Pre-order (đặt trước giao sau)';
@@ -40,6 +46,7 @@ export default function DeliveryOrderPage() {
   const [deliveryOrders, setDeliveryOrders] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20, total: 0 });
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [filterValues, setFilterValues] = useState({});
   // invoices: CHI cua cac Don giao hang dang hien tren trang (dung de tinh "con lai chua xuat hoa
   // don" cho tung dong trong luoi) - tai lai moi khi doi trang, xem loadInvoicesForPage.
   const [invoices, setInvoices] = useState([]);
@@ -156,9 +163,13 @@ export default function DeliveryOrderPage() {
     const pageSize = opts.pageSize ?? pagination.pageSize;
     const search = opts.search !== undefined ? opts.search : debouncedSearch;
     const branchId = opts.branchId !== undefined ? opts.branchId : selectedBranchId;
+    const status = 'status' in opts ? opts.status : filterValues.status;
     axiosClient
       .get('/delivery-orders/search', {
-        params: { page: page - 1, size: pageSize, branchId: branchId || undefined, search: search || undefined },
+        params: {
+          page: page - 1, size: pageSize, branchId: branchId || undefined, search: search || undefined,
+          status: status || undefined,
+        },
       })
       .then(({ data }) => {
         const content = data.data.content;
@@ -209,7 +220,7 @@ export default function DeliveryOrderPage() {
   useEffect(() => {
     loadDeliveryOrders({ resetToFirstPage: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBranchId, debouncedSearch]);
+  }, [selectedBranchId, debouncedSearch, filterValues.status]);
 
   function loadConfirmedByOrders(page = 1, pageSize = confirmedByPagination.pageSize) {
     setConfirmedByLoading(true);
@@ -564,6 +575,9 @@ export default function DeliveryOrderPage() {
           setDebouncedSearch('');
           refreshAfterMutation({ resetToFirstPage: true, search: '' });
         }}
+        filters={[{ name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS }]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
         betweenReloadExport={
           <Tooltip title="Người xác nhận giao hàng">
             <Button icon={<UserOutlined />} onClick={() => setConfirmedByModalOpen(true)} />

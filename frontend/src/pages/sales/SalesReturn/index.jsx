@@ -17,6 +17,12 @@ function statusTag(status) {
   return <Tag color="gold">Nháp</Tag>;
 }
 
+const STATUS_FILTER_OPTIONS = [
+  { value: 'DRAFT', label: 'Nháp' },
+  { value: 'CLOSED', label: 'Đã duyệt' },
+  { value: 'CANCELLED', label: 'Đã hủy' },
+];
+
 // Phieu tra hang cua khach (gop Returns + Return Request thanh 1 buoc) - xem
 // backend/.../sales/controller/SalesReturnController.java. Duyet (DRAFT -> CLOSED) se cong lai
 // ton kho qua StockService, KHONG tru cong no (project chua co khai niem cong no khach hang).
@@ -30,6 +36,7 @@ export default function SalesReturnPage() {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [filterValues, setFilterValues] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editingReturn, setEditingReturn] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -90,6 +97,7 @@ export default function SalesReturnPage() {
 
   const filteredReturns = returns.filter((r) => {
     if (selectedBranchId && r.warehouse?.branch?.id !== selectedBranchId) return false;
+    if (filterValues.status && r.status !== filterValues.status) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return r.docNumber.toLowerCase().includes(keyword) || (r.salesman?.fullName || '').toLowerCase().includes(keyword);
@@ -293,6 +301,9 @@ export default function SalesReturnPage() {
           loadData();
           setSearchText('');
         }}
+        filters={[{ name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS }]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
       />
 
       <Table rowKey="id" columns={columns} dataSource={filteredReturns} loading={loading} />

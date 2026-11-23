@@ -12,6 +12,11 @@ import { fetchUomOptions, defaultUomId } from '../../../utils/uom';
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
+const STATUS_FILTER_OPTIONS = [
+  { value: 'DRAFT', label: 'Nháp' },
+  { value: 'CLOSED', label: 'Đã nhập' },
+];
+
 const REASON_OPTIONS = [
   { value: 'ADJUST', label: 'Điều chỉnh tăng sau kiểm kê' },
   { value: 'FOUND', label: 'Phát hiện thừa / thu hồi' },
@@ -38,6 +43,7 @@ export default function StockReceiptPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [filterValues, setFilterValues] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editingReceipt, setEditingReceipt] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -77,6 +83,7 @@ export default function StockReceiptPage() {
 
   const filteredReceipts = receipts.filter((r) => {
     if (selectedBranchId && r.warehouse?.branch?.id !== selectedBranchId) return false;
+    if (filterValues.status && r.status !== filterValues.status) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return r.docNumber.toLowerCase().includes(keyword) || (r.warehouse?.name || '').toLowerCase().includes(keyword);
@@ -250,6 +257,9 @@ export default function StockReceiptPage() {
           loadData();
           setSearchText('');
         }}
+        filters={[{ name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS }]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
       />
 
       <Table rowKey="id" columns={columns} dataSource={filteredReceipts} loading={loading} />

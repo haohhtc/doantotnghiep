@@ -17,6 +17,12 @@ function statusTag(status) {
   return <Tag color="gold">Mở</Tag>;
 }
 
+const STATUS_FILTER_OPTIONS = [
+  { value: 'OPEN', label: 'Mở' },
+  { value: 'PENDING_APPROVAL', label: 'Chờ duyệt' },
+  { value: 'CLOSED', label: 'Đã đóng' },
+];
+
 // Yeu cau mua hang (Purchase Request) - buoc ghi truoc Phieu nhap hang, dung theo dung pattern cua
 // Yeu cau ban hang (SalesRequest) ben Sales: Mo (sua duoc) -> Gui duyet -> Cho duyet (khoa sua) ->
 // Tao phieu nhap hang -> Da dong (da sinh 1 Phieu nhap hang DRAFT that o trang Nhap hang). Chua dung
@@ -31,6 +37,7 @@ export default function PurchaseRequestPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [filterValues, setFilterValues] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState(null);
   const [detailRows, setDetailRows] = useState([]);
@@ -81,6 +88,7 @@ export default function PurchaseRequestPage() {
 
   const filteredRequests = requests.filter((r) => {
     if (selectedBranchId && r.warehouse?.branch?.id !== selectedBranchId) return false;
+    if (filterValues.status && r.status !== filterValues.status) return false;
     const keyword = searchText.trim().toLowerCase();
     if (!keyword) return true;
     return r.docNumber.toLowerCase().includes(keyword) || (r.supplier?.name || '').toLowerCase().includes(keyword);
@@ -306,6 +314,9 @@ export default function PurchaseRequestPage() {
           loadData();
           setSearchText('');
         }}
+        filters={[{ name: 'status', label: 'Trạng thái', options: STATUS_FILTER_OPTIONS }]}
+        filterValues={filterValues}
+        onFilterChange={setFilterValues}
       />
 
       <Table rowKey="id" columns={columns} dataSource={filteredRequests} loading={loading} />

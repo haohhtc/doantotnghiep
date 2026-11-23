@@ -13,12 +13,14 @@ public interface GoodsReceiptRepository extends JpaRepository<GoodsReceipt, Long
     @org.springframework.data.jpa.repository.Query("""
             select g from GoodsReceipt g
             where (:branchId is null or g.warehouse.branch.id = :branchId)
+              and (:status is null or :status = '' or g.status = :status)
               and (:search is null or :search = ''
                    or lower(g.docNumber) like lower(concat('%', :search, '%'))
                    or lower(g.supplier.name) like lower(concat('%', :search, '%')))
             order by g.id desc
             """)
     Page<GoodsReceipt> search(@org.springframework.data.repository.query.Param("branchId") Long branchId,
+                               @org.springframework.data.repository.query.Param("status") String status,
                                @org.springframework.data.repository.query.Param("search") String search,
                                Pageable pageable);
 }

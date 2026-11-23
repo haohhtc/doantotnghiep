@@ -76,8 +76,8 @@ public class InvoiceService {
     }
 
     public org.springframework.data.domain.Page<Invoice> search(
-            Long branchId, String search, org.springframework.data.domain.Pageable pageable) {
-        return invoiceRepository.search(branchId, search, pageable);
+            Long branchId, String displayStatus, String search, org.springframework.data.domain.Pageable pageable) {
+        return invoiceRepository.search(branchId, displayStatus, search, pageable);
     }
 
     public Invoice findById(Long id) {
