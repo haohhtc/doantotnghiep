@@ -57,6 +57,22 @@ public class DeliveryOrderController {
         return ApiResponse.ok(PageResponse.from(result));
     }
 
+    // Dung rieng cho man hinh "Phieu in nhanh" (Sales Order / Picking List / Delivery Note Printing)
+    // - loc server-side theo khoang ngay/loai don/trang thai in, tranh tai toan bo bang nhu
+    // GetMapping("") (hang nghin don, moi don long rat nhieu quan he EAGER - xem repository).
+    @GetMapping("/print-search")
+    public ApiResponse<PageResponse<DeliveryOrder>> printSearch(
+            @RequestParam(required = false) Long branchId,
+            @RequestParam(required = false) java.time.LocalDate fromDate,
+            @RequestParam(required = false) java.time.LocalDate toDate,
+            @RequestParam(required = false) String orderType,
+            @RequestParam(defaultValue = "ALL") String printStatus,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "500") int size) {
+        var result = deliveryOrderService.searchForPrint(branchId, fromDate, toDate, orderType, printStatus, PageRequest.of(page, size));
+        return ApiResponse.ok(PageResponse.from(result));
+    }
+
     @GetMapping("/{id}")
     public ApiResponse<DeliveryOrder> findById(@PathVariable Long id) {
         return ApiResponse.ok(deliveryOrderService.findById(id));

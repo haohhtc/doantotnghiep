@@ -12,10 +12,12 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -68,4 +70,13 @@ public class DeliveryOrder extends BaseEntity {
     @OneToMany(mappedBy = "deliveryOrder", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @OrderBy("id ASC")
     private List<DeliveryOrderItem> items = new ArrayList<>();
+
+    // So lan da TAI phieu in xuong + lan tai gan nhat - KHONG luu cot rieng nua (V56), tinh tu bang
+    // printed_note (doc_type=DELIVERY_NOTE) va gan vao day sau khi query, xem
+    // DeliveryOrderService.applyPrintSummary().
+    @Transient
+    private Integer printCount = 0;
+
+    @Transient
+    private LocalDateTime lastPrintedAt;
 }

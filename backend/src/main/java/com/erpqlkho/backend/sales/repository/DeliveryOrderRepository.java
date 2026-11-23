@@ -41,6 +41,51 @@ public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, Lo
                                 @org.springframework.data.repository.query.Param("search") String search,
                                 Pageable pageable);
 
+    // Dung cho man hinh "Phieu in nhanh" (Sales Order / Picking List / Delivery Note Printing) -
+    // loc server-side theo khoang Ngay giao (docDate) + Loai don + Trang thai in, TRANH tai toan bo
+    // bang (vai nghin don, moi don long nhieu quan he EAGER) nhu /delivery-orders (khong phan
+    // trang/loc) vi qua nang cho man hinh nay.
+    //
+    // printStatus: ALL = loc theo docDate (ngay giao) nhu binh thuong, bat ke da in hay chua.
+    // NOT_PRINTED = loc theo docDate NHU TREN, VA docNumber chua tung xuat hien trong printed_note
+    // (doc_type=DELIVERY_NOTE). PRINTED = BO QUA docDate, thay vao do chi lay don co docNumber nam
+    // trong printed_note VA ngay TAI (printedAt) nam trong khoang fromDateTime/toDateTime - vi khi
+    // xem "Da in" nguoi dung quan tam ngay in, khong phai ngay giao (xem PrintedNote/index.jsx).
+    @org.springframework.data.jpa.repository.Query("""
+            select d from DeliveryOrder d
+            where d.status <> 'CANCELLED'
+              and (:branchId is null or d.warehouse.branch.id = :branchId)
+              and (:orderType is null or d.salesOrder.orderType = :orderType)
+              and (
+                    (:printStatus = 'ALL'
+                        and (:fromDate is null or d.docDate >= :fromDate)
+                        and (:toDate is null or d.docDate <= :toDate))
+                 or (:printStatus = 'NOT_PRINTED'
+                        and (:fromDate is null or d.docDate >= :fromDate)
+                        and (:toDate is null or d.docDate <= :toDate)
+                        and d.docNumber not in (
+                            select p.docNumber from com.erpqlkho.backend.printing.entity.PrintedNote p
+                            where p.docType = 'DELIVERY_NOTE'
+                        ))
+                 or (:printStatus = 'PRINTED'
+                        and d.docNumber in (
+                            select p.docNumber from com.erpqlkho.backend.printing.entity.PrintedNote p
+                            where p.docType = 'DELIVERY_NOTE'
+                              and (:fromDateTime is null or p.printedAt >= :fromDateTime)
+                              and (:toDateTime is null or p.printedAt <= :toDateTime)
+                        ))
+                  )
+            order by d.docDate desc, d.id desc
+            """)
+    Page<DeliveryOrder> searchForPrint(@org.springframework.data.repository.query.Param("branchId") Long branchId,
+                                        @org.springframework.data.repository.query.Param("fromDate") java.time.LocalDate fromDate,
+                                        @org.springframework.data.repository.query.Param("toDate") java.time.LocalDate toDate,
+                                        @org.springframework.data.repository.query.Param("fromDateTime") java.time.LocalDateTime fromDateTime,
+                                        @org.springframework.data.repository.query.Param("toDateTime") java.time.LocalDateTime toDateTime,
+                                        @org.springframework.data.repository.query.Param("orderType") String orderType,
+                                        @org.springframework.data.repository.query.Param("printStatus") String printStatus,
+                                        Pageable pageable);
+
     // V49: 1 Don hang ban co the co nhieu Don giao hang (giao nhieu dot) nen tra ve List, khong con
     // la "1 don giao duy nhat cua don hang" nhu truoc (xem DeliveryOrderService.create() tinh "con
     // lai bao nhieu chua giao", InvoiceService tim dot giao can xuat hoa don).

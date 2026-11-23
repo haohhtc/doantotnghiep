@@ -47,3 +47,107 @@ input::-webkit-strong-password-auto-fill-button {
   position: absolute;
   right: 0;
 }
+
+/* In Phieu giao hang/Phieu xuat kho tong (pages/sales/PrintedNote) - #print-area duoc render qua
+   React Portal thang vao document.body (SIBLING cua #root, xem printPortalEl trong component),
+   khong phai con chau cua #root. Khi KHONG in, #print-area luon an (noi dung chi duoc render tam
+   thoi luc bam nut In, xem handlePrint). */
+#print-area {
+  display: none;
+}
+
+@media print {
+  /* An HAN #root (toan bo dashboard: sidebar, bang, bo loc...) - display:none that su KHONG con
+     chiem cho trong layout, khac voi ky thuat "visibility:hidden cho body *" trung truoc day: cach
+     cu van de nguyen chieu cao that cua ca trang dashboard (chi an mat, khong an cho) nen trinh
+     duyet van phan trang theo chieu cao do, sinh du trang trang (vd 1 don 1 trang noi dung nhung
+     preview hien toi 3 trang). Vi #print-area la sibling cua #root (khong phai con chau), an #root
+     khong anh huong gi den #print-area. */
+  #root {
+    display: none !important;
+  }
+  #print-area {
+    display: block;
+  }
+  .print-page {
+    page-break-after: always;
+  }
+  .print-page:last-child {
+    page-break-after: auto;
+  }
+}
+
+.print-header {
+  margin-bottom: 12px;
+}
+.print-header-company {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.print-title {
+  text-align: center;
+  margin: 8px 0;
+}
+.print-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+.print-subtitle {
+  font-size: 12px;
+  font-style: italic;
+  margin-bottom: 8px;
+}
+.print-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.print-table th,
+.print-table td {
+  border: 1px solid #000;
+  padding: 4px 8px;
+}
+.print-totals {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 8px 0;
+}
+.print-words {
+  font-size: 13px;
+  font-style: italic;
+  margin-bottom: 12px;
+}
+.print-table tfoot td {
+  font-weight: 700;
+}
+.print-signatures {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 40px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+.print-sign-hint {
+  font-weight: 400;
+  font-style: italic;
+  font-size: 12px;
+  margin-top: 60px;
+}
+
+/* Man hinh "Phieu in nhanh" - thu gon khoang cach giua cac truong loc (antd mac dinh
+   margin-bottom: 24px cho moi Form.Item, qua rong khien phai cuon moi thay luoi). */
+.printed-note-filter-form .ant-form-item {
+  margin-bottom: 8px;
+}
+.printed-note-filter-form .ant-form-item-label {
+  padding-bottom: 2px;
+}
+.printed-note-filter-card .ant-card-body {
+  padding-top: 10px;
+  padding-bottom: 4px;
+}
