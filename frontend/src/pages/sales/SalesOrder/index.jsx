@@ -486,15 +486,16 @@ export default function SalesOrderPage() {
   const totalAmount = subtotalAmount + estimatedTax;
 
   const columns = [
-    { title: 'Số đơn', dataIndex: 'docNumber', key: 'docNumber' },
-    { title: 'Ngày đặt hàng', dataIndex: 'docDate', key: 'docDate' },
-    { title: 'Khách hàng', key: 'customer', render: (_, o) => o.customer?.name },
-    { title: 'Loại đơn', dataIndex: 'orderType', key: 'orderType', render: (t) => orderTypeTag(t) },
-    { title: 'Yêu cầu gốc', key: 'salesRequest', render: (_, o) => o.salesRequest?.docNumber || '-' },
-    { title: 'Kho xuất', key: 'warehouse', render: (_, o) => o.warehouse?.name },
+    { title: 'Số đơn', dataIndex: 'docNumber', key: 'docNumber', width: 120, fixed: 'left' },
+    { title: 'Ngày đặt hàng', dataIndex: 'docDate', key: 'docDate', width: 110 },
+    { title: 'Khách hàng', key: 'customer', width: 160, ellipsis: true, render: (_, o) => o.customer?.name },
+    { title: 'Loại đơn', dataIndex: 'orderType', key: 'orderType', width: 110, render: (t) => orderTypeTag(t) },
+    { title: 'Yêu cầu gốc', key: 'salesRequest', width: 110, render: (_, o) => o.salesRequest?.docNumber || '-' },
+    { title: 'Kho xuất', key: 'warehouse', width: 180, ellipsis: true, render: (_, o) => o.warehouse?.name },
     {
       title: 'Ngày giao',
       key: 'deliveryDate',
+      width: 110,
       // PRE_ORDER: deliveryDate la ngay hen giao sau, luu rieng. STANDARD/SAMPLE: ban kiem giao
       // ngay (Van-Sales) nen khong co deliveryDate rieng trong DB - ngay giao chinh la ngay dat
       // hang, khong phai "thieu du lieu".
@@ -504,12 +505,16 @@ export default function SalesOrderPage() {
       title: 'Tổng tiền',
       dataIndex: 'totalAmount',
       key: 'totalAmount',
+      width: 140,
+      align: 'right',
       render: (v) => Number(v)?.toLocaleString('vi-VN') + ' đ',
     },
-    { title: 'Trạng thái', dataIndex: 'status', key: 'status', render: (status) => statusTag(status) },
+    { title: 'Trạng thái', dataIndex: 'status', key: 'status', width: 110, render: (status) => statusTag(status) },
     {
       title: 'Thao tác',
       key: 'actions',
+      width: 160,
+      fixed: 'right',
       render: (_, record) => {
         const isPending = record.status === 'PENDING';
         return (
@@ -628,6 +633,7 @@ export default function SalesOrderPage() {
         columns={columns}
         dataSource={orders}
         loading={loading}
+        scroll={{ x: 'max-content' }}
         pagination={{
           current: pagination.current,
           pageSize: pagination.pageSize,
