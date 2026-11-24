@@ -128,10 +128,15 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/purchase-returns/*").hasAuthority("PERM_purchase_return:edit")
                         .requestMatchers(HttpMethod.DELETE, "/api/purchase-returns/*").hasAuthority("PERM_purchase_return:delete")
 
+                        // ===================== MUA HANG (Yeu cau mua hang) =====================
+                        .requestMatchers(HttpMethod.POST, "/api/purchase-requests/*/submit").hasAuthority("PERM_purchase_request:confirm")
+                        .requestMatchers(HttpMethod.POST, "/api/purchase-requests/*/convert-to-goods-receipt").hasAuthority("PERM_purchase_request:convert")
+                        .requestMatchers(HttpMethod.GET, "/api/purchase-requests/**").hasAuthority("PERM_purchase_request:view")
+                        .requestMatchers(HttpMethod.POST, "/api/purchase-requests").hasAuthority("PERM_purchase_request:create")
+                        .requestMatchers(HttpMethod.PUT, "/api/purchase-requests/*").hasAuthority("PERM_purchase_request:edit")
+                        .requestMatchers(HttpMethod.DELETE, "/api/purchase-requests/*").hasAuthority("PERM_purchase_request:delete")
+
                         // ===================== KHO =====================
-                        // Luu y: Yeu cau mua hang (/api/purchase-requests/**) KHONG thuoc 7 nhom uu
-                        // tien dot nay - van giu nguyen luat Role cu (xem phia duoi, gan voi
-                        // stock-alerts), khong gop chung voi goods-receipts/stock-takes nhu truoc nua.
                         .requestMatchers(HttpMethod.POST, "/api/goods-receipts/*/confirm").hasAuthority("PERM_goods_receipt:confirm")
                         .requestMatchers(HttpMethod.GET, "/api/goods-receipts/**").hasAuthority("PERM_goods_receipt:view")
                         .requestMatchers(HttpMethod.POST, "/api/goods-receipts").hasAuthority("PERM_goods_receipt:create")
@@ -280,13 +285,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/company").hasAuthority("PERM_company:edit")
 
                         // ===================== NGOAI PHAM VI 7 NHOM UU TIEN - GIU NGUYEN NHU CU =====================
-                        // Yeu cau mua hang: tach rieng khoi goods-receipts/stock-takes nhu truoc (xem
-                        // ghi chu o nhom KHO phia tren) - van dung Role nhu cu, CHUA chuyen sang PERM.
-                        .requestMatchers(HttpMethod.GET, "/api/purchase-requests/**").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/purchase-requests/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
-                        .requestMatchers(HttpMethod.PUT, "/api/purchase-requests/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
-                        .requestMatchers(HttpMethod.DELETE, "/api/purchase-requests/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")
-
                         // Canh bao ton kho (INV-05): khong thuoc 7 nhom uu tien dot nay, giu nguyen Role cu.
                         .requestMatchers(HttpMethod.GET, "/api/stock-alerts/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/stock-alerts/**").hasAnyRole("ADMIN", "WAREHOUSE_MANAGER")

@@ -21,18 +21,20 @@ public class PermissionCatalog {
     private static final List<String> VIEW_EDIT = List.of("view", "edit");
 
     public static final List<GroupDef> GROUPS = List.of(
+            // Giao hang/Hoa don/Tra hang khach gop chung vao day thay vi tach nhom rieng - khop dung
+            // voi Sidebar (xem AppLayout.jsx: ca 5 trang nay nam chung 1 menu "Bán hàng (Sales
+            // Order)"), tranh nguoi dung Phan quyen thay cay quyen tach khac voi cay menu thuc te.
             new GroupDef("SALES", "Bán hàng", List.of(
                     new PageDef("sales_order", "Đơn hàng bán", List.of("view", "create", "edit", "confirm", "cancel", "delete")),
-                    new PageDef("sales_request", "Yêu cầu bán hàng", List.of("view", "create", "edit", "confirm", "delete")))),
+                    new PageDef("sales_request", "Yêu cầu bán hàng", List.of("view", "create", "edit", "confirm", "delete")),
+                    new PageDef("delivery_order", "Đơn giao hàng", List.of("view", "create", "edit", "confirm", "cancel", "delete")),
+                    new PageDef("invoice", "Hóa đơn", List.of("view", "create", "cancel")),
+                    new PageDef("sales_return", "Trả hàng khách", List.of("view", "create", "edit", "confirm", "cancel", "delete")))),
 
-            new GroupDef("DELIVERY", "Giao hàng", List.of(
-                    new PageDef("delivery_order", "Đơn giao hàng", List.of("view", "create", "edit", "confirm", "cancel", "delete")))),
-
-            new GroupDef("INVOICE", "Hóa đơn", List.of(
-                    new PageDef("invoice", "Hóa đơn", List.of("view", "create", "cancel")))),
-
-            new GroupDef("RETURNS", "Trả hàng", List.of(
-                    new PageDef("sales_return", "Trả hàng khách", List.of("view", "create", "edit", "confirm", "cancel", "delete")),
+            // "Tra hang NCC" o day THUC RA thuoc menu "Mua hàng (Purchase Order)" rieng cua Sidebar
+            // (khac han menu "Bán hàng"), dat lai ten nhom cho dung - xem AppLayout.jsx.
+            new GroupDef("PURCHASE", "Mua hàng", List.of(
+                    new PageDef("purchase_request", "Yêu cầu mua hàng", List.of("view", "create", "edit", "confirm", "convert", "delete")),
                     new PageDef("purchase_return", "Trả hàng NCC", List.of("view", "create", "edit", "confirm", "delete")))),
 
             new GroupDef("INVENTORY", "Kho", List.of(
