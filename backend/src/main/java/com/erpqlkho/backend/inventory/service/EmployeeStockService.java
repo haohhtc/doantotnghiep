@@ -94,6 +94,22 @@ public class EmployeeStockService {
         return result;
     }
 
+    // INV-04: ap dung CHENH LECH (delta, co the am) vao "Kho NV" cua 1 nhan vien sau kiem ke kho
+    // Van - KHONG dung increase/decrease (2 ham do chan am ton, dung cho ban hang) vi day la dieu
+    // chinh theo kiem dem thuc te, duoc phep lam giam xuong duoi muc dang co. Goi tu
+    // StockTakeService.approve() voi delta = actualQuantity - ton truoc kiem ke (giu dung bat bien
+    // tong employee_stock cung chi nhanh = stock cua Kho Van, vi StockService.adjust() cung ap
+    // dung 1 delta nay vao tong - xem comment EmployeeStock.java).
+    @Transactional
+    public void adjustDelta(Employee employee, Product product, BigDecimal delta, String referenceType, Long referenceId) {
+        if (delta.compareTo(BigDecimal.ZERO) == 0) return;
+        EmployeeStock stock = findOrCreate(employee, product);
+        stock.setQuantity(stock.getQuantity().add(delta));
+        stock.setUpdatedAt(LocalDateTime.now());
+        employeeStockRepository.save(stock);
+        saveTransaction(employee, product, delta.compareTo(BigDecimal.ZERO) > 0 ? "IN" : "OUT", delta.abs(), referenceType, referenceId);
+    }
+
     private EmployeeStock findOrCreate(Employee employee, Product product) {
         return employeeStockRepository.findByEmployeeIdAndProductId(employee.getId(), product.getId())
                 .orElseGet(() -> {

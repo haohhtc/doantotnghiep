@@ -34,6 +34,7 @@ public class StockTakeService {
     private final EmployeeRepository employeeRepository;
     private final UserRepository userRepository;
     private final StockService stockService;
+    private final EmployeeStockService employeeStockService;
     private final NumberingConfigService numberingConfigService;
 
     public List<StockTake> findAll() {
@@ -72,14 +73,31 @@ public class StockTakeService {
     }
 
     // INV-04: duyet dot kiem ke - ghi nhan chenh lech (ADJUST) cho tung dong co difference != 0.
+    // Neu la kho Van (App Van-Sale) co gan "Nhan vien kiem ke", dong thoi ap dung CUNG 1 delta do
+    // vao "Kho NV" cua nhan vien do (EmployeeStockService.adjustDelta) de giu dung bat bien tong
+    // employee_stock cung chi nhanh = stock cua Kho Van (xem comment EmployeeStock.java) - neu
+    // khong lam, App Van-Sale van tinh "San sang ban" theo so lieu cu, lech voi tong tren Web.
     @Transactional
     public StockTake approve(Long id) {
         StockTake stockTake = findById(id);
         requireDraft(stockTake);
 
+        boolean syncEmployeeStock = "VAN".equals(stockTake.getWarehouse().getWarehouseType())
+                && stockTake.getEmployee() != null;
+
         for (StockTakeDetail detail : stockTake.getDetails()) {
+            BigDecimal delta = syncEmployeeStock
+                    ? detail.getActualQuantity().subtract(
+                            stockService.currentQuantity(detail.getProduct().getId(), stockTake.getWarehouse().getId()))
+                    : null;
+
             stockService.adjust(detail.getProduct(), stockTake.getWarehouse(), detail.getActualQuantity(),
                     "STOCK_TAKE", stockTake.getId());
+
+            if (syncEmployeeStock) {
+                employeeStockService.adjustDelta(stockTake.getEmployee(), detail.getProduct(), delta,
+                        "STOCK_TAKE", stockTake.getId());
+            }
         }
 
         stockTake.setStatus("APPROVED");

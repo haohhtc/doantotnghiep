@@ -25,6 +25,7 @@ export default function StockCountingPage() {
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [stock, setStock] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
   const [filterValues, setFilterValues] = useState({});
@@ -45,6 +46,15 @@ export default function StockCountingPage() {
     return options.find((o) => o.value === id)?.label || '';
   }
 
+  // Ton he thong hien tai cua 1 san pham tai 1 kho - doc tu /stock da tai san (khong goi rieng le
+  // moi lan them dong), de hien ngay tren bang preview khi "Them san pham" thay vi de trong (gay
+  // "Chenh lech" = NaN vi thieu systemQuantity truoc khi Luu - xem StockTakeService.applyDto o
+  // Backend, noi gia tri THAT su duoc tinh lai luc Luu).
+  function currentSystemQuantity(warehouseId, productId) {
+    const row = stock.find((s) => s.warehouse?.id === warehouseId && s.product?.id === productId);
+    return row ? Number(row.quantity) : 0;
+  }
+
   function loadData() {
     setLoading(true);
     Promise.all([
@@ -52,12 +62,14 @@ export default function StockCountingPage() {
       axiosClient.get('/warehouses'),
       axiosClient.get('/products'),
       axiosClient.get('/employees'),
+      axiosClient.get('/stock'),
     ])
-      .then(([countsRes, warehousesRes, productsRes, employeesRes]) => {
+      .then(([countsRes, warehousesRes, productsRes, employeesRes, stockRes]) => {
         setCounts(countsRes.data.data);
         setWarehouses(warehousesRes.data.data);
         setProducts(productsRes.data.data);
         setEmployees(employeesRes.data.data);
+        setStock(stockRes.data.data);
       })
       .catch((err) => message.error(err.response?.data?.message || 'Không tải được dữ liệu kiểm kê'))
       .finally(() => setLoading(false));
@@ -127,7 +139,11 @@ export default function StockCountingPage() {
 
   function handleSubmitDetailRow() {
     detailForm.validateFields().then((values) => {
-      setDetailRows((prev) => [...prev, { id: Date.now(), ...values }]);
+      const warehouseId = form.getFieldValue('warehouseId');
+      setDetailRows((prev) => [
+        ...prev,
+        { id: Date.now(), ...values, systemQuantity: currentSystemQuantity(warehouseId, values.productId) },
+      ]);
       setDetailModalOpen(false);
     });
   }
