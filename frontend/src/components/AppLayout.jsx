@@ -1,16 +1,43 @@
 import { useEffect, useState } from 'react';
-import { Layout, Menu, Space, Button, Breadcrumb, Avatar } from 'antd';
+import { Layout, Menu, Space, Button, Breadcrumb, Avatar, Badge, Popover, List, Typography, Empty } from 'antd';
 import {
   HomeOutlined, AppstoreOutlined, ShoppingCartOutlined,
   DatabaseOutlined, SafetyOutlined, LogoutOutlined, MenuFoldOutlined,
   MenuUnfoldOutlined, UserOutlined, EnvironmentOutlined, GlobalOutlined, BankOutlined,
   ContainerOutlined, ClusterOutlined, CompassOutlined, TagOutlined, IdcardOutlined, BarChartOutlined,
-  ShoppingOutlined, AlertOutlined, WarningOutlined, RobotOutlined,
+  ShoppingOutlined, AlertOutlined, WarningOutlined, RobotOutlined, BellOutlined,
 } from '@ant-design/icons';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import { getCurrentUser } from '../utils/auth';
 import { BranchProvider } from '../contexts/BranchContext';
 import BranchSelector from './BranchSelector';
+
+const { Text } = Typography;
+
+// Chuong thong bao tren Header (yeu cau nguoi dung - truoc day thong bao Realtime chi hien
+// notification.open() roi mat, khong xem lai duoc) - nghe CUNG topic WebSocket
+// /topic/inventory nhu Inventories/index.jsx (xem comment o do) nhung GAN O HEADER (luon mount
+// moi trang, khong chi rieng trang Ton kho) va LUU LAI danh sach vao localStorage de xem lai duoc
+// + song sot qua lan F5. Khong goi loadData() gi ca o day - chi la noi "xem lai", viec tu goi lai
+// du lieu van do tung trang (vd Inventories) tu lam rieng qua ket noi WebSocket cua no.
+const NOTIF_STORAGE_KEY = 'erp_notifications';
+const NOTIF_MAX = 30;
+const NOTIF_EVENT_LABEL = {
+  VAN_SALE: 'vừa tạo đơn Van Sale',
+  ADVANCE: 'vừa tạo phiếu Ứng hàng',
+  RETURN: 'vừa tạo phiếu Trả hàng',
+};
+const NOTIF_WS_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api').replace(/\/api\/?$/, '') + '/ws';
+
+function loadStoredNotifications() {
+  try {
+    return JSON.parse(localStorage.getItem(NOTIF_STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
 
 const { Sider, Header, Content } = Layout;
 
@@ -269,6 +296,50 @@ export default function AppLayout() {
   const menuItems = buildMenuItems(user?.role);
   const [collapsed, setCollapsed] = useState(false);
   const [openKeys, setOpenKeys] = useState(MENU_ANCESTOR_KEYS[location.pathname] || []);
+  const [notifications, setNotifications] = useState(loadStoredNotifications);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // Ket noi WebSocket rieng cho Header (doc lap voi ket noi cua Inventories/index.jsx, neu dang
+  // mo trang do cung luc se co 2 ket noi - chap nhan duoc, don gian hon viec refactor dung chung
+  // 1 Context) - nhan tin hieu thi them vao danh sach + luu localStorage de song sot qua F5.
+  useEffect(() => {
+    const client = new Client({
+      webSocketFactory: () => new SockJS(NOTIF_WS_URL),
+      reconnectDelay: 5000,
+      onConnect: () => {
+        client.subscribe('/topic/inventory', (msg) => {
+          const { eventType, employeeName } = JSON.parse(msg.body);
+          setNotifications((prev) => {
+            const next = [
+              {
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                description: `${employeeName || 'NVBH'} ${NOTIF_EVENT_LABEL[eventType] || 'vừa tạo giao dịch mới'}`,
+                createdAt: Date.now(),
+                read: false,
+              },
+              ...prev,
+            ].slice(0, NOTIF_MAX);
+            localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(next));
+            return next;
+          });
+        });
+      },
+    });
+    client.activate();
+    return () => client.deactivate();
+  }, []);
+
+  function handleNotifOpenChange(open) {
+    setNotifOpen(open);
+    if (open) {
+      setNotifications((prev) => {
+        const next = prev.map((n) => ({ ...n, read: true }));
+        localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(next));
+        return next;
+      });
+    }
+  }
 
   useEffect(() => {
     // Chuyen trang (kể ca bang Link trong menu) -> dam bao nhanh submenu chua route hien tai
@@ -324,6 +395,39 @@ export default function AppLayout() {
               <BranchSelector />
               <div style={{ flex: 1 }} />
               <Space size={20}>
+                <Popover
+                  trigger="click"
+                  placement="bottomRight"
+                  open={notifOpen}
+                  onOpenChange={handleNotifOpenChange}
+                  title="Thông báo"
+                  content={
+                    <div style={{ width: 320, maxHeight: 360, overflowY: 'auto' }}>
+                      {notifications.length === 0 ? (
+                        <Empty description="Chưa có thông báo" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                      ) : (
+                        <List
+                          size="small"
+                          dataSource={notifications}
+                          renderItem={(n) => (
+                            <List.Item>
+                              <div>
+                                <div>{n.description}</div>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  {new Date(n.createdAt).toLocaleString('vi-VN')}
+                                </Text>
+                              </div>
+                            </List.Item>
+                          )}
+                        />
+                      )}
+                    </div>
+                  }
+                >
+                  <Badge count={unreadCount} size="small">
+                    <BellOutlined style={{ fontSize: 18, cursor: 'pointer' }} />
+                  </Badge>
+                </Popover>
                 <Avatar icon={<UserOutlined />} />
                 {user?.fullName || user?.username || 'User'}
                 <Button type="link" icon={<LogoutOutlined />} onClick={handleLogout}>
