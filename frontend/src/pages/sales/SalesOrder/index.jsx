@@ -490,7 +490,6 @@ export default function SalesOrderPage() {
     { title: 'Ngày đặt hàng', dataIndex: 'docDate', key: 'docDate', width: 110 },
     { title: 'Khách hàng', key: 'customer', width: 160, ellipsis: true, render: (_, o) => o.customer?.name },
     { title: 'Loại đơn', dataIndex: 'orderType', key: 'orderType', width: 110, render: (t) => orderTypeTag(t) },
-    { title: 'Yêu cầu gốc', key: 'salesRequest', width: 110, render: (_, o) => o.salesRequest?.docNumber || '-' },
     { title: 'Kho xuất', key: 'warehouse', width: 180, ellipsis: true, render: (_, o) => o.warehouse?.name },
     {
       title: 'Ngày giao',
