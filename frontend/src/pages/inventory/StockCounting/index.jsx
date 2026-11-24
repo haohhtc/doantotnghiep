@@ -65,7 +65,9 @@ export default function StockCountingPage() {
       axiosClient.get('/stock'),
     ])
       .then(([countsRes, warehousesRes, productsRes, employeesRes, stockRes]) => {
-        setCounts(countsRes.data.data);
+        // Backend tra ve theo thu tu id tang dan (findAll() mac dinh) - sap lai moi nhat len dau
+        // de dot vua tao/sua xong nam o Trang 1 thay vi roi xuong cuoi trang cuoi.
+        setCounts([...countsRes.data.data].sort((a, b) => b.id - a.id));
         setWarehouses(warehousesRes.data.data);
         setProducts(productsRes.data.data);
         setEmployees(employeesRes.data.data);
@@ -218,15 +220,28 @@ export default function StockCountingPage() {
 
   const detailColumns = [
     { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
-    { title: 'Tồn hệ thống', dataIndex: 'systemQuantity', key: 'systemQuantity', align: 'right' },
-    { title: 'Tồn thực tế', dataIndex: 'actualQuantity', key: 'actualQuantity', align: 'right' },
+    {
+      title: 'Tồn hệ thống',
+      dataIndex: 'systemQuantity',
+      key: 'systemQuantity',
+      align: 'right',
+      render: (v) => Number(v).toLocaleString('vi-VN'),
+    },
+    {
+      title: 'Tồn thực tế',
+      dataIndex: 'actualQuantity',
+      key: 'actualQuantity',
+      align: 'right',
+      render: (v) => Number(v).toLocaleString('vi-VN'),
+    },
     {
       title: 'Chênh lệch',
       key: 'difference',
       align: 'right',
       render: (_, d) => {
         const diff = Number(d.actualQuantity) - Number(d.systemQuantity);
-        return <Text type={diff === 0 ? undefined : diff > 0 ? 'success' : 'danger'}>{diff > 0 ? `+${diff}` : diff}</Text>;
+        const text = diff > 0 ? `+${diff.toLocaleString('vi-VN')}` : diff.toLocaleString('vi-VN');
+        return <Text type={diff === 0 ? undefined : diff > 0 ? 'success' : 'danger'}>{text}</Text>;
       },
     },
     {
