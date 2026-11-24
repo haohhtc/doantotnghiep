@@ -146,6 +146,15 @@ export default function DeliveryOrderPage() {
     return options.find((o) => o.value === id)?.label || '';
   }
 
+  // Don RAT CU (truoc V36, ca Don hang ban goc lan Don giao hang deu chua tung co DVT - xem ghi
+  // chu "DO-CU" trong load...) khong co gi de lay lai DVT that su - hien DVT ban mac dinh cua san
+  // pham (uu tien saleUom, giu dung thu tu uu tien voi utils/uom.js:defaultUomId) thay vi de trong,
+  // de nguoi dung van thay 1 don vi hop ly thay vi "-" vo nghia.
+  function fallbackUomName(productId) {
+    const product = products.find((p) => p.id === productId);
+    return product?.saleUom?.name || product?.inventoryUom?.name || '';
+  }
+
   // Du lieu tham chieu nho (kho/san pham) - tai 1 lan luc vao trang.
   function loadReference() {
     Promise.all([axiosClient.get('/warehouses'), axiosClient.get('/products')])
@@ -534,7 +543,7 @@ export default function DeliveryOrderPage() {
 
   const detailColumns = [
     { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
-    { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
+    { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v, d) => v || fallbackUomName(d.productId) || '-' },
     // Chi con y nghia luc con SUA duoc (gioi han toi da duoc nhap cho DUNG dong nay) - khi da
     // CLOSED/CANCELLED (isReadOnly) khong con sua duoc nua nen an di, tranh hieu nham la don con
     // "no hang" (nguoi dung bao loi, xem dalam.md).
@@ -761,7 +770,7 @@ export default function DeliveryOrderPage() {
           dataSource={invoiceRows}
           columns={[
             { title: 'Sản phẩm', key: 'product', render: (_, d) => optionLabel(productOptions, d.productId) },
-            { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v) => v || '-' },
+            { title: 'ĐVT', dataIndex: 'uomName', key: 'uomName', render: (v, d) => v || fallbackUomName(d.productId) || '-' },
             { title: 'Còn lại chưa xuất HĐ', dataIndex: 'remainingQty', key: 'remainingQty', align: 'right' },
             {
               title: 'Số lượng xuất hóa đơn',
