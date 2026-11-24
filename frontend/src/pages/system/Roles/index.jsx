@@ -101,7 +101,7 @@ export default function RolesPage() {
 
   return (
     <div>
-      <Title level={3}>Phân quyền người dùng</Title>
+      <Title level={3}>Vai trò (Role)</Title>
       <TableToolbar
         searchValue={searchText}
         onSearchChange={setSearchText}

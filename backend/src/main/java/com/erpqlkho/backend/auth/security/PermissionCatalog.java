@@ -95,17 +95,61 @@ public class PermissionCatalog {
         return String.join(",", allCodes());
     }
 
-    // Mac dinh cho user MOI KHONG phai ADMIN (xem UserService.create()): toan bo quyen cua 6 nhom
-    // nghiep vu, TRU nhom "He thong" (Users/Roles/cau hinh he thong) - giu dung tinh than "moi quyen
-    // nhung khong co quyen admin" nguoi dung yeu cau, vi nhom He thong von la san rieng cua ADMIN tu
-    // truoc gio (quan ly tai khoan/phan quyen nguoi khac). Nguoi quan tri van co the tu tay tich them
-    // tung quyen He thong cho 1 nguoi cu the qua modal "Phan quyen" neu that su can.
-    public static String nonAdminDefaultCodesJoined() {
-        return String.join(",", GROUPS.stream()
-                .filter(g -> !"SYSTEM".equals(g.code()))
+    private static PageDef findPage(String pageCode) {
+        return GROUPS.stream()
+                .flatMap(g -> g.pages().stream())
+                .filter(p -> p.code().equals(pageCode))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Khong tim thay trang trong catalog: " + pageCode));
+    }
+
+    // Toan bo hanh dong (vd "sales_order:view", "sales_order:edit"...) cua DUNG 1 trang.
+    private static List<String> fullActionsOf(String pageCode) {
+        PageDef page = findPage(pageCode);
+        return page.actions().stream().map(a -> pageCode + ":" + a).toList();
+    }
+
+    // Chi hanh dong "view" cua TAT CA trang trong 1 nhom (vd xem Danh muc nhung khong Tao/Sua/Xoa).
+    private static List<String> viewOnlyOfGroup(String groupCode) {
+        return GROUPS.stream()
+                .filter(g -> g.code().equals(groupCode))
+                .flatMap(g -> g.pages().stream())
+                .filter(p -> p.actions().contains("view"))
+                .map(p -> p.code() + ":view")
+                .toList();
+    }
+
+    // Toan bo hanh dong cua TAT CA trang trong 1 nhom.
+    private static List<String> fullActionsOfGroup(String groupCode) {
+        return GROUPS.stream()
+                .filter(g -> g.code().equals(groupCode))
                 .flatMap(g -> g.pages().stream())
                 .flatMap(p -> p.actions().stream().map(a -> p.code() + ":" + a))
-                .toList());
+                .toList();
+    }
+
+    // Mac dinh cho user MOI theo DUNG Role duoc chon luc tao (xem UserService.create()) - khop
+    // dung pham vi cong viec thuc te cua tung vai tro, KHONG con cap chung 1 bo "du 4 nhom nghiep
+    // vu" cho moi role nhu truoc nua:
+    //   - SALES_STAFF: toan quyen Ban hang (gom ca Giao hang/Hoa don/Tra hang khach, deu nam chung
+    //     1 nhom "Bán hàng" trong catalog) + CHI XEM Danh muc - khong dung gi den Kho/Mua hang.
+    //   - WAREHOUSE_MANAGER: toan quyen Kho + rieng Giao hang (delivery_order, vi day la buoc xuat
+    //     kho that su) + CHI XEM Danh muc - khong dung gi den Ban hang/Hoa don/Mua hang.
+    //   - Role khac (tuong lai) / ADMIN: tra ve rong - ADMIN khong doc cot nay (luon tu dong du),
+    //     role la chua biet thi de Admin tu tay cap qua modal "Phan quyen", tranh doan sai pham vi.
+    // Nguoi quan tri van co the tu tay tich/bo them tung quyen rieng cho 1 nguoi cu the qua modal
+    // "Phan quyen" o trang Nguoi dung neu can ngoai pham vi mac dinh nay.
+    public static String defaultCodesForRole(String roleCode) {
+        List<String> codes = new java.util.ArrayList<>();
+        if ("SALES_STAFF".equals(roleCode)) {
+            codes.addAll(fullActionsOfGroup("SALES"));
+            codes.addAll(viewOnlyOfGroup("CATALOG"));
+        } else if ("WAREHOUSE_MANAGER".equals(roleCode)) {
+            codes.addAll(fullActionsOfGroup("INVENTORY"));
+            codes.addAll(fullActionsOf("delivery_order"));
+            codes.addAll(viewOnlyOfGroup("CATALOG"));
+        }
+        return String.join(",", codes);
     }
 
     private PermissionCatalog() {

@@ -54,13 +54,11 @@ public class UserService {
         user.setPosition(findPosition(dto.getPositionId()));
         user.setSalesmanType(findSalesmanType(dto.getSalesmanTypeId()));
         user.setBranch(findBranch(dto.getBranchId()));
-        // Mac dinh user MOI (khong phai ADMIN) duoc cap toan bo quyen 6 nhom nghiep vu (TRU rieng
-        // nhom He thong - van cua ADMIN) ngay tu dau - nguoi quan tri sau do tu bo tich tung dong
-        // rieng muon an/cam cho dung nguoi nay (xem modal "Phan quyen" o Users/index.jsx), thay vi
-        // phai tu tich tay tu dau tu con so 0 nhu anh mau.
-        if (!"ADMIN".equals(role.getCode())) {
-            user.setPermissions(com.erpqlkho.backend.auth.security.PermissionCatalog.nonAdminDefaultCodesJoined());
-        }
+        // Mac dinh user MOI duoc cap dung bo quyen theo pham vi cong viec cua Role da chon (xem
+        // PermissionCatalog.defaultCodesForRole) - ADMIN tra ve rong vi luon tu dong du (khong doc
+        // cot nay). Nguoi quan tri sau do tu tich/bo them tung quyen rieng cho dung nguoi nay qua
+        // modal "Phan quyen" o Users/index.jsx neu can ngoai pham vi mac dinh.
+        user.setPermissions(com.erpqlkho.backend.auth.security.PermissionCatalog.defaultCodesForRole(role.getCode()));
 
         return userRepository.save(user);
     }
