@@ -9,6 +9,7 @@ const ACTION_LABELS = {
   view: 'Xem', create: 'Tạo', edit: 'Sửa', delete: 'Xóa',
   confirm: 'Duyệt/Xác nhận', cancel: 'Hủy',
   confirm_send: 'Xác nhận xuất (kho nguồn)', confirm_receive: 'Xác nhận nhận (kho đích)',
+  convert: 'Chuyển thành phiếu nhập',
 };
 
 // Modal "Phân quyền" chi tiết (trang x hành động) - đặt cạnh nút "Sửa" ở trang Người dùng. Lấy

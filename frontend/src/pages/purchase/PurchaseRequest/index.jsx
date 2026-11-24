@@ -5,7 +5,7 @@ import {
 import { PlusOutlined, EditOutlined, EyeOutlined, DeleteOutlined, SendOutlined, SwapOutlined } from '@ant-design/icons';
 import TableToolbar from '../../../components/TableToolbar';
 import axiosClient from '../../../api/axiosClient';
-import { hasAnyRole, getCurrentUser } from '../../../utils/auth';
+import { hasPermission, getCurrentUser } from '../../../utils/auth';
 import { useBranch } from '../../../contexts/BranchContext';
 
 const { Title, Text } = Typography;
@@ -29,7 +29,6 @@ const STATUS_FILTER_OPTIONS = [
 // gi den ton kho o day. Chi ADMIN + WAREHOUSE_MANAGER duoc them/sua/xoa/gui duyet/tao phieu nhap
 // (xem backend/.../config/SecurityConfig.java), nhan vien ban hang chi xem.
 export default function PurchaseRequestPage() {
-  const canWrite = hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER');
   const { selectedBranchId, selectedBranch } = useBranch();
   const [requests, setRequests] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -252,25 +251,25 @@ export default function PurchaseRequestPage() {
         return (
           <Space>
             <Button icon={<EyeOutlined />} onClick={() => setViewingRequest(record)} />
-            {canWrite && (
-              <>
-                <Button icon={<EditOutlined />} disabled={!isOpen} onClick={() => openEditModal(record)} />
-                {isOpen && (
-                  <Popconfirm title="Gửi duyệt yêu cầu mua hàng này?" description="Sau khi gửi duyệt sẽ không sửa/xóa được nữa." onConfirm={() => handleSubmitRequest(record)}>
-                    <Button icon={<SendOutlined />} type="primary" ghost />
-                  </Popconfirm>
-                )}
-                {isPending && (
-                  <Popconfirm title="Tạo phiếu nhập hàng từ yêu cầu này?" description="Sẽ sinh 1 Phiếu nhập hàng (Nháp) ở trang Nhập hàng và đóng yêu cầu này lại." onConfirm={() => handleConvert(record)}>
-                    <Button icon={<SwapOutlined />} type="primary" ghost>
-                      Tạo phiếu nhập hàng
-                    </Button>
-                  </Popconfirm>
-                )}
-                <Popconfirm title="Xóa yêu cầu mua hàng này?" disabled={!isOpen} onConfirm={() => handleDelete(record)}>
-                  <Button icon={<DeleteOutlined />} danger disabled={!isOpen} />
-                </Popconfirm>
-              </>
+            {hasPermission('purchase_request:edit') && (
+              <Button icon={<EditOutlined />} disabled={!isOpen} onClick={() => openEditModal(record)} />
+            )}
+            {isOpen && hasPermission('purchase_request:confirm') && (
+              <Popconfirm title="Gửi duyệt yêu cầu mua hàng này?" description="Sau khi gửi duyệt sẽ không sửa/xóa được nữa." onConfirm={() => handleSubmitRequest(record)}>
+                <Button icon={<SendOutlined />} type="primary" ghost />
+              </Popconfirm>
+            )}
+            {isPending && hasPermission('purchase_request:convert') && (
+              <Popconfirm title="Tạo phiếu nhập hàng từ yêu cầu này?" description="Sẽ sinh 1 Phiếu nhập hàng (Nháp) ở trang Nhập hàng và đóng yêu cầu này lại." onConfirm={() => handleConvert(record)}>
+                <Button icon={<SwapOutlined />} type="primary" ghost>
+                  Tạo phiếu nhập hàng
+                </Button>
+              </Popconfirm>
+            )}
+            {hasPermission('purchase_request:delete') && (
+              <Popconfirm title="Xóa yêu cầu mua hàng này?" disabled={!isOpen} onConfirm={() => handleDelete(record)}>
+                <Button icon={<DeleteOutlined />} danger disabled={!isOpen} />
+              </Popconfirm>
             )}
           </Space>
         );
@@ -308,7 +307,7 @@ export default function PurchaseRequestPage() {
         searchValue={searchText}
         onSearchChange={setSearchText}
         searchPlaceholder="Tìm theo số chứng từ hoặc nhà cung cấp..."
-        onAdd={canWrite ? openCreateModal : undefined}
+        onAdd={hasPermission('purchase_request:create') ? openCreateModal : undefined}
         addTooltip="Thêm yêu cầu mua hàng"
         onReload={() => {
           loadData();
