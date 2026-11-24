@@ -144,7 +144,7 @@ function buildMenuItems(role) {
       key: 'he-thong', icon: <SafetyOutlined />, label: 'Hệ thống',
       children: [
         { key: '/users', label: <Link to="/users">Người dùng</Link> },
-        { key: '/roles', label: <Link to="/roles">Phân quyền</Link> },
+        { key: '/roles', label: <Link to="/roles">Vai trò (Role)</Link> },
         { key: '/system/login-logs', label: <Link to="/system/login-logs">Nhật ký đăng nhập</Link> },
         { key: '/system/numbering-configs', label: <Link to="/system/numbering-configs">Cấu hình đánh số chứng từ</Link> },
         { key: '/system/login-devices', label: <Link to="/system/login-devices">Quản lý thiết bị đăng nhập</Link> },
@@ -196,7 +196,7 @@ const BREADCRUMB_MAP = {
   '/inventory/transfer-confirmation': ['Tồn kho', 'Xác nhận di chuyển hàng tồn kho'],
   '/inventory/stock-counting': ['Tồn kho', 'Kiểm kê kho'],
   '/users': ['Hệ thống', 'Người dùng'],
-  '/roles': ['Hệ thống', 'Phân quyền'],
+  '/roles': ['Hệ thống', 'Vai trò (Role)'],
   '/system/login-logs': ['Hệ thống', 'Nhật ký đăng nhập'],
   '/system/numbering-configs': ['Hệ thống', 'Cấu hình đánh số chứng từ'],
   '/system/login-devices': ['Hệ thống', 'Quản lý thiết bị đăng nhập'],
