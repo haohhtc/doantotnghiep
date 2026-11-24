@@ -111,7 +111,7 @@ public class EmployeeStockService {
     }
 
     private EmployeeStock findOrCreate(Employee employee, Product product) {
-        return employeeStockRepository.findByEmployeeIdAndProductId(employee.getId(), product.getId())
+        return employeeStockRepository.findWithLockByEmployeeIdAndProductId(employee.getId(), product.getId())
                 .orElseGet(() -> {
                     EmployeeStock stock = new EmployeeStock();
                     stock.setEmployee(employee);

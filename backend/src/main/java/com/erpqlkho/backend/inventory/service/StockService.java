@@ -54,7 +54,7 @@ public class StockService {
     // SALE-05: giam ton kho khi xac nhan don ban - chan neu khong du ton kho.
     @Transactional
     public void decrease(Product product, Warehouse warehouse, BigDecimal quantity, String referenceType, Long referenceId) {
-        Stock stock = stockRepository.findByProductIdAndWarehouseId(product.getId(), warehouse.getId())
+        Stock stock = stockRepository.findWithLockByProductIdAndWarehouseId(product.getId(), warehouse.getId())
                 .orElseThrow(() -> ApiException.conflict(
                         "Khong du ton kho cho san pham " + product.getCode() + " tai kho " + warehouse.getCode()));
 
@@ -99,7 +99,7 @@ public class StockService {
     }
 
     private Stock findOrCreateStock(Product product, Warehouse warehouse) {
-        return stockRepository.findByProductIdAndWarehouseId(product.getId(), warehouse.getId())
+        return stockRepository.findWithLockByProductIdAndWarehouseId(product.getId(), warehouse.getId())
                 .orElseGet(() -> {
                     Stock s = new Stock();
                     s.setProduct(product);
