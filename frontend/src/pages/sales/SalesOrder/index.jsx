@@ -632,7 +632,10 @@ export default function SalesOrderPage() {
         columns={columns}
         dataSource={orders}
         loading={loading}
-        scroll={{ x: 'max-content' }}
+        // Dung so cu the thay vi 'max-content' - ket hop fixed:'right' o cot Thao tac, 'max-content'
+        // tinh sai do rong vung cuon khien panel fixed de len cot ngay truoc no (Trang thai bi cat
+        // mat, giong PrintedNote/index.jsx tung gap). 1250 = tong cac width cot (1200) + du.
+        scroll={{ x: 1250 }}
         pagination={{
           current: pagination.current,
           pageSize: pagination.pageSize,
