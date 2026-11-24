@@ -20,31 +20,9 @@ public class PermissionCatalog {
     private static final List<String> CRUD = List.of("view", "create", "edit", "delete");
     private static final List<String> VIEW_EDIT = List.of("view", "edit");
 
+    // Thu tu hien thi trong modal "Phan quyen" da chot theo yeu cau nguoi dung: Danh muc -> Ban
+    // hang -> Kho -> Mua hang -> He thong.
     public static final List<GroupDef> GROUPS = List.of(
-            // Giao hang/Hoa don/Tra hang khach gop chung vao day thay vi tach nhom rieng - khop dung
-            // voi Sidebar (xem AppLayout.jsx: ca 5 trang nay nam chung 1 menu "Bán hàng (Sales
-            // Order)"), tranh nguoi dung Phan quyen thay cay quyen tach khac voi cay menu thuc te.
-            new GroupDef("SALES", "Bán hàng", List.of(
-                    new PageDef("sales_order", "Đơn hàng bán", List.of("view", "create", "edit", "confirm", "cancel", "delete")),
-                    new PageDef("sales_request", "Yêu cầu bán hàng", List.of("view", "create", "edit", "confirm", "delete")),
-                    new PageDef("delivery_order", "Đơn giao hàng", List.of("view", "create", "edit", "confirm", "cancel", "delete")),
-                    new PageDef("invoice", "Hóa đơn", List.of("view", "create", "cancel")),
-                    new PageDef("sales_return", "Trả hàng khách", List.of("view", "create", "edit", "confirm", "cancel", "delete")))),
-
-            // "Tra hang NCC" o day THUC RA thuoc menu "Mua hàng (Purchase Order)" rieng cua Sidebar
-            // (khac han menu "Bán hàng"), dat lai ten nhom cho dung - xem AppLayout.jsx.
-            new GroupDef("PURCHASE", "Mua hàng", List.of(
-                    new PageDef("purchase_request", "Yêu cầu mua hàng", List.of("view", "create", "edit", "confirm", "convert", "delete")),
-                    new PageDef("purchase_return", "Trả hàng NCC", List.of("view", "create", "edit", "confirm", "delete")))),
-
-            new GroupDef("INVENTORY", "Kho", List.of(
-                    new PageDef("goods_receipt", "Phiếu nhập hàng", List.of("view", "create", "edit", "confirm", "delete")),
-                    new PageDef("goods_issue", "Phiếu xuất kho", List.of("view", "create", "edit", "confirm", "delete")),
-                    new PageDef("inventory_transfer", "Chuyển kho", List.of("view", "create", "edit", "confirm_send", "confirm_receive", "delete")),
-                    new PageDef("stock_take", "Kiểm kê kho", List.of("view", "create", "edit", "confirm", "delete")),
-                    new PageDef("stock_receipt", "Phiếu nhập kho khác", List.of("view", "create", "edit", "confirm", "delete")),
-                    new PageDef("stock", "Tồn kho", List.of("view")))),
-
             new GroupDef("CATALOG", "Danh mục", List.of(
                     new PageDef("product", "Sản phẩm", CRUD),
                     new PageDef("product_category", "Thuộc tính sản phẩm", CRUD),
@@ -69,6 +47,30 @@ public class PermissionCatalog {
                     new PageDef("employee_position", "Chức vụ", CRUD),
                     new PageDef("salesman_type", "Loại NVBH", CRUD),
                     new PageDef("company", "Công ty", List.of("view", "edit")))),
+
+            // Giao hang/Hoa don/Tra hang khach gop chung vao day thay vi tach nhom rieng - khop dung
+            // voi Sidebar (xem AppLayout.jsx: ca 5 trang nay nam chung 1 menu "Bán hàng (Sales
+            // Order)"), tranh nguoi dung Phan quyen thay cay quyen tach khac voi cay menu thuc te.
+            new GroupDef("SALES", "Bán hàng", List.of(
+                    new PageDef("sales_order", "Đơn hàng bán", List.of("view", "create", "edit", "confirm", "cancel", "delete")),
+                    new PageDef("sales_request", "Yêu cầu bán hàng", List.of("view", "create", "edit", "confirm", "delete")),
+                    new PageDef("delivery_order", "Đơn giao hàng", List.of("view", "create", "edit", "confirm", "cancel", "delete")),
+                    new PageDef("invoice", "Hóa đơn", List.of("view", "create", "cancel")),
+                    new PageDef("sales_return", "Trả hàng khách", List.of("view", "create", "edit", "confirm", "cancel", "delete")))),
+
+            new GroupDef("INVENTORY", "Kho", List.of(
+                    new PageDef("goods_receipt", "Phiếu nhập hàng", List.of("view", "create", "edit", "confirm", "delete")),
+                    new PageDef("goods_issue", "Phiếu xuất kho", List.of("view", "create", "edit", "confirm", "delete")),
+                    new PageDef("inventory_transfer", "Chuyển kho", List.of("view", "create", "edit", "confirm_send", "confirm_receive", "delete")),
+                    new PageDef("stock_take", "Kiểm kê kho", List.of("view", "create", "edit", "confirm", "delete")),
+                    new PageDef("stock_receipt", "Phiếu nhập kho khác", List.of("view", "create", "edit", "confirm", "delete")),
+                    new PageDef("stock", "Tồn kho", List.of("view")))),
+
+            // "Tra hang NCC" o day THUC RA thuoc menu "Mua hàng (Purchase Order)" rieng cua Sidebar
+            // (khac han menu "Bán hàng"), dat lai ten nhom cho dung - xem AppLayout.jsx.
+            new GroupDef("PURCHASE", "Mua hàng", List.of(
+                    new PageDef("purchase_request", "Yêu cầu mua hàng", List.of("view", "create", "edit", "confirm", "convert", "delete")),
+                    new PageDef("purchase_return", "Trả hàng NCC", List.of("view", "create", "edit", "confirm", "delete")))),
 
             new GroupDef("SYSTEM", "Hệ thống", List.of(
                     new PageDef("system_user", "Người dùng", CRUD),
