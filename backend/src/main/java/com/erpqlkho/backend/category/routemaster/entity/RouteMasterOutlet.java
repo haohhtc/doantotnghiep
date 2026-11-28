@@ -29,8 +29,16 @@ public class RouteMasterOutlet {
     private Long id;
 
     // JsonIgnore: tranh vong lap vo han RouteMaster -> outlets -> RouteMasterOutlet -> routeMaster...
+    // EAGER (khong phai LAZY): day la quan he LAZY DUY NHAT tro ve RouteMaster trong toan bo code -
+    // khi CustomerService.findRouteInfo() cham vao (outlet.getRouteMaster()) trong CUNG transaction
+    // voi SalesOrderService.create() (nested @Transactional dung chung 1 Hibernate Session), proxy
+    // LAZY nay bi "dinh" vao identity map cua session va duoc routeMasterRepository.findById() tra
+    // ve lai y het (thay vi load entity that), roi gan thang vao SalesOrder.routeMaster (EAGER) -
+    // Jackson serialize response cua POST /sales-orders thi that bai (session da dong, open-in-view:
+    // false) voi loi "Type definition error: ByteBuddyInterceptor" du don van duoc tao thanh cong
+    // that su trong DB. Doi sang EAGER (giong moi quan he khac trong du an) loai bo han proxy nay.
     @JsonIgnore
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "route_master_id", nullable = false)
     private RouteMaster routeMaster;
 
