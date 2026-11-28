@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { apiClient, errorMessage } from '../../api/client';
+import { computeLine, taxRateOf } from '../../utils/pricing';
 
 const STATUS_LABEL = { PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', CANCELLED: 'Đã hủy' };
 
@@ -83,7 +84,10 @@ export default function VanSaleDetail() {
   if (loading) return <ActivityIndicator style={{ marginTop: 40 }} />;
   if (!order) return <Text style={styles.error}>{error}</Text>;
 
-  const total = order.details.reduce((sum, d) => sum + d.quantity * d.unitPrice, 0);
+  const lineTotals = order.details.map((d) => computeLine(d.quantity, d.unitPrice, taxRateOf(d.product)));
+  const subtotal = lineTotals.reduce((sum, l) => sum + l.subtotal, 0);
+  const totalTax = lineTotals.reduce((sum, l) => sum + l.tax, 0);
+  const total = subtotal + totalTax;
   const fullyInvoiced = order.details.every((d) => (invoicedByProduct[d.product.id] || 0) >= Number(d.quantity));
 
   return (
@@ -98,16 +102,27 @@ export default function VanSaleDetail() {
       {order.remarks ? <Text style={styles.sub}>Ghi chú: {order.remarks}</Text> : null}
 
       <Text style={styles.label}>Sản phẩm</Text>
-      {order.details.map((d) => (
+      {order.details.map((d, idx) => (
         <View key={d.id} style={styles.row}>
           <Text style={styles.rowName} numberOfLines={2}>{d.product.name}</Text>
           <Text style={styles.rowQty}>{d.quantity} {d.uom?.name || ''}</Text>
-          <Text style={styles.rowPrice}>{(d.quantity * d.unitPrice).toLocaleString('vi-VN')}</Text>
+          <Text style={styles.rowTax}>{taxRateOf(d.product)}%</Text>
+          <Text style={styles.rowPrice}>{lineTotals[idx].total.toLocaleString('vi-VN')}</Text>
         </View>
       ))}
-      <View style={styles.totalRow}>
-        <Text style={styles.totalLabel}>Thành tiền</Text>
-        <Text style={styles.totalValue}>{total.toLocaleString('vi-VN')} đ</Text>
+      <View style={styles.summaryBox}>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Tiền hàng</Text>
+          <Text style={styles.summaryValue}>{subtotal.toLocaleString('vi-VN')} đ</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Tiền thuế</Text>
+          <Text style={styles.summaryValue}>{totalTax.toLocaleString('vi-VN')} đ</Text>
+        </View>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Tổng cộng</Text>
+          <Text style={styles.totalValue}>{total.toLocaleString('vi-VN')} đ</Text>
+        </View>
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -150,7 +165,12 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#eee' },
   rowName: { flex: 1, fontSize: 13 },
   rowQty: { width: 60, fontSize: 13, textAlign: 'center' },
+  rowTax: { width: 40, fontSize: 12, textAlign: 'right', color: '#999' },
   rowPrice: { width: 80, fontSize: 13, fontWeight: '600', textAlign: 'right' },
+  summaryBox: { marginTop: 4 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  summaryLabel: { fontSize: 13, color: '#666' },
+  summaryValue: { fontSize: 13, color: '#666' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderTopWidth: 2, borderTopColor: '#d4380d' },
   totalLabel: { fontWeight: '700' },
   totalValue: { fontWeight: '700', color: '#d4380d' },

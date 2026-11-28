@@ -4,6 +4,7 @@ import { View, Text, TextInput, Pressable, StyleSheet, ScrollView, ActivityIndic
 import { useSession } from '../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../api/client';
 import { isValidDateString } from '../../utils/date';
+import { computeLine } from '../../utils/pricing';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -20,7 +21,10 @@ export default function ReviewPreorder() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
-  const total = items.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
+  const lineTotals = items.map((l) => computeLine(l.quantity, l.unitPrice, l.taxRatePercent));
+  const subtotal = lineTotals.reduce((sum, l) => sum + l.subtotal, 0);
+  const totalTax = lineTotals.reduce((sum, l) => sum + l.tax, 0);
+  const total = subtotal + totalTax;
 
   async function handleSubmit() {
     if (!deliveryDate) {
@@ -60,18 +64,29 @@ export default function ReviewPreorder() {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.sectionTitle}>Sản phẩm ({items.length})</Text>
-      {items.map((l) => (
+      {items.map((l, idx) => (
         <View key={l.productId} style={styles.row}>
           <Text style={styles.rowName} numberOfLines={2}>{l.name}</Text>
           <Text style={styles.rowQty}>{l.quantity}</Text>
           <Text style={styles.rowPrice}>{l.unitPrice.toLocaleString('vi-VN')}</Text>
-          <Text style={styles.rowTotal}>{(l.quantity * l.unitPrice).toLocaleString('vi-VN')}</Text>
+          <Text style={styles.rowTax}>{l.taxRatePercent || 0}%</Text>
+          <Text style={styles.rowTotal}>{lineTotals[idx].total.toLocaleString('vi-VN')}</Text>
         </View>
       ))}
 
-      <View style={styles.totalRow}>
-        <Text style={styles.totalLabel}>Thành tiền</Text>
-        <Text style={styles.totalValue}>{total.toLocaleString('vi-VN')} đ</Text>
+      <View style={styles.summaryBox}>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Tiền hàng</Text>
+          <Text style={styles.summaryValue}>{subtotal.toLocaleString('vi-VN')} đ</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Tiền thuế</Text>
+          <Text style={styles.summaryValue}>{totalTax.toLocaleString('vi-VN')} đ</Text>
+        </View>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Tổng cộng</Text>
+          <Text style={styles.totalValue}>{total.toLocaleString('vi-VN')} đ</Text>
+        </View>
       </View>
 
       <Text style={styles.label}>Ngày giao hàng (YYYY-MM-DD)</Text>
@@ -102,8 +117,13 @@ const styles = StyleSheet.create({
   rowName: { flex: 1, fontSize: 12, marginRight: 4 },
   rowQty: { width: 36, fontSize: 12, textAlign: 'center' },
   rowPrice: { width: 64, fontSize: 12, textAlign: 'right' },
+  rowTax: { width: 40, fontSize: 12, textAlign: 'right', color: '#999' },
   rowTotal: { width: 72, fontSize: 12, fontWeight: '700', textAlign: 'right', color: '#1677ff' },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderTopWidth: 2, borderTopColor: '#1677ff', marginBottom: 8 },
+  summaryBox: { marginTop: 4, marginBottom: 8 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  summaryLabel: { fontSize: 13, color: '#666' },
+  summaryValue: { fontSize: 13, color: '#666' },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderTopWidth: 2, borderTopColor: '#1677ff', marginTop: 4 },
   totalLabel: { fontSize: 14, fontWeight: '700' },
   totalValue: { fontSize: 16, fontWeight: '700', color: '#1677ff' },
   label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 6, marginTop: 10 },
