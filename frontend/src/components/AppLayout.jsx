@@ -11,7 +11,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { getCurrentUser } from '../utils/auth';
-import { BranchProvider } from '../contexts/BranchContext';
+import { BranchProvider, useBranch } from '../contexts/BranchContext';
 import BranchSelector from './BranchSelector';
 
 const { Text } = Typography;
@@ -37,6 +37,101 @@ function loadStoredNotifications() {
   } catch {
     return [];
   }
+}
+
+// Tach rieng component nay (thay vi de thang trong AppLayout) de goi duoc useBranch() - AppLayout
+// la noi DUNG <BranchProvider> bao quanh toan bo Layout nen ban than AppLayout khong the doc
+// duoc Context do minh vua tao ra, phai la 1 component con nam BEN TRONG Provider do.
+// Loc theo branchId (chi nhanh NVBH dang phu trach, backend dinh kem trong moi tin hieu - xem
+// InventoryEventPublisher) - KHONG hien/dem thong bao cua chi nhanh khac voi chi nhanh dang chon
+// o Header (yeu cau nguoi dung). Van LUU het moi tin hieu (kem branchId) vao localStorage de khi
+// doi sang chi nhanh khac van thay dung lich su cua chi nhanh do, khong mat du lieu.
+function HeaderNotifications() {
+  const { selectedBranchId } = useBranch();
+  const [notifications, setNotifications] = useState(loadStoredNotifications);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  const visibleNotifications = notifications.filter(
+    (n) => n.branchId == null || n.branchId === selectedBranchId
+  );
+  const unreadCount = visibleNotifications.filter((n) => !n.read).length;
+
+  useEffect(() => {
+    const client = new Client({
+      webSocketFactory: () => new SockJS(NOTIF_WS_URL),
+      reconnectDelay: 5000,
+      onConnect: () => {
+        client.subscribe('/topic/inventory', (msg) => {
+          const { eventType, employeeName, branchId } = JSON.parse(msg.body);
+          setNotifications((prev) => {
+            const next = [
+              {
+                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                description: `${employeeName || 'NVBH'} ${NOTIF_EVENT_LABEL[eventType] || 'vừa tạo giao dịch mới'}`,
+                createdAt: Date.now(),
+                read: false,
+                branchId: branchId == null ? null : Number(branchId),
+              },
+              ...prev,
+            ].slice(0, NOTIF_MAX);
+            localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(next));
+            return next;
+          });
+        });
+      },
+    });
+    client.activate();
+    return () => client.deactivate();
+  }, []);
+
+  function handleNotifOpenChange(open) {
+    setNotifOpen(open);
+    if (open) {
+      setNotifications((prev) => {
+        const next = prev.map((n) =>
+          n.branchId == null || n.branchId === selectedBranchId ? { ...n, read: true } : n
+        );
+        localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(next));
+        return next;
+      });
+    }
+  }
+
+  return (
+    <Popover
+      trigger="click"
+      placement="bottomRight"
+      open={notifOpen}
+      onOpenChange={handleNotifOpenChange}
+      title="Thông báo"
+      content={
+        <div style={{ width: 320, maxHeight: 360, overflowY: 'auto' }}>
+          {visibleNotifications.length === 0 ? (
+            <Empty description="Chưa có thông báo" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          ) : (
+            <List
+              size="small"
+              dataSource={visibleNotifications}
+              renderItem={(n) => (
+                <List.Item>
+                  <div>
+                    <div>{n.description}</div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {new Date(n.createdAt).toLocaleString('vi-VN')}
+                    </Text>
+                  </div>
+                </List.Item>
+              )}
+            />
+          )}
+        </div>
+      }
+    >
+      <Badge count={unreadCount} size="small">
+        <BellOutlined style={{ fontSize: 18, cursor: 'pointer' }} />
+      </Badge>
+    </Popover>
+  );
 }
 
 const { Sider, Header, Content } = Layout;
@@ -136,6 +231,7 @@ function buildMenuItems(role) {
         { key: '/inventory/stock-receipt', label: <Link to="/inventory/stock-receipt">Phiếu nhập kho</Link> },
         { key: '/inventory/transfer', label: <Link to="/inventory/transfer">Chuyển hàng tồn kho</Link> },
         { key: '/inventory/transfer-confirmation', label: <Link to="/inventory/transfer-confirmation">Xác nhận di chuyển hàng tồn kho</Link> },
+        { key: '/inventory/van-sale-advance', label: <Link to="/inventory/van-sale-advance">Ứng hàng</Link> },
         { key: '/inventory/stock-counting', label: <Link to="/inventory/stock-counting">Kiểm kê kho</Link> },
       ],
     },
@@ -221,6 +317,7 @@ const BREADCRUMB_MAP = {
   '/inventory/stock-receipt': ['Tồn kho', 'Phiếu nhập kho'],
   '/inventory/transfer': ['Tồn kho', 'Chuyển hàng tồn kho'],
   '/inventory/transfer-confirmation': ['Tồn kho', 'Xác nhận di chuyển hàng tồn kho'],
+  '/inventory/van-sale-advance': ['Tồn kho', 'Ứng hàng'],
   '/inventory/stock-counting': ['Tồn kho', 'Kiểm kê kho'],
   '/users': ['Hệ thống', 'Người dùng'],
   '/roles': ['Hệ thống', 'Vai trò (Role)'],
@@ -275,6 +372,7 @@ const MENU_ANCESTOR_KEYS = {
   '/inventory/stock-receipt': ['ton-kho'],
   '/inventory/transfer': ['ton-kho'],
   '/inventory/transfer-confirmation': ['ton-kho'],
+  '/inventory/van-sale-advance': ['ton-kho'],
   '/inventory/stock-counting': ['ton-kho'],
   '/users': ['he-thong'],
   '/roles': ['he-thong'],
@@ -296,50 +394,6 @@ export default function AppLayout() {
   const menuItems = buildMenuItems(user?.role);
   const [collapsed, setCollapsed] = useState(false);
   const [openKeys, setOpenKeys] = useState(MENU_ANCESTOR_KEYS[location.pathname] || []);
-  const [notifications, setNotifications] = useState(loadStoredNotifications);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  // Ket noi WebSocket rieng cho Header (doc lap voi ket noi cua Inventories/index.jsx, neu dang
-  // mo trang do cung luc se co 2 ket noi - chap nhan duoc, don gian hon viec refactor dung chung
-  // 1 Context) - nhan tin hieu thi them vao danh sach + luu localStorage de song sot qua F5.
-  useEffect(() => {
-    const client = new Client({
-      webSocketFactory: () => new SockJS(NOTIF_WS_URL),
-      reconnectDelay: 5000,
-      onConnect: () => {
-        client.subscribe('/topic/inventory', (msg) => {
-          const { eventType, employeeName } = JSON.parse(msg.body);
-          setNotifications((prev) => {
-            const next = [
-              {
-                id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-                description: `${employeeName || 'NVBH'} ${NOTIF_EVENT_LABEL[eventType] || 'vừa tạo giao dịch mới'}`,
-                createdAt: Date.now(),
-                read: false,
-              },
-              ...prev,
-            ].slice(0, NOTIF_MAX);
-            localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(next));
-            return next;
-          });
-        });
-      },
-    });
-    client.activate();
-    return () => client.deactivate();
-  }, []);
-
-  function handleNotifOpenChange(open) {
-    setNotifOpen(open);
-    if (open) {
-      setNotifications((prev) => {
-        const next = prev.map((n) => ({ ...n, read: true }));
-        localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(next));
-        return next;
-      });
-    }
-  }
 
   useEffect(() => {
     // Chuyen trang (kể ca bang Link trong menu) -> dam bao nhanh submenu chua route hien tai
@@ -395,39 +449,7 @@ export default function AppLayout() {
               <BranchSelector />
               <div style={{ flex: 1 }} />
               <Space size={20}>
-                <Popover
-                  trigger="click"
-                  placement="bottomRight"
-                  open={notifOpen}
-                  onOpenChange={handleNotifOpenChange}
-                  title="Thông báo"
-                  content={
-                    <div style={{ width: 320, maxHeight: 360, overflowY: 'auto' }}>
-                      {notifications.length === 0 ? (
-                        <Empty description="Chưa có thông báo" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                      ) : (
-                        <List
-                          size="small"
-                          dataSource={notifications}
-                          renderItem={(n) => (
-                            <List.Item>
-                              <div>
-                                <div>{n.description}</div>
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                  {new Date(n.createdAt).toLocaleString('vi-VN')}
-                                </Text>
-                              </div>
-                            </List.Item>
-                          )}
-                        />
-                      )}
-                    </div>
-                  }
-                >
-                  <Badge count={unreadCount} size="small">
-                    <BellOutlined style={{ fontSize: 18, cursor: 'pointer' }} />
-                  </Badge>
-                </Popover>
+                <HeaderNotifications />
                 <Avatar icon={<UserOutlined />} />
                 {user?.fullName || user?.username || 'User'}
                 <Button type="link" icon={<LogoutOutlined />} onClick={handleLogout}>

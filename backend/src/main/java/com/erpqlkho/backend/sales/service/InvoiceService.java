@@ -230,7 +230,8 @@ public class InvoiceService {
             stockService.decrease(item.getProduct(), van, item.getBaseQuantity(), "VAN_SALE_INVOICE", saved.getId());
             employeeStockService.decrease(order.getSalesman(), item.getProduct(), item.getBaseQuantity(), "VAN_SALE_INVOICE", saved.getId());
         }
-        inventoryEventPublisher.publish("VAN_SALE", order.getSalesman().getFullName());
+        inventoryEventPublisher.publish("VAN_SALE", order.getSalesman().getFullName(), van.getBranch().getId(),
+                order.getSalesman().getId(), saved.getInvoiceNumber());
         return saved;
     }
 

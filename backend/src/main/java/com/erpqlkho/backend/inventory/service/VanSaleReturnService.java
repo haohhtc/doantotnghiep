@@ -105,7 +105,8 @@ public class VanSaleReturnService {
 
         ret.setStatus("CLOSED");
         VanSaleReturn saved = vanSaleReturnRepository.save(ret);
-        inventoryEventPublisher.publish("RETURN", ret.getEmployee().getFullName());
+        inventoryEventPublisher.publish("RETURN", ret.getEmployee().getFullName(), van.getBranch().getId(),
+                ret.getEmployee().getId(), saved.getDocNumber());
         return saved;
     }
 

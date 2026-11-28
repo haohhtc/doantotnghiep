@@ -36,6 +36,7 @@ import GoodsIssuePage from '../pages/inventory/GoodsIssue';
 import StockReceiptPage from '../pages/inventory/StockReceipt';
 import TransferPage from '../pages/inventory/Transfer';
 import TransferConfirmationPage from '../pages/inventory/TransferConfirmation';
+import VanSaleAdvancePage from '../pages/inventory/VanSaleAdvance';
 import StockCountingPage from '../pages/inventory/StockCounting';
 import UsersPage from '../pages/system/Users';
 import RolesPage from '../pages/system/Roles';
@@ -97,6 +98,7 @@ export default function AppRoutes() {
             <Route path="/inventory/stock-receipt" element={<StockReceiptPage />} />
             <Route path="/inventory/transfer" element={<TransferPage />} />
             <Route path="/inventory/transfer-confirmation" element={<TransferConfirmationPage />} />
+            <Route path="/inventory/van-sale-advance" element={<VanSaleAdvancePage />} />
             <Route path="/inventory/stock-counting" element={<StockCountingPage />} />
 
             <Route path="/employees" element={<EmployeesPage />} />

@@ -64,6 +64,7 @@ public class PermissionCatalog {
                     new PageDef("inventory_transfer", "Chuyển kho", List.of("view", "create", "edit", "confirm_send", "confirm_receive", "delete")),
                     new PageDef("stock_take", "Kiểm kê kho", List.of("view", "create", "edit", "confirm", "delete")),
                     new PageDef("stock_receipt", "Phiếu nhập kho khác", List.of("view", "create", "edit", "confirm", "delete")),
+                    new PageDef("van_sale_advance", "Ứng hàng", List.of("view", "confirm")),
                     new PageDef("stock", "Tồn kho", List.of("view")))),
 
             // "Tra hang NCC" o day THUC RA thuoc menu "Mua hàng (Purchase Order)" rieng cua Sidebar
@@ -132,7 +133,9 @@ public class PermissionCatalog {
     // dung pham vi cong viec thuc te cua tung vai tro, KHONG con cap chung 1 bo "du 4 nhom nghiep
     // vu" cho moi role nhu truoc nua:
     //   - SALES_STAFF: toan quyen Ban hang (gom ca Giao hang/Hoa don/Tra hang khach, deu nam chung
-    //     1 nhom "Bán hàng" trong catalog) + CHI XEM Danh muc - khong dung gi den Kho/Mua hang.
+    //     1 nhom "Bán hàng" trong catalog) + CHI XEM Danh muc - khong dung gi den Kho/Mua hang, TRU
+    //     rieng "Ton kho" (chi view) vi App Van-Sale (NVBH dung Role nay) can xem so luong ton de
+    //     doi chieu luc tao Don hang/Ung hang/Tra hang - khong phai quan ly trang Ton kho tren Web.
     //   - WAREHOUSE_MANAGER: toan quyen Kho + rieng Giao hang (delivery_order, vi day la buoc xuat
     //     kho that su) + CHI XEM Danh muc - khong dung gi den Ban hang/Hoa don/Mua hang.
     //   - Role khac (tuong lai) / ADMIN: tra ve rong - ADMIN khong doc cot nay (luon tu dong du),
@@ -144,6 +147,7 @@ public class PermissionCatalog {
         if ("SALES_STAFF".equals(roleCode)) {
             codes.addAll(fullActionsOfGroup("SALES"));
             codes.addAll(viewOnlyOfGroup("CATALOG"));
+            codes.addAll(fullActionsOf("stock"));
         } else if ("WAREHOUSE_MANAGER".equals(roleCode)) {
             codes.addAll(fullActionsOfGroup("INVENTORY"));
             codes.addAll(fullActionsOf("delivery_order"));

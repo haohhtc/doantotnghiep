@@ -11,8 +11,9 @@ const STATUS_LABEL = {
 };
 
 // Lich su phieu Ung hang / Tra hang (yeu cau tv2, giong anh tham khao "Danh sach phieu ung/tra
-// hang"). App tu tao+tu xac nhan ngay trong 1 lan (VanSaleAdvanceService/VanSaleReturnService -
-// chi 1 NVBH thao tac, khong can nguoi khac duyet) nen phieu hau het se la "Da duyet" ngay.
+// hang"). Tra hang: app tu tao+tu xac nhan ngay trong 1 lan (chi 1 NVBH thao tac, khong can nguoi
+// khac duyet) nen phieu se la "Da duyet" ngay. Ung hang: app CHI tao phieu (DRAFT = "Cho xac
+// nhan") - phai cho thu kho xac nhan tren Web (trang "Ung hang") moi chuyen thanh "Da duyet".
 export default function AdvanceReturnHistory() {
   const { session } = useSession();
   const employee = session?.employee;

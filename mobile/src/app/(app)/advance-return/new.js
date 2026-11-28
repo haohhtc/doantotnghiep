@@ -8,6 +8,7 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useSession } from '../../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../../api/client';
@@ -98,9 +99,18 @@ export default function NewAdvanceReturn() {
         employeeId: employee.id,
         items,
       });
-      const docId = createRes.data.data.id;
-      await apiClient.post(`${endpoint}/${docId}/confirm`);
-      router.back();
+      if (mode === 'advance') {
+        // Ung hang: CHI tao phieu (DRAFT = "Cho xac nhan"), KHONG tu goi /confirm nua - phai cho
+        // thu kho xac nhan tren Web (trang "Ung hang") moi thuc su chuyen ton kho Main->Van + cong
+        // Kho NVBH. Tra hang van giu nguyen tu xac nhan nhu truoc (xem nhanh else ben duoi).
+        Alert.alert('Đã gửi yêu cầu', 'Phiếu ứng hàng đang chờ kho xác nhận.', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      } else {
+        const docId = createRes.data.data.id;
+        await apiClient.post(`${endpoint}/${docId}/confirm`);
+        router.back();
+      }
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -145,7 +155,7 @@ export default function NewAdvanceReturn() {
           <ActivityIndicator color="#fff" />
         ) : (
           <Text style={styles.submitText}>
-            {mode === 'advance' ? 'Xác nhận Ứng hàng' : 'Xác nhận Trả hàng'}
+            {mode === 'advance' ? 'Gửi yêu cầu Ứng hàng' : 'Xác nhận Trả hàng'}
           </Text>
         )}
       </Pressable>

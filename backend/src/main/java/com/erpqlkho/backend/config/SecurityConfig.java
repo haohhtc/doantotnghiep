@@ -51,7 +51,7 @@ public class SecurityConfig {
                         // /ws/**: khong qua JWT (xem WebSocketConfig.java) - kenh chi phat tin hieu
                         // "co gi vua doi, tu tai lai" + ten NVBH, KHONG gui kem du lieu ton kho that
                         // nen chap nhan khong xac thuc, tranh phai tich hop JWT vao STOMP handshake.
-                        .requestMatchers("/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**", "/ws/**").permitAll()
+                        .requestMatchers("/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**", "/ws/**", "/ws-native/**").permitAll()
 
                         // Danh muc quyen (de ve modal "Phan quyen") - ai dang nhap cung doc duoc,
                         // khong lo ro gi (chi la ten+nhan quyen, khong phai du lieu nguoi dung).
@@ -148,6 +148,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/goods-issues").hasAuthority("PERM_goods_issue:create")
                         .requestMatchers(HttpMethod.PUT, "/api/goods-issues/*").hasAuthority("PERM_goods_issue:edit")
                         .requestMatchers(HttpMethod.DELETE, "/api/goods-issues/*").hasAuthority("PERM_goods_issue:delete")
+
+                        // Chi rang buoc rieng endpoint /confirm (nguoi xac nhan tren Web = thu kho) - CHUA dong
+                        // GET/POST con lai cua van-sale-advances vi app Van-Sale (NVBH tu tao phieu) dang goi
+                        // thang khong qua kiem tra quyen rieng (chi can dang nhap) - xem VanSaleAdvanceController.
+                        .requestMatchers(HttpMethod.POST, "/api/van-sale-advances/*/confirm").hasAuthority("PERM_van_sale_advance:confirm")
 
                         .requestMatchers(HttpMethod.POST, "/api/inventory-transfers/*/confirm-send").hasAuthority("PERM_inventory_transfer:confirm_send")
                         .requestMatchers(HttpMethod.POST, "/api/inventory-transfers/*/confirm-receive").hasAuthority("PERM_inventory_transfer:confirm_receive")

@@ -5,8 +5,9 @@ import { apiClient, errorMessage } from '../../../api/client';
 
 const STATUS_LABEL = { DRAFT: 'Chờ xác nhận', CLOSED: 'Đã duyệt' };
 
-// Xem chi tiet 1 phieu Ung/Tra hang - CHI XEM, khong sua duoc vi phieu da "Da duyet" (CLOSED) ngay
-// luc tao (app tu xac nhan 1 buoc) - giong moi chung tu khac trong he thong, da duyet thi khoa lai.
+// Xem chi tiet 1 phieu Ung/Tra hang - CHI XEM, khong sua duoc. Tra hang "Da duyet" (CLOSED) ngay
+// luc tao (app tu xac nhan 1 buoc). Ung hang se la "Cho xac nhan" (DRAFT) cho den khi thu kho xac
+// nhan tren Web - giong moi chung tu khac trong he thong, da duyet thi khoa lai.
 export default function AdvanceReturnDetail() {
   const { id, mode } = useLocalSearchParams();
   const [ticket, setTicket] = useState(null);

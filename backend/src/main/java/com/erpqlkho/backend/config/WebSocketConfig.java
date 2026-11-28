@@ -17,6 +17,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws").setAllowedOriginPatterns("*").withSockJS();
+        // Endpoint rieng KHONG qua SockJS (native WebSocket thuan) danh cho App Van-Sale (React
+        // Native) - thu vien sockjs-client phu thuoc API cua trinh duyet (document, XHR...) nen
+        // khong dung duoc trong RN, trong khi @stomp/stompjs noi thang qua WebSocket goc (co san
+        // trong RN) thi dung binh thuong. Cung 1 broker "/topic" - Web va App nhan chung tin hieu.
+        registry.addEndpoint("/ws-native").setAllowedOriginPatterns("*");
     }
 
     @Override

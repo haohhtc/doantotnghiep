@@ -45,13 +45,33 @@ public class VanSaleAdvanceService {
     private final UomConversionService uomConversionService;
     private final InventoryEventPublisher inventoryEventPublisher;
 
+    // @Transactional (du chi readOnly) BAT BUOC o day - resolveCurrentBranch() co the phai lazy-
+    // load RouteMaster cua 1 RouteSalesmanAssignment (quan he LAZY), neu khong co session Hibernate
+    // dang mo luc goi se nem LazyInitializationException "no Session" (da gap that khi test).
+    @Transactional(readOnly = true)
     public List<VanSaleAdvance> findAll() {
-        return vanSaleAdvanceRepository.findAll();
+        List<VanSaleAdvance> all = vanSaleAdvanceRepository.findAll();
+        all.forEach(this::enrichResolvedBranch);
+        return all;
     }
 
+    @Transactional(readOnly = true)
     public VanSaleAdvance findById(Long id) {
-        return vanSaleAdvanceRepository.findById(id)
+        VanSaleAdvance advance = vanSaleAdvanceRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay phieu ung hang id=" + id));
+        enrichResolvedBranch(advance);
+        return advance;
+    }
+
+    // NVBH thuong KHONG gan san user.branch (chi nhanh suy dong tu Tuyen - xem resolveCurrentBranch())
+    // nen gan tam chi nhanh suy ra duoc vao object tra ve (CHI trong bo nho, KHONG luu xuong DB) de
+    // Frontend loc dung theo Chi nhanh dang chon o Header - giong cach EmployeeService.findByCurrentUser()
+    // da lam cho App Van-Sale.
+    private void enrichResolvedBranch(VanSaleAdvance advance) {
+        Employee employee = advance.getEmployee();
+        if (employee != null && employee.getUser() != null && employee.getUser().getBranch() == null) {
+            employee.getUser().setBranch(employeeService.resolveCurrentBranch(employee));
+        }
     }
 
     @Transactional
@@ -62,7 +82,16 @@ public class VanSaleAdvanceService {
         advance.setCreatedBy(currentUser());
         applyDto(advance, dto);
 
-        return vanSaleAdvanceRepository.save(advance);
+        VanSaleAdvance saved = vanSaleAdvanceRepository.save(advance);
+        // Bao realtime cho Web NGAY luc tao (truoc day bao o confirm() - khong con dung nua vi
+        // confirm() gio do chinh thu kho tren Web tu bam, khong can tu bao cho minh; cai can bao
+        // that su la "co yeu cau Ung hang moi dang cho xac nhan"). Kem branchId (chi nhanh NVBH
+        // nay dang phu trach, suy tu Tuyen - xem resolveCurrentBranch()) de Frontend loc dung chi
+        // nhanh, khong hien bao sang chi nhanh khac.
+        Branch branch = employeeService.resolveCurrentBranch(saved.getEmployee());
+        inventoryEventPublisher.publish("ADVANCE", saved.getEmployee().getFullName(),
+                branch == null ? null : branch.getId(), saved.getEmployee().getId(), saved.getDocNumber());
+        return saved;
     }
 
     @Transactional
@@ -98,7 +127,11 @@ public class VanSaleAdvanceService {
 
         advance.setStatus("CLOSED");
         VanSaleAdvance saved = vanSaleAdvanceRepository.save(advance);
-        inventoryEventPublisher.publish("ADVANCE", advance.getEmployee().getFullName());
+        // Bao rieng cho App Van-Sale (NVBH co phieu vua duoc duyet) - khac eventType voi luc tao
+        // (ADVANCE) de App phan biet duoc "co phieu moi" (khong lien quan, NVBH khac tao) voi
+        // "phieu CUA MINH vua duoc duyet" (employeeId khop voi chinh minh).
+        inventoryEventPublisher.publish("ADVANCE_CONFIRMED", saved.getEmployee().getFullName(),
+                van.getBranch().getId(), saved.getEmployee().getId(), saved.getDocNumber());
         return saved;
     }
 

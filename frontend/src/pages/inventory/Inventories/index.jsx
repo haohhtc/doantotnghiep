@@ -93,16 +93,21 @@ export default function InventoriesPage() {
   }, [selectedBranchId]);
 
   // Ket noi WebSocket 1 lan khi mo trang - lang nghe /topic/inventory, nhan tin hieu thi hien
-  // thong bao goc man hinh + tu goi lai loadData() (xem comment dau file).
+  // thong bao goc man hinh + tu goi lai loadData() (xem comment dau file). CHI xu ly tin hieu cua
+  // DUNG Chi nhanh dang chon o Header (branchId backend dinh kem - xem InventoryEventPublisher) -
+  // bo qua tin hieu cua chi nhanh khac, tranh hien toast/reload nham khi dang xem chi nhanh khac.
   const loadDataRef = useRef(loadData);
   loadDataRef.current = loadData;
+  const selectedBranchIdRef = useRef(selectedBranchId);
+  selectedBranchIdRef.current = selectedBranchId;
   useEffect(() => {
     const client = new Client({
       webSocketFactory: () => new SockJS(WS_URL),
       reconnectDelay: 5000,
       onConnect: () => {
         client.subscribe('/topic/inventory', (msg) => {
-          const { eventType, employeeName } = JSON.parse(msg.body);
+          const { eventType, employeeName, branchId } = JSON.parse(msg.body);
+          if (branchId != null && Number(branchId) !== selectedBranchIdRef.current) return;
           notification.open({
             message: 'Cập nhật tồn kho',
             description: `${employeeName || 'NVBH'} ${EVENT_LABEL[eventType] || 'vừa tạo giao dịch mới'}`,
