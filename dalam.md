@@ -1036,3 +1036,157 @@ Triển khai đúng thiết kế đã chốt (xem mục "Yêu cầu Realtime" tr
 **Ngoài ra** (trang Tồn kho web, `pages/inventory/Inventories/index.jsx`): tín hiệu Realtime WebSocket gọi `loadDataRef.current()` nhưng bị cache GET phía client (`axiosClient.js`, TTL 2 phút, chỉ tự xóa khi chính tab đó tự sửa dữ liệu — không biết được giao dịch từ App trên máy khác) trả về dữ liệu cũ. Đã thêm `{ skipCache: true }` vào cả 6 lệnh gọi `axiosClient.get(...)` trong `loadData()` của trang này.
 
 Build mobile (`npx expo export`) sạch.
+
+## 🔐 Hệ thống Phân quyền chi tiết (trang × hành động) theo từng người dùng (2026-11-23 → 2026-11-24)
+
+Trước đây phân quyền chỉ thô theo Role (ADMIN/SALES_STAFF/WAREHOUSE_MANAGER), không chỉnh được riêng từng người. Đã xây hẳn 1 lớp phân quyền chi tiết đè lên trên, không bỏ Role cũ:
+
+**Backend**:
+- `PermissionCatalog.java` (mới) — nguồn duy nhất định nghĩa **~24 trang × hành động = 171 quyền**, chia 7 nhóm ưu tiên (Bán hàng, Giao hàng, Hóa đơn, Trả hàng, Kho, Danh mục, Hệ thống), expose qua `GET /api/permissions/catalog`.
+- `user` thêm cột `permissions` (danh sách mã, phân cách dấu phẩy). **ADMIN luôn tự động có toàn bộ quyền** (không đọc cột này). User mới (không phải ADMIN) mặc định được cấp quyền **đúng theo phạm vi công việc của Role**: `SALES_STAFF` toàn quyền nhóm Bán hàng (gồm cả Giao hàng/Hóa đơn/Trả hàng khách) + chỉ xem Danh mục; `WAREHOUSE_MANAGER` toàn quyền nhóm Kho + riêng Giao hàng + chỉ xem Danh mục — không ai được tự động đụng vào nhóm không thuộc phạm vi của mình. Riêng nhóm Hệ thống vẫn luôn là sân riêng của ADMIN.
+- `CustomUserDetailsService` nạp thêm `GrantedAuthority "PERM_xxx"` từ quyền của user; `SecurityConfig` viết lại từ kiểm tra theo Role (thô) sang kiểm tra đúng từng hành động cụ thể cho 24 trang thuộc 7 nhóm trên — các trang khác giữ nguyên hành vi Role cũ.
+- `PUT /api/users/{id}/permissions` (chỉ ADMIN) để admin tự tay cấp thêm/bớt riêng từng người ngoài phạm vi mặc định. Migration `V57`-`V60` (thêm cột + backfill toàn bộ user hiện có, không ai bị mất quyền đang dùng).
+
+**Frontend**: `PermissionsModal.jsx` (cây checkbox 2 cột, cạnh nút Sửa ở trang Người dùng) + `hasPermission()` trong `utils/auth.js`, gắn vào nút Thêm/Sửa/Duyệt/Hủy/Xóa thật của toàn bộ 24 trang thuộc 7 nhóm (thay các chỗ dùng `hasAnyRole`/`canWrite` thô trước đó). Đổi tên menu "Phân quyền" (`/roles`, chỉ là CRUD tên 3 Role) thành **"Vai trò (Role)"** để không nhầm với nút "Phân quyền" thật ở trang Người dùng.
+
+**Đã test qua API thật**: đăng nhập 3 Role, gọi trực tiếp từng endpoint đúng/sai quyền; tạo user mới theo từng Role kiểm tra đúng bộ quyền cấp ra (`SALES_STAFF` 49 mã, `WAREHOUSE_MANAGER` 56 mã). Build sạch cả Backend lẫn Frontend.
+
+**Lưu ý vận hành**: phiên đăng nhập cũ trên trình duyệt cần đăng xuất/đăng nhập lại để có dữ liệu quyền mới (token cũ không tự có `PERM_xxx` mới cấp).
+
+## 🐛 Lỗi thật nghiêm trọng: race condition "lost update" khi 2 giao dịch cùng lúc trừ/cộng tồn kho (2026-11-24)
+
+**Phát hiện qua test thật** (không phải suy đoán): mô phỏng 2 nhân viên cùng lúc xác nhận xuất kho khi kho chỉ còn đúng 1 đơn vị tồn → **cả 2 đều báo "thành công"**, phá vỡ bất biến bắt buộc "tồn kho = tổng `stock_transaction`". Nguyên nhân: `StockService`/`EmployeeStockService` đọc-rồi-ghi (`increase`/`decrease`/`adjust`) không khóa dòng đang sửa — 2 giao dịch cùng đọc trúng 1 giá trị cũ, giao dịch ghi sau đè mất tác dụng của giao dịch trước (lost update).
+
+**Đã sửa**: đổi sang đọc có khóa `PESSIMISTIC_WRITE` (`SELECT ... FOR UPDATE` qua `@Lock` của Spring Data JPA) — thêm `StockRepository.findWithLockByProductIdAndWarehouseId()` và `EmployeeStockRepository.findWithLockByEmployeeIdAndProductId()`, dùng trong `findOrCreateStock()`/`findOrCreate()`/`decrease()` của cả 2 service. Giao dịch sau phải đợi giao dịch trước commit xong mới được đọc, nên luôn thấy đúng số liệu mới nhất và bị chặn đúng nếu không đủ tồn. Áp dụng cho cả `EmployeeStockService` ("Kho NVBH") vì có cùng lỗ hổng y hệt (2 thao tác App Van-Sale của cùng 1 NVBH chạm vào nhau gần như cùng lúc, vd Ứng hàng + xuất Hóa đơn Van-Sale chồng lắp).
+
+**Đã test lại qua API thật**: lặp lại đúng kịch bản trên sau khi sửa → đúng 1 request "thành công", request còn lại bị từ chối `409 "Không đủ tồn kho..."`. Dọn sạch dữ liệu test (GoodsIssue tạo để test + khôi phục tồn kho) ngay sau khi xác nhận.
+
+## 🔔 Thêm icon chuông thông báo lưu lịch sử trên Header (web) (2026-11-24)
+
+**Yêu cầu**: trước đây tín hiệu Realtime WebSocket chỉ hiện toast rồi mất, không xem lại được. Cần 1 icon chuông cạnh Avatar, lưu lại thông báo đã hiện, có ngày giờ, **không được xóa**.
+
+**Đã làm** (`AppLayout.jsx`, chỉ frontend — không đổi backend): nghe cùng topic WebSocket `/topic/inventory` như `Inventories/index.jsx` nhưng gắn ở Header (luôn mount mọi trang, không chỉ riêng trang Tồn kho) — mỗi tín hiệu Realtime vừa hiện toast vừa lưu vào danh sách (tối đa 30 tin, kèm ngày giờ tạo `toLocaleString('vi-VN')`), có Badge đếm số chưa xem (tự đánh dấu đã đọc khi mở Popover), lưu `localStorage` để sống sót qua F5. **Không có nút xóa** theo đúng yêu cầu.
+
+## 🧮 Kiểm kê kho: hết NaN cột Chênh lệch + đồng bộ Kho NVBH + sắp xếp phiếu mới lên trang 1 (2026-11-24)
+
+**3 lỗi người dùng báo, đã sửa cả 3**:
+1. **NaN ở cột "Chênh lệch"** khi bấm "Thêm sản phẩm" vào phiếu kiểm kê đang tạo — modal thêm dòng trước đây thiếu `systemQuantity` nên không tính được. Đã sửa: Frontend đọc thêm `/stock` để hiển thị đúng "Tồn hệ thống" ngay khi thêm dòng.
+2. **Duyệt phiếu kiểm kê ở kho loại VAN có gán "Nhân viên kiểm kê" không đồng bộ sang App Van-Sale**: `StockTakeService.approve()` trước đây chỉ cập nhật `Stock` (đúng cho Web) nhưng không đụng gì `EmployeeStock` ("Kho NVBH") của nhân viên đó, làm App Van-Sale bị lệch tồn so với Web. Đã sửa: thêm `EmployeeStockService.adjustDelta()` (áp dụng đúng phần **chênh lệch** — khác `increase`/`decrease` vốn chặn âm tồn, ở đây được phép giảm vì là điều chỉnh theo kiểm đếm thực tế) — gọi song song với `StockService.adjust()` trong cùng `approve()`, giữ đúng bất biến tổng Kho NVBH cùng chi nhánh = Stock của Kho Van.
+3. **Phiếu kiểm kê mới tạo/sửa nằm cuối trang 2 thay vì lên ngay trang 1**: backend trả về theo thứ tự `id` tăng dần (đúng thứ tự tạo) — đã sắp lại mới nhất lên đầu danh sách ở Frontend (`sort((a,b) => b.id - a.id)`) để phiếu vừa Lưu xuất hiện ngay trang 1. Nhân tiện format số (`toLocaleString('vi-VN')`) cho 3 cột Tồn hệ thống/Tồn thực tế/Chênh lệch trong modal (trước đó hiện số thô, dễ nhầm dấu `.` ngăn cách hàng nghìn).
+
+**Đã test qua API thật**: phiếu kiểm kê kho Van có gán nhân viên → duyệt → cả `Stock` lẫn `EmployeeStock` cùng tăng đúng delta kỳ vọng (+7 trong lần test). Dọn sạch dữ liệu test ngay sau khi xác nhận.
+
+## 🖥️ Đơn hàng bán: fix bảng bị cột Trạng thái che khuất (2026-11-24)
+
+**Người dùng báo** (kèm ảnh): bảng đơn hàng bán hiển thị không đầy đủ, cột "Trạng thái" bị panel "Thao tác" (cột `fixed: 'right'`) đè/cắt mất 1 phần.
+
+**Nguyên nhân**: `scroll={{ x: 'max-content' }}` kết hợp cột `fixed: 'right'` tính sai độ rộng vùng cuộn trong AntD Table, khiến panel fixed đè lên cột ngay trước nó. **Đã sửa**: đổi sang số cụ thể `scroll={{ x: 1250 }}` (tổng width các cột khai báo + dư) — đúng cách `PrintedNote/index.jsx` đã xử lý từ trước, không phải lỗi mới phát sinh riêng ở trang này.
+
+## 🗺️ Route Master: điền dữ liệu "Tuần trong tháng" còn thiếu (2026-11-24, chỉ sửa dữ liệu, không sửa code)
+
+**tv2 báo qua Zalo**: cột "Tuần trong tháng" (`visit_weeks`, lịch ghé thăm khách hàng theo tuyến) không load lên cho phần lớn khách hàng. Kiểm tra DB: **499/500 dòng `route_master_outlet` có `visit_weeks` = NULL** — không phải lỗi code (tính năng chọn tuần bằng checkbox đã code đúng từ commit `30ce290`), chỉ là dữ liệu demo chưa được nhập đầy đủ.
+
+**Đã làm**: viết script tái hiện đúng thuật toán ISO-week-of-month mà Frontend dùng, gán `visit_weeks` (dạng CSV số tuần ISO, vd `"2,6,10,15,..."`) cho 499 dòng còn thiếu bằng UPDATE SQL trực tiếp theo quy luật xác định (theo `id`) — không đổi code gì. Verify lại qua API thật: khách hàng đúng tuyến/trái tuyến hiển thị đúng khi tạo Đơn hàng bán (`CustomerRouteInfoDto`/`computeVisitType()`).
+
+## 📦 Ứng hàng: đổi sang luồng "App gửi yêu cầu → Web xác nhận mới chuyển tồn kho" (2026-11-28, **CHƯA COMMIT**)
+
+**Yêu cầu**: trước đây App Van-Sale bấm "Ứng" là tự tạo + tự xác nhận luôn trong 1 lần gọi API (`VanSaleAdvanceService.confirm()` chạy ngay sau `create()`), không ai xét duyệt ở giữa. Cần đổi: App chỉ **gửi yêu cầu**, phải có người xác nhận di chuyển tồn kho (thủ kho trên Web) mới thực sự chuyển tồn, và màn xác nhận phải thấy đầy đủ nhân viên/đơn hàng/ngày giờ ứng hàng.
+
+**Phát hiện quan trọng trước khi sửa**: backend **đã sẵn** status `DRAFT`/`CLOSED` + endpoint `/confirm` riêng (không cần đổi gì backend nghiệp vụ) — chỉ là Mobile đang tự chuỗi gọi `create` rồi `confirm` ngay lập tức, và Web chưa có trang quản lý nào cho luồng này cả (chỉ có toast thoáng qua).
+
+**Đã sửa**:
+- **Mobile** (`advance-return/new.js`): bỏ bước tự gọi `/confirm` ngay sau `create` — **chỉ áp dụng cho mode Ứng hàng** (Trả hàng giữ nguyên tự xác nhận như cũ, theo đúng yêu cầu). Đổi nút thành "Gửi yêu cầu Ứng hàng", báo `Alert` "Đã gửi yêu cầu, chờ kho xác nhận" thay vì quay lại ngay không có thông báo gì. Cập nhật lại comment ở `index.js`/`[id].js` cho đúng hành vi mới (2 mode giờ khác nhau).
+- **Backend**: thêm quyền mới `van_sale_advance:confirm` (`PermissionCatalog.java`) + ràng buộc riêng endpoint `POST /api/van-sale-advances/*/confirm` trong `SecurityConfig.java` (chỉ chặn riêng `/confirm`, **không** đụng GET/POST/PUT/DELETE khác để không phá luồng App đang gọi không cần quyền riêng).
+- **Web**: trang mới **"Ứng hàng"** (`pages/inventory/VanSaleAdvance/index.jsx`, route `/inventory/van-sale-advance`, menu nhóm Tồn kho — bàn với người dùng trước, chốt **tách trang riêng** giống mẫu Phiếu xuất kho thay vì gộp vào trang "Xác nhận di chuyển hàng tồn kho" sẵn có, vì 2 loại phiếu khác cột dữ liệu). Bảng hiển thị: Số phiếu, **Nhân viên**, **Ngày giờ tạo** (`createdAt` đầy đủ, không chỉ ngày), số sản phẩm (xem chi tiết qua expandable row), trạng thái (Chờ xác nhận/Đã duyệt), nút **"Xác nhận"** (có `Popconfirm`) → gọi `/van-sale-advances/{id}/confirm`.
+
+**Đã test qua API thật** (mô phỏng đúng luồng App → Web): tạo phiếu Ứng hàng → đúng `DRAFT`, **tồn kho chưa đổi gì**; list hiển thị đủ nhân viên/ngày giờ/sản phẩm; bấm Xác nhận (mô phỏng thủ kho) → đúng `CLOSED`, tồn kho Main −1 / Van +1, Kho NVBH +1 — khớp đúng bất biến nghiệp vụ. Dọn sạch dữ liệu test ngay sau khi xác nhận (xóa phiếu test + transaction liên quan, khôi phục đúng tồn kho gốc).
+
+## 🐛 Ứng hàng: sửa tiếp 2 lỗi phát sinh ngay sau khi làm xong + phân quyền SALES_STAFF thiếu `stock:view` (2026-11-28, CHƯA COMMIT)
+
+Sau khi làm xong mục "Ứng hàng" ở trên, người dùng test thật bằng tài khoản `sale01` phát hiện thêm 3 lỗi, sửa luôn trong cùng phiên:
+
+**1. `sale01` (Role `SALES_STAFF`) bị 403 "Ban khong co quyen thuc hien thao tac nay" khi mở màn Ứng/Trả trên App** — màn này gọi `GET /api/stock` để hiện cột "Tồn NPP", nhưng hệ thống phân quyền chi tiết (đợt 23-24/11) chỉ cấp `stock:view` cho `WAREHOUSE_MANAGER`, không cấp cho `SALES_STAFF` (lỗ hổng thiết kế: lúc làm phân quyền chỉ tính cho Web, quên App cũng cần xem tồn để tham khảo). **Đã sửa**: `PermissionCatalog.defaultCodesForRole()` thêm `stock:view` vào bộ mặc định của `SALES_STAFF`; migration `V61__sales_staff_stock_view.sql` backfill cho user `SALES_STAFF` hiện có (chỉ THÊM nếu chưa có, không ghi đè quyền admin đã tùy chỉnh tay).
+
+**2. Tạo phiếu Ứng hàng xong không thấy thông báo về Web, phiếu cũng không hiện trong danh sách Web** — 2 nguyên nhân riêng biệt: (a) `InventoryEventPublisher.publish()` chỉ được gọi ở `confirm()` (vô nghĩa vì giờ chính thủ kho tự bấm, không cần tự báo cho mình) — **đã dời sang gọi ở `create()`** (đúng lúc "có yêu cầu mới cần xác nhận"); (b) trang Web lọc theo chi nhánh dựa vào `employee.user.branch` — nhưng field này **luôn NULL** với NVBH thật (chi nhánh suy động từ Tuyến bán hàng, không lưu cố định) nên bộ lọc luôn loại hết dữ liệu. **Đã sửa đúng gốc** (không phải bỏ lọc): `VanSaleAdvanceService.findAll()/findById()` tự "patch" `employee.user.branch` bằng chi nhánh suy ra được (giống `EmployeeService.findByCurrentUser()` đã làm cho App) trước khi trả JSON — phải thêm `@Transactional(readOnly = true)` vì việc suy chi nhánh có thể lazy-load `RouteSalesmanAssignment.routeMaster`, nếu không có session đang mở sẽ ném `LazyInitializationException` (gặp thật lúc test). Thêm `branchId` vào mọi tín hiệu Realtime (`InventoryEventPublisher`) để Web/App lọc đúng chi nhánh, không hiện thông báo/đơn của chi nhánh khác (yêu cầu rõ của người dùng).
+
+**3. Trang Ứng hàng Web không tự tải lại khi có phiếu mới** — thiếu kết nối WebSocket lắng nghe `eventType=ADVANCE` để tự `loadData()` (trang Tồn kho đã có từ trước, trang Ứng hàng mới tạo quên thêm) — đã bổ sung, cùng `skipCache: true` cho GET (tránh cache 2 phút của `axiosClient.js` trả dữ liệu cũ khi giao dịch đến từ thiết bị khác).
+
+**Đã test qua API thật** (gồm cả kết nối WebSocket thật bằng script Node): tạo phiếu → nhận đúng tín hiệu kèm `branchId`; xác nhận → `GET /van-sale-advances` trả đúng `employee.user.branch` khác nhau theo từng nhân viên (NV Hà Nội → "Chi nhánh Hà Nội", NV TP.HCM → "Chi nhánh TP.HCM"). **Lỗi thao tác của tôi**: lúc dọn dữ liệu test đã lỡ tay xóa nhầm 1 phiếu thật người dùng tự tạo để test (`UH0014`) thay vì phiếu test của chính mình — phiếu đó còn DRAFT nên không ảnh hưởng tồn kho, nhưng đã mất, người dùng cần tạo lại nếu muốn xem lại đúng phiếu đó.
+
+## 🔔 App Van-Sale: thông báo hệ thống (kiểu Android) + icon chuông ở "Tổng quan" khi Ứng hàng được xác nhận (2026-11-28, CHƯA COMMIT)
+
+**Yêu cầu**: khi thủ kho xác nhận phiếu Ứng hàng trên Web, App của đúng NVBH đó phải tự báo (không cần F5/mở lại màn), kiểu thông báo hệ thống Android thật, kèm icon chuông góc trên-phải màn "Tổng quan".
+
+**Quyết định kỹ thuật quan trọng (đã hỏi người dùng trước khi làm)**: danh sách thông báo trên App **chỉ lưu trong bộ nhớ** (mất khi tắt hẳn app) — người dùng chọn phương án này để **tránh phải thêm `AsyncStorage`** (thư viện có native code, sẽ bắt buộc phải dùng dev build thay vì Expo Go để test từ nay về sau). Nhờ vậy toàn bộ tính năng vẫn test được qua Expo Go bình thường.
+
+**Đã làm**:
+- Backend: thêm endpoint WebSocket thứ 2 **`/ws-native`** (KHÔNG qua SockJS — `sockjs-client` phụ thuộc API trình duyệt, không chạy được trong React Native; `/ws-native` là native WebSocket thuần, dùng chung broker `/topic/inventory` với Web). `InventoryEventPublisher` thêm `employeeId` + `docNumber` vào mọi tín hiệu. Thêm eventType mới **`ADVANCE_CONFIRMED`** (phát ở `confirm()`, nhắm đúng NVBH có phiếu vừa duyệt).
+- App: cài `expo-notifications` + `@stomp/stompjs`. `ctx/NotificationContext.js` (mới) — kết nối `/ws-native`, lọc đúng `ADVANCE_CONFIRMED` của chính mình, hiện thông báo hệ thống (`Notifications.scheduleNotificationAsync`) + lưu danh sách trong Context. Icon chuông + badge đếm chưa đọc ở `(app)/index.js` (Tổng quan), bấm vào mở Modal xem lại lịch sử.
+- **Bug đã biết của Expo Go SDK 58 gặp phải** (`expo/expo#53907`, Expo chưa fix): `Notifications.setNotificationChannelAsync()` ném `NullPointerException` khi chạy trong Expo Go (local notification thì vẫn chạy được bình thường, chỉ riêng API đọc/ghi channel bị lỗi) — đã bọc try/catch, để thư viện tự dùng channel dự phòng "Miscellaneous" khi gửi thông báo.
+
+**Đã test qua API/WebSocket thật** (script Node dùng `@stomp/stompjs` nối thẳng `/ws-native` không qua SockJS, y hệt cách App sẽ làm): tạo phiếu → nhận `eventType=ADVANCE`; xác nhận → nhận đúng `eventType=ADVANCE_CONFIRMED` kèm đúng `employeeId`/`docNumber`. Verify bundle Android build sạch qua Metro sau mỗi lần sửa.
+
+## 👁️ Ứng hàng: thêm nút "Xem" chi tiết đầy đủ 1 phiếu (2026-11-28, CHƯA COMMIT)
+
+**Yêu cầu**: trang Ứng hàng Web cần 1 nút "Xem" rõ ràng (thay vì phải bấm mở rộng dòng) để biết chính xác NVBH đã tạo phiếu với sản phẩm/số lượng nào.
+
+**Đã làm**: thêm icon "Xem" (con mắt) cạnh nút "Xác nhận" ở cột Thao tác, mở Modal hiển thị đầy đủ: Số phiếu, Trạng thái, Nhân viên, Chi nhánh, Ngày giờ tạo, Ngày chứng từ, Lý do, Ghi chú, và bảng chi tiết sản phẩm (Sản phẩm/Số lượng/ĐVT) kèm tổng số lượng. Bỏ hẳn cách "bấm vào dòng để mở rộng" cũ (gộp luôn vào Modal mới, tránh 2 cách xem trùng nhau gây rối).
+
+## 💰 App Van-Sale: hiện đúng tiền thuế ở các màn tạo/xem đơn hàng (2026-11-28, CHƯA COMMIT)
+
+**Người dùng báo**: App chỉ hiện giá gốc chưa tính thuế (đúng - xác nhận qua khảo sát code: `vansale/new.js`, `preorder/new.js`, `vansale/review.js`, `preorder/review.js`, `vansale/[id].js`, `preorder/[id].js` đều tính tổng tiền kiểu `quantity * unitPrice` thuần, không có field thuế nào — trong khi backend `InvoiceService.java` đã tính thuế đầy đủ từ trước, chỉ App không hiển thị theo).
+
+**Đã sửa**: thêm `mobile/src/utils/pricing.js` (dùng chung) - `taxRateOf(product)` đọc `product.saleTaxGroup.ratePercent` (đã xác nhận field này có sẵn trong mọi API response App đang dùng, không cần gọi thêm API nào), `computeLine()` tính đúng công thức y hệt backend (`subtotal = qty*unitPrice`, `tax = subtotal*rate/100`, `total = subtotal+tax`). Áp dụng cho cả 6 màn: giỏ hàng (tổng tiền đã gồm thuế), màn Xem lại (thêm cột Thuế % + 3 dòng tổng Tiền hàng/Tiền thuế/Tổng cộng, đúng cách trang Hóa đơn Web đang hiển thị), màn chi tiết đơn (tương tự).
+
+**Đã test qua API thật** (dữ liệu thật của `sale01`): CP001 (VAT 8%), đơn giá 45.000đ/Hộp × 2 → Tiền hàng 90.000đ + Tiền thuế 7.200đ = Tổng cộng 97.200đ - khớp đúng công thức. Lưu ý: Đơn hàng bán (SalesOrder) **không lưu thuế** (`totalAmount` vẫn là tiền trước thuế, đúng thiết kế sẵn có) - thuế chỉ thật sự được tính và lưu khi xuất Hóa đơn; con số App hiển thị ở màn tạo/xem đơn chỉ là **xem trước** số tiền sẽ bị tính khi xuất hóa đơn sau này, không phải số lưu trên chính đơn hàng.
+
+## 🐛 Lỗi thật nghiêm trọng phát hiện khi test thuế: tạo Đơn hàng bán cho khách ĐÚNG TUYẾN trả về JSON hỏng dù đơn đã tạo thành công (2026-11-28, CHƯA COMMIT)
+
+**Phát hiện khi test tính thuế trên App** (không liên quan gì thuế): `POST /api/sales-orders` cho khách hàng có khớp Tuyến bán hàng trả lỗi `"Loi he thong: Type definition error: [simple type, class org.hibernate.proxy.pojo.bytebuddy.ByteBuddyInterceptor]"` - nhưng kiểm tra lại bằng `GET /api/sales-orders/{id}` thì **đơn đã được tạo thành công thật sự** trong DB (status PENDING, dữ liệu đầy đủ, serialize bình thường). Hậu quả thực tế nếu không phát hiện: NVBH bấm "Hoàn tất & Gửi dữ liệu" trên App sẽ thấy báo lỗi như chưa gửi được, dễ bấm lại gây tạo trùng đơn - dù đơn đầu đã tạo xong.
+
+**Nguyên nhân** (xác định rõ qua điều tra kỹ): `RouteMasterOutlet.routeMaster` là quan hệ **`FetchType.LAZY` DUY NHẤT** trỏ về `RouteMaster` trong toàn bộ dự án (mọi quan hệ khác đều cố ý để `EAGER`, đúng quy ước bắt buộc của dự án vì `open-in-view: false`). Khi `CustomerService.findRouteInfo()` (gọi từ trong `SalesOrderService.create()`, cùng 1 transaction/Hibernate Session) chạm vào `outlet.getRouteMaster()`, nó tạo ra 1 proxy Hibernate cho `RouteMaster` - proxy này bị "dính" vào bộ nhớ đệm (identity map) của session đó, nên lệnh `routeMasterRepository.findById()` gọi ngay sau đó (trong `SalesOrderService.applyDto()`) trả về lại CHÍNH proxy đó thay vì load entity thật, rồi gán thẳng vào `SalesOrder.routeMaster`. Sau khi transaction đóng (`open-in-view: false`), Jackson cố serialize response thì gặp đúng cái proxy chưa được xử lý này và báo lỗi - dù dữ liệu đã lưu DB thành công từ trước đó rồi (lỗi chỉ xảy ra ở bước serialize response trả về, không phải ở bước lưu).
+
+**Đã sửa**: đổi `RouteMasterOutlet.routeMaster` từ `FetchType.LAZY` sang `FetchType.EAGER` (khớp đúng quy ước của toàn bộ phần còn lại trong dự án) - loại bỏ hẳn nguồn gốc proxy này.
+
+**Đã test lại đúng y hệt kịch bản gây lỗi ban đầu** (tạo đơn Van Sale cho khách `Do Van Nam` - đúng Tuyến `R-HCM-01` - với NVBH `sale01`): JSON trả về hợp lệ hoàn toàn, `routeMaster` lên đúng `R-HCM-01`. Dọn sạch đơn test ngay sau khi xác nhận.
+
+## 📌 Tổng kết các việc CHƯA COMMIT trong phiên 2026-11-28 (cần push sau khi xác nhận ổn định)
+
+1. Ứng hàng: luồng xác nhận riêng (App gửi yêu cầu → Web xác nhận), kèm 3 lỗi sửa tiếp + phân quyền `stock:view` cho `SALES_STAFF` (V61).
+2. App Van-Sale: thông báo hệ thống + icon chuông "Tổng quan" khi Ứng hàng được xác nhận.
+3. Trang Ứng hàng Web: thêm nút "Xem" chi tiết.
+4. App Van-Sale: hiện đúng tiền thuế ở các màn tạo/xem đơn.
+5. Fix lỗi JSON hỏng khi tạo Đơn hàng bán cho khách đúng tuyến (`RouteMasterOutlet` LAZY→EAGER).
+
+Tất cả đã test qua API/WebSocket thật, build backend + bundle mobile đều sạch - **chưa chạy `git commit`/`push` nào trong phiên này**, cần người dùng xác nhận trước khi đẩy lên.
+
+## 📱 App Van-Sale: bỏ tiêu đề bị lặp đôi + icon menu (3 gạch) thay nút Đăng xuất (2026-11-28, CHƯA COMMIT)
+
+**Người dùng báo** (kèm ảnh): 3/4 tab chính (Khách hàng, Đơn hàng, Ứng/Trả) hiện **2 dòng tiêu đề giống nhau** (vd "Khách hàng" rồi lại "Khách hàng"). Nguyên nhân: `(app)/_layout.js` dùng `Tabs` với `title` cho mỗi tab → tự tạo 1 header gốc, trong khi chính màn hình (hoặc Stack con của `advance-return`) LẠI tự vẽ thêm 1 tiêu đề riêng trong nội dung - thành ra lặp đôi. Tổng quan không bị lặp (không có tiêu đề phụ) nhưng người dùng vẫn muốn bỏ luôn dòng tiêu đề gốc của Tab cho gọn.
+
+**Đã sửa**: `(app)/_layout.js` thêm `headerShown: false` vào `screenOptions` - tắt hẳn header tự động của Tab, giữ lại đúng 1 tiêu đề (của chính màn hình, hoặc của Stack con `advance-return/_layout.js`). Thêm `SafeAreaView` (từ `react-native-safe-area-context`, đã có sẵn trong dependency, không cần cài thêm) cho 3 màn Tổng quan/Khách hàng/Đơn hàng để nội dung không bị tràn lên sát status bar khi mất header gốc.
+
+**Đồng thời theo yêu cầu**: đổi nút "Đăng xuất" (chữ, luôn hiện) ở màn Tổng quan thành **icon 3 gạch (☰)** - bấm vào mở menu nhỏ góc trên-phải (kiểu app hiện nay) chứa mục "Đăng xuất", thay vì hiện chữ thẳng ngoài Header.
+
+## 🔍 App Van-Sale: hiện "đang ở bước nào" + thêm bộ lọc cho Đơn hàng và Khách hàng (2026-11-28, CHƯA COMMIT)
+
+**Yêu cầu nối tiếp cuộc trao đổi về đơn `SO007206`**: người dùng hỏi tại sao đơn "Đã xác nhận" (chỉ là trạng thái Đơn hàng bán) vẫn còn nút "Xác nhận giao hàng" - giải thích đây là 2 bước khác nhau trong chuỗi SO→DO→Hóa đơn (không phải lỗi). Người dùng sau đó hỏi tiếp: "làm sao biết đơn nào đang ở bước nào" mà không cần bấm vào từng đơn - yêu cầu thêm hiển thị + bộ lọc.
+
+**Đã làm**:
+- Backend: thêm 1 API nhẹ `GET /api/delivery-orders/status-by-sales-order` (`DeliveryOrderRepository.StatusBySalesOrder` - chỉ 2 cột `salesOrderId`+`status`, loại trừ CANCELLED) - không tải toàn bộ Đơn giao hàng (tránh lặp lại lỗi hiệu năng từng gặp trước đây).
+- App, `orders/index.js`: gộp 3 nguồn dữ liệu (Đơn hàng bán + trạng thái Đơn giao hàng (API mới) + danh sách đơn đã có Hóa đơn (`/invoices/active-sales-order-ids` có sẵn)) để tính **"bước hiện tại"** cho từng đơn, hiện dòng màu riêng: Chờ xác nhận / Đã duyệt - chờ tạo đơn giao hàng / Đang chờ giao hàng / Đã giao - chờ xuất hóa đơn / Hoàn tất (đã xuất hóa đơn) / Đã hủy. Thêm ô tìm kiếm (số đơn/tên khách hàng) + hàng chip lọc nhanh theo bước.
+- App, `customers/index.js`: thêm ô tìm kiếm theo tên/mã/địa chỉ (danh sách có tới 480 khách hàng, trước đó phải cuộn tay).
+
+**Phát hiện thêm 1 lỗi dữ liệu + 1 lỗ hổng logic khi test tính năng trên**: đơn `SO006438` (Sáp Di Bình) bị bộ lọc xếp vào "Hoàn tất" dù màn Chi tiết đơn vẫn hiện "Bước tiếp: tạo Đơn giao hàng" - kiểm tra DB thấy đơn này **đã có Hóa đơn hiệu lực** (`HD003887`) nhưng **không hề có Đơn giao hàng nào** (`delivery_order_id = NULL`, không có dòng `delivery_order` tương ứng) - đây là dữ liệu cũ/bất thường (có thể từ thời trước khi tách riêng bước Đơn giao hàng), không phải lỗi logic mới. Nhưng từ đó lộ ra 1 lỗ hổng thật: màn Chi tiết đơn Pre-order (`preorder/[id].js`) **chỉ kiểm tra "có Đơn giao hàng chưa"** để quyết định hiện nút gì, quên kiểm tra "đã có Hóa đơn chưa" - nên vẫn mời tạo Đơn giao hàng dù hóa đơn đã xuất (vô nghĩa). **Đã sửa**: `load()` gọi thêm `GET /api/invoices?salesOrderId=` (endpoint có sẵn), nếu phát hiện có Hóa đơn hiệu lực VÀ không có Đơn giao hàng nào thì hiện "Đã hoàn tất - Hóa đơn HD..." thay vì mời tạo Đơn giao hàng (chỉ xử lý đúng trường hợp đã gặp, không đụng tới luồng nhiều đợt giao hàng (V49) đang hoạt động bình thường).
+
+**Đã test qua API thật**: xác nhận đúng `GET /invoices?salesOrderId=6438` trả về `HD003887` khớp dữ liệu DB. Build bundle Android qua Metro sạch sau mỗi lần sửa.
+
+## 🐛 Lỗi thật nghiêm trọng: màn chọn Khách hàng (Pre-order/Van Sale) bị đơ, không lướt/bấm được (2026-11-28, CHƯA COMMIT)
+
+**Người dùng báo** (kèm ảnh): ở màn "Tạo đơn Pre-order"/"Tạo đơn Van Sale", bấm vào khách hàng nào thì màn hình **bị đứng - không lướt được, không bấm được** nữa.
+
+**Nguyên nhân**: `vansale/new.js`, `preorder/new.js`, `vansale/edit.js`, `preorder/edit.js` đều render **TOÀN BỘ ~480 khách hàng cùng lúc** bằng `customers.map()` lồng trong 1 `View` xuống dòng (`flexWrap`) - **không ảo hóa** (không phải FlatList) và **không có gì bao ngoài cho cuộn** (`container` là `View` thường, không phải `ScrollView`). Với dữ liệu thật lớn (480 khách hàng = rất nhiều `Pressable` dựng cùng lúc), máy thật bị quá tải/giật đứng, và vì không có `ScrollView` bao ngoài nên phần `FlatList` sản phẩm bên dưới cũng không lướt/bấm được - khớp đúng mô tả "bấm vào khách hàng nào thì nó chỉ hiện khách hàng đó" (màn bị kẹt/đứng đúng tại vị trí đó, không di chuyển được tới phần khác nữa).
+
+**Đã sửa cả 4 file**: bỏ hẳn kiểu `flexWrap` render-hết-cùng-lúc, đổi sang **1 nút "Chọn khách hàng"** (hiện tên đã chọn hoặc placeholder) → bấm mở **Modal riêng toàn màn hình** chứa ô tìm kiếm (theo tên) + `FlatList` khách hàng **CÓ ẢO HÓA** thật sự (chỉ dựng các dòng đang hiển thị trên màn hình) - chọn xong tự đóng Modal. Màn chính (chọn sản phẩm) không còn bị ảnh hưởng, cuộn/bấm bình thường trở lại.
+
+**Đã test**: build bundle Android qua Metro sạch cho cả 4 file sau khi sửa.
