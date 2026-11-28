@@ -25,7 +25,7 @@ function resolveBaseUrl() {
   return `http://localhost:${BACKEND_PORT}`;
 }
 
-const BASE_URL = resolveBaseUrl();
+export const BASE_URL = resolveBaseUrl();
 
 export const apiClient = axios.create({ baseURL: BASE_URL });
 

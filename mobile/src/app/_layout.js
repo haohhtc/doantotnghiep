@@ -1,11 +1,14 @@
 import { Stack } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 import { SessionProvider, useSession } from '../ctx/SessionContext';
+import { NotificationProvider } from '../ctx/NotificationContext';
 
 export default function RootLayout() {
   return (
     <SessionProvider>
-      <RootNavigator />
+      <NotificationProvider>
+        <RootNavigator />
+      </NotificationProvider>
     </SessionProvider>
   );
 }

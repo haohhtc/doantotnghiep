@@ -3,7 +3,10 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function AppLayout() {
   return (
-    <Tabs screenOptions={{ tabBarActiveTintColor: '#1677ff' }}>
+    // headerShown: false - moi tab tu ve tieu de rieng trong noi dung man hinh (hoac dung Stack
+    // header rieng nhu advance-return/_layout.js) - tranh hien tieu de 2 lan (1 cua Tabs nay + 1
+    // cua chinh man hinh, yeu cau nguoi dung sau khi thay bi trung "Khach hang"/"Don hang"...).
+    <Tabs screenOptions={{ tabBarActiveTintColor: '#1677ff', headerShown: false }}>
       <Tabs.Screen
         name="index"
         options={{
