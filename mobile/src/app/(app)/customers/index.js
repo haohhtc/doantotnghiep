@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useFocusEffect, router } from 'expo-router';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSession } from '../../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../../api/client';
@@ -16,6 +17,7 @@ export default function CustomersList() {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchText, setSearchText] = useState('');
 
   const load = useCallback(async () => {
     if (!branchId) {
@@ -43,28 +45,48 @@ export default function CustomersList() {
 
   if (!employee) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <Text style={styles.empty}>Tài khoản này chưa gán Nhân viên.</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
+  const keyword = searchText.trim().toLowerCase();
+  const filteredCustomers = keyword
+    ? customers.filter(
+        (c) =>
+          (c.name || '').toLowerCase().includes(keyword) ||
+          (c.code || '').toLowerCase().includes(keyword) ||
+          (c.address || '').toLowerCase().includes(keyword)
+      )
+    : customers;
+
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.headerBar}>
-        <Text style={styles.headerTitle}>Khách hàng ({customers.length})</Text>
+        <Text style={styles.headerTitle}>Khách hàng ({filteredCustomers.length}/{customers.length})</Text>
         <Pressable onPress={load} style={styles.refreshBtn} disabled={loading}>
           <Ionicons name="refresh" size={20} color="#1677ff" />
         </Pressable>
       </View>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Tìm theo tên, mã hoặc địa chỉ khách hàng..."
+        value={searchText}
+        onChangeText={setSearchText}
+      />
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {loading && customers.length === 0 ? (
         <ActivityIndicator style={{ marginTop: 24 }} />
       ) : (
         <FlatList
-          data={customers}
+          data={filteredCustomers}
           keyExtractor={(item) => String(item.id)}
-          ListEmptyComponent={<Text style={styles.empty}>Chưa có khách hàng nào.</Text>}
+          ListEmptyComponent={
+            <Text style={styles.empty}>
+              {customers.length === 0 ? 'Chưa có khách hàng nào.' : 'Không có khách hàng nào khớp tìm kiếm.'}
+            </Text>
+          }
           renderItem={({ item }) => (
             <View style={styles.card}>
               <Text style={styles.name}>{item.name}</Text>
@@ -80,7 +102,7 @@ export default function CustomersList() {
           )}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -89,6 +111,7 @@ const styles = StyleSheet.create({
   headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   headerTitle: { fontSize: 16, fontWeight: '700' },
   refreshBtn: { padding: 6 },
+  searchInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 8 },
   card: { borderWidth: 1, borderColor: '#eee', borderRadius: 8, padding: 12, marginBottom: 10 },
   name: { fontSize: 15, fontWeight: '700' },
   sub: { fontSize: 13, color: '#666', marginTop: 2 },

@@ -46,6 +46,13 @@ public class DeliveryOrderController {
         return ApiResponse.ok(deliveryOrderService.findClosedVanMapping());
     }
 
+    // Dung cho App Van-Sale (danh sach "Don hang") de tinh "dang o buoc nao" ma khong tai toan bo
+    // Don giao hang - xem mobile/src/app/(app)/orders/index.js.
+    @GetMapping("/status-by-sales-order")
+    public ApiResponse<List<com.erpqlkho.backend.sales.repository.DeliveryOrderRepository.StatusBySalesOrder>> statusBySalesOrder() {
+        return ApiResponse.ok(deliveryOrderService.findStatusBySalesOrder());
+    }
+
     // Dung rieng cho luoi "Don giao hang" (phan trang + loc server-side).
     @GetMapping("/search")
     public ApiResponse<PageResponse<DeliveryOrder>> search(

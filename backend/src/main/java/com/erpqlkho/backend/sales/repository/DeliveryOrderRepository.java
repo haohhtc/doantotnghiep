@@ -27,6 +27,20 @@ public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, Lo
                     + "from DeliveryOrder d where d.status = 'CLOSED' and d.vanWarehouse is not null")
     List<ClosedVanMapping> findClosedVanMapping();
 
+    // App Van-Sale: danh sach "Don hang" can biet DUNG kho dang o buoc nao (chua tao Don giao hang /
+    // dang cho giao / da giao) MA KHONG tai toan bo Don giao hang (du lieu lon, nang cho mobile) -
+    // chi 2 cot can thiet. 1 Don hang ban co the co NHIEU Don giao hang (giao nhieu dot, V49) nen
+    // tra ve 1 dong CHO MOI Don giao hang - Frontend tu chon dong moi nhat/trang thai cao nhat.
+    interface StatusBySalesOrder {
+        Long getSalesOrderId();
+        String getStatus();
+    }
+
+    @org.springframework.data.jpa.repository.Query(
+            "select d.salesOrder.id as salesOrderId, d.status as status "
+                    + "from DeliveryOrder d where d.status <> 'CANCELLED'")
+    List<StatusBySalesOrder> findStatusBySalesOrder();
+
     // Dung cho luoi "Don giao hang" (phan trang server-side) - loc theo chi nhanh (qua kho xuat)
     // + tim theo so don giao/so don ban, moi nhat truoc. Xem DeliveryOrderController.search().
     @org.springframework.data.jpa.repository.Query("""

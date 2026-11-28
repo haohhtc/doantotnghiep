@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { apiClient, errorMessage } from '../../api/client';
+import { computeLine, taxRateOf } from '../../utils/pricing';
 
 const STATUS_LABEL = { PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', CANCELLED: 'Đã hủy' };
 
@@ -12,6 +13,7 @@ export default function PreorderDetail() {
   const { id } = useLocalSearchParams();
   const [order, setOrder] = useState(null);
   const [deliveryOrder, setDeliveryOrder] = useState(null);
+  const [activeInvoice, setActiveInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [acting, setActing] = useState(false);
@@ -20,15 +22,22 @@ export default function PreorderDetail() {
     setLoading(true);
     setError(null);
     try {
-      const [orderRes, dosRes] = await Promise.all([
+      const [orderRes, dosRes, invoicesRes] = await Promise.all([
         apiClient.get(`/api/sales-orders/${id}`),
         apiClient.get('/api/delivery-orders', { params: { salesOrderId: id } }),
+        apiClient.get('/api/invoices', { params: { salesOrderId: id } }),
       ]);
       setOrder(orderRes.data.data);
       const activeDos = dosRes.data.data
         .filter((d) => d.salesOrder?.id === Number(id) && d.status !== 'CANCELLED')
         .sort((a, b) => b.id - a.id);
       setDeliveryOrder(activeDos[0] || null);
+      // Phong truong hop du lieu cu/bat thuong: da co Hoa don hieu luc gan thang vao don nay
+      // nhung LAI khong co Don giao hang nao (vd du lieu demo tu truoc khi tach rieng buoc Don
+      // giao hang) - khong the dua vao deliveryOrder de biet "da xong" trong truong hop nay, phai
+      // kiem tra rieng xem co Hoa don nao CON HIEU LUC khong (status != CANCELLED).
+      const activeInvoices = (invoicesRes.data.data || []).filter((inv) => inv.status !== 'CANCELLED');
+      setActiveInvoice(activeInvoices[0] || null);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -125,7 +134,10 @@ export default function PreorderDetail() {
   if (loading) return <ActivityIndicator style={{ marginTop: 40 }} />;
   if (!order) return <Text style={styles.error}>{error}</Text>;
 
-  const total = order.details.reduce((sum, d) => sum + d.quantity * d.unitPrice, 0);
+  const lineTotals = order.details.map((d) => computeLine(d.quantity, d.unitPrice, taxRateOf(d.product)));
+  const subtotal = lineTotals.reduce((sum, l) => sum + l.subtotal, 0);
+  const totalTax = lineTotals.reduce((sum, l) => sum + l.tax, 0);
+  const total = subtotal + totalTax;
 
   return (
     <ScrollView style={styles.container}>
@@ -138,16 +150,27 @@ export default function PreorderDetail() {
       {order.remarks ? <Text style={styles.sub}>Ghi chú: {order.remarks}</Text> : null}
 
       <Text style={styles.label}>Sản phẩm</Text>
-      {order.details.map((d) => (
+      {order.details.map((d, idx) => (
         <View key={d.id} style={styles.row}>
           <Text style={styles.rowName} numberOfLines={2}>{d.product.name}</Text>
           <Text style={styles.rowQty}>{d.quantity} {d.uom?.name || ''}</Text>
-          <Text style={styles.rowPrice}>{(d.quantity * d.unitPrice).toLocaleString('vi-VN')}</Text>
+          <Text style={styles.rowTax}>{taxRateOf(d.product)}%</Text>
+          <Text style={styles.rowPrice}>{lineTotals[idx].total.toLocaleString('vi-VN')}</Text>
         </View>
       ))}
-      <View style={styles.totalRow}>
-        <Text style={styles.totalLabel}>Thành tiền</Text>
-        <Text style={styles.totalValue}>{total.toLocaleString('vi-VN')} đ</Text>
+      <View style={styles.summaryBox}>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Tiền hàng</Text>
+          <Text style={styles.summaryValue}>{subtotal.toLocaleString('vi-VN')} đ</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Tiền thuế</Text>
+          <Text style={styles.summaryValue}>{totalTax.toLocaleString('vi-VN')} đ</Text>
+        </View>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Tổng cộng</Text>
+          <Text style={styles.totalValue}>{total.toLocaleString('vi-VN')} đ</Text>
+        </View>
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -170,7 +193,13 @@ export default function PreorderDetail() {
         </View>
       ) : order.status === 'CONFIRMED' ? (
         <View style={styles.stepBox}>
-          {!deliveryOrder ? (
+          {!deliveryOrder && activeInvoice ? (
+            // Du lieu cu/bat thuong: da co Hoa don hieu luc nhung khong co Don giao hang nao (xem
+            // comment o load()) - KHONG moi tao Don giao hang nua (vo nghia, tien da tinh roi).
+            <Text style={[styles.stepLabel, styles.stepLabelDone]}>
+              Đã hoàn tất - Hóa đơn {activeInvoice.invoiceNumber}
+            </Text>
+          ) : !deliveryOrder ? (
             <>
               <Text style={styles.stepLabel}>Bước tiếp: tạo Đơn giao hàng</Text>
               <Pressable style={[styles.actionBtn, styles.confirmBtn]} onPress={handleCreateDeliveryOrder} disabled={acting}>
@@ -210,13 +239,19 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#eee' },
   rowName: { flex: 1, fontSize: 13 },
   rowQty: { width: 60, fontSize: 13, textAlign: 'center' },
+  rowTax: { width: 40, fontSize: 12, textAlign: 'right', color: '#999' },
   rowPrice: { width: 80, fontSize: 13, fontWeight: '600', textAlign: 'right' },
+  summaryBox: { marginTop: 4 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  summaryLabel: { fontSize: 13, color: '#666' },
+  summaryValue: { fontSize: 13, color: '#666' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderTopWidth: 2, borderTopColor: '#1677ff' },
   totalLabel: { fontWeight: '700' },
   totalValue: { fontWeight: '700', color: '#1677ff' },
   actionRow: { flexDirection: 'row', gap: 8, marginTop: 20 },
   stepBox: { marginTop: 20, padding: 12, backgroundColor: '#f5f5f5', borderRadius: 8 },
   stepLabel: { marginBottom: 8, color: '#333' },
+  stepLabelDone: { marginBottom: 0, color: '#389e0d', fontWeight: '700' },
   actionBtn: { flex: 1, borderRadius: 8, padding: 12, alignItems: 'center' },
   editBtn: { backgroundColor: '#1677ff' },
   deleteBtn: { backgroundColor: '#d4380d' },

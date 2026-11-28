@@ -8,10 +8,14 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useSession } from '../../ctx/SessionContext';
 import { apiClient, errorMessage } from '../../api/client';
 import { isValidDateString } from '../../utils/date';
+import { computeLine, taxRateOf } from '../../utils/pricing';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -35,6 +39,8 @@ export default function NewPreorder() {
   const [prices, setPrices] = useState({});
 
   const [error, setError] = useState(null);
+  const [customerModalOpen, setCustomerModalOpen] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
 
   useEffect(() => {
     async function loadData() {
@@ -98,9 +104,13 @@ export default function NewPreorder() {
         quantity: qty,
         unitPrice: prices[productId] || 0,
         uomId: product?.saleUom?.id || null,
+        taxRatePercent: taxRateOf(product),
       };
     });
-  const cartTotal = cartLines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
+  const cartTotal = cartLines.reduce(
+    (sum, l) => sum + computeLine(l.quantity, l.unitPrice, l.taxRatePercent).total,
+    0
+  );
 
   function handleGoToReview() {
     if (!customerId) {
@@ -133,22 +143,61 @@ export default function NewPreorder() {
 
   if (loading) return <ActivityIndicator style={{ marginTop: 40 }} />;
 
+  const selectedCustomer = customers.find((c) => c.id === customerId);
+  const keyword = customerSearch.trim().toLowerCase();
+  const filteredCustomers = keyword
+    ? customers.filter((c) => (c.name || '').toLowerCase().includes(keyword))
+    : customers;
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Khách hàng</Text>
-      {/* Xem comment cung cho trong preorder/edit.js - xuong dong thay vi cuon ngang de khong
-          bi tran/cat ten khach hang dai ma khong ro la co the cuon. */}
-      <View style={styles.chipWrap}>
-        {customers.map((item) => (
-          <Pressable
-            key={item.id}
-            style={[styles.chip, customerId === item.id && styles.chipActive]}
-            onPress={() => setCustomerId(item.id)}
-          >
-            <Text style={[styles.chipText, customerId === item.id && styles.chipTextActive]}>{item.name}</Text>
-          </Pressable>
-        ))}
-      </View>
+      {/* Doi tu render het ~480 khach hang cung luc (khong ao hoa, lam dung/giat may that - nguoi
+          dung bao "bam vao day no bi dung khong luot duoc") sang 1 nut mo Modal rieng, FlatList
+          AO HOA + co o tim kiem - man chinh (san pham) khong con bi lam nang nua. */}
+      <Pressable style={styles.customerPickerBtn} onPress={() => setCustomerModalOpen(true)}>
+        <Text style={selectedCustomer ? styles.customerPickerText : styles.customerPickerPlaceholder}>
+          {selectedCustomer ? selectedCustomer.name : 'Chọn khách hàng'}
+        </Text>
+        <Ionicons name="chevron-down" size={18} color="#666" />
+      </Pressable>
+
+      <Modal visible={customerModalOpen} animationType="slide" onRequestClose={() => setCustomerModalOpen(false)}>
+        <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom']}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Chọn khách hàng</Text>
+            <Pressable onPress={() => setCustomerModalOpen(false)}>
+              <Ionicons name="close" size={24} color="#444" />
+            </Pressable>
+          </View>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Tìm theo tên khách hàng..."
+            value={customerSearch}
+            onChangeText={setCustomerSearch}
+            autoFocus
+          />
+          <FlatList
+            data={filteredCustomers}
+            keyExtractor={(item) => String(item.id)}
+            ListEmptyComponent={<Text style={styles.empty}>Không tìm thấy khách hàng.</Text>}
+            renderItem={({ item }) => (
+              <Pressable
+                style={[styles.customerRow, customerId === item.id && styles.customerRowActive]}
+                onPress={() => {
+                  setCustomerId(item.id);
+                  setCustomerModalOpen(false);
+                  setCustomerSearch('');
+                }}
+              >
+                <Text style={[styles.customerRowText, customerId === item.id && styles.customerRowTextActive]}>
+                  {item.name}
+                </Text>
+              </Pressable>
+            )}
+          />
+        </SafeAreaView>
+      </Modal>
 
       <Text style={styles.label}>Ngày giao hàng (YYYY-MM-DD)</Text>
       <TextInput
@@ -197,11 +246,21 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 16 },
   label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 6, marginTop: 6 },
   input: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 4 },
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
-  chip: { borderWidth: 1, borderColor: '#1677ff', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 6, marginRight: 8, marginBottom: 8 },
-  chipActive: { backgroundColor: '#1677ff' },
-  chipText: { color: '#1677ff' },
-  chipTextActive: { color: '#fff' },
+  customerPickerBtn: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, marginBottom: 8,
+  },
+  customerPickerText: { fontSize: 14, color: '#111', fontWeight: '600' },
+  customerPickerPlaceholder: { fontSize: 14, color: '#999' },
+  modalContainer: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16, paddingTop: 12 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  modalTitle: { fontSize: 16, fontWeight: '700' },
+  searchInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, marginBottom: 8 },
+  customerRow: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  customerRowActive: { backgroundColor: '#e6f4ff' },
+  customerRowText: { fontSize: 14, color: '#111' },
+  customerRowTextActive: { fontWeight: '700', color: '#1677ff' },
+  empty: { color: '#999', marginTop: 24, textAlign: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#eee' },
   rowName: { flex: 1, fontSize: 13, marginRight: 8 },
   stepper: { flexDirection: 'row', alignItems: 'center' },

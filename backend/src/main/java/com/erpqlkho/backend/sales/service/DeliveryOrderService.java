@@ -97,6 +97,10 @@ public class DeliveryOrderService {
         return deliveryOrderRepository.findClosedVanMapping();
     }
 
+    public List<DeliveryOrderRepository.StatusBySalesOrder> findStatusBySalesOrder() {
+        return deliveryOrderRepository.findStatusBySalesOrder();
+    }
+
     public DeliveryOrder findById(Long id) {
         return deliveryOrderRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Khong tim thay don giao hang id=" + id));
